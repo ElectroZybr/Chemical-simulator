@@ -1,0 +1,289 @@
+{
+	"inputs" : 
+	[
+		{
+			"path" : "CMakeLists.txt"
+		},
+		{
+			"isGenerated" : true,
+			"path" : "build/CMakeFiles/4.0.2/CMakeSystem.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "C:/Program Files/cmake-4.0.2-windows-x86_64/share/cmake-4.0/Modules/CMakeSystemSpecificInitialize.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "C:/Program Files/cmake-4.0.2-windows-x86_64/share/cmake-4.0/Modules/Platform/Windows-Initialize.cmake"
+		},
+		{
+			"isGenerated" : true,
+			"path" : "build/CMakeFiles/4.0.2/CMakeCCompiler.cmake"
+		},
+		{
+			"isGenerated" : true,
+			"path" : "build/CMakeFiles/4.0.2/CMakeCXXCompiler.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "C:/Program Files/cmake-4.0.2-windows-x86_64/share/cmake-4.0/Modules/CMakeSystemSpecificInformation.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "C:/Program Files/cmake-4.0.2-windows-x86_64/share/cmake-4.0/Modules/CMakeGenericSystem.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "C:/Program Files/cmake-4.0.2-windows-x86_64/share/cmake-4.0/Modules/CMakeInitializeConfigs.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "C:/Program Files/cmake-4.0.2-windows-x86_64/share/cmake-4.0/Modules/Platform/Windows.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "C:/Program Files/cmake-4.0.2-windows-x86_64/share/cmake-4.0/Modules/Platform/WindowsPaths.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "C:/Program Files/cmake-4.0.2-windows-x86_64/share/cmake-4.0/Modules/CMakeCInformation.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "C:/Program Files/cmake-4.0.2-windows-x86_64/share/cmake-4.0/Modules/CMakeLanguageInformation.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "C:/Program Files/cmake-4.0.2-windows-x86_64/share/cmake-4.0/Modules/Compiler/GNU-C.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "C:/Program Files/cmake-4.0.2-windows-x86_64/share/cmake-4.0/Modules/Compiler/GNU.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "C:/Program Files/cmake-4.0.2-windows-x86_64/share/cmake-4.0/Modules/Compiler/CMakeCommonCompilerMacros.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "C:/Program Files/cmake-4.0.2-windows-x86_64/share/cmake-4.0/Modules/Platform/Windows-GNU-C.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "C:/Program Files/cmake-4.0.2-windows-x86_64/share/cmake-4.0/Modules/Platform/Windows-GNU.cmake"
+		},
+		{
+			"isGenerated" : true,
+			"path" : "build/CMakeFiles/4.0.2/CMakeRCCompiler.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "C:/Program Files/cmake-4.0.2-windows-x86_64/share/cmake-4.0/Modules/CMakeRCInformation.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "C:/Program Files/cmake-4.0.2-windows-x86_64/share/cmake-4.0/Modules/Platform/Windows-windres.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "C:/Program Files/cmake-4.0.2-windows-x86_64/share/cmake-4.0/Modules/Platform/Windows-GNU-C-ABI.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "C:/Program Files/cmake-4.0.2-windows-x86_64/share/cmake-4.0/Modules/CMakeCommonLanguageInclude.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "C:/Program Files/cmake-4.0.2-windows-x86_64/share/cmake-4.0/Modules/Internal/CMakeCLinkerInformation.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "C:/Program Files/cmake-4.0.2-windows-x86_64/share/cmake-4.0/Modules/Internal/CMakeCommonLinkerInformation.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "C:/Program Files/cmake-4.0.2-windows-x86_64/share/cmake-4.0/Modules/Linker/GNU-C.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "C:/Program Files/cmake-4.0.2-windows-x86_64/share/cmake-4.0/Modules/Linker/GNU.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "C:/Program Files/cmake-4.0.2-windows-x86_64/share/cmake-4.0/Modules/Platform/Linker/Windows-GNU-C.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "C:/Program Files/cmake-4.0.2-windows-x86_64/share/cmake-4.0/Modules/Platform/Linker/Windows-GNU.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "C:/Program Files/cmake-4.0.2-windows-x86_64/share/cmake-4.0/Modules/Platform/Linker/GNU.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "C:/Program Files/cmake-4.0.2-windows-x86_64/share/cmake-4.0/Modules/CMakeCXXInformation.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "C:/Program Files/cmake-4.0.2-windows-x86_64/share/cmake-4.0/Modules/CMakeLanguageInformation.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "C:/Program Files/cmake-4.0.2-windows-x86_64/share/cmake-4.0/Modules/Compiler/GNU-CXX.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "C:/Program Files/cmake-4.0.2-windows-x86_64/share/cmake-4.0/Modules/Compiler/GNU.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "C:/Program Files/cmake-4.0.2-windows-x86_64/share/cmake-4.0/Modules/Platform/Windows-GNU-CXX.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "C:/Program Files/cmake-4.0.2-windows-x86_64/share/cmake-4.0/Modules/Platform/Windows-GNU.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "C:/Program Files/cmake-4.0.2-windows-x86_64/share/cmake-4.0/Modules/Platform/Windows-GNU-CXX-ABI.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "C:/Program Files/cmake-4.0.2-windows-x86_64/share/cmake-4.0/Modules/CMakeCommonLanguageInclude.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "C:/Program Files/cmake-4.0.2-windows-x86_64/share/cmake-4.0/Modules/Internal/CMakeCXXLinkerInformation.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "C:/Program Files/cmake-4.0.2-windows-x86_64/share/cmake-4.0/Modules/Internal/CMakeCommonLinkerInformation.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "C:/Program Files/cmake-4.0.2-windows-x86_64/share/cmake-4.0/Modules/Linker/GNU-CXX.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "C:/Program Files/cmake-4.0.2-windows-x86_64/share/cmake-4.0/Modules/Linker/GNU.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "C:/Program Files/cmake-4.0.2-windows-x86_64/share/cmake-4.0/Modules/Platform/Linker/Windows-GNU-CXX.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "C:/Program Files/cmake-4.0.2-windows-x86_64/share/cmake-4.0/Modules/Platform/Linker/Windows-GNU.cmake"
+		},
+		{
+			"path" : "Libraries/sfml/lib/cmake/SFML/SFMLConfigVersion.cmake"
+		},
+		{
+			"path" : "Libraries/sfml/lib/cmake/SFML/SFMLConfig.cmake"
+		},
+		{
+			"path" : "Libraries/sfml/lib/cmake/SFML/SFMLStaticTargets.cmake"
+		},
+		{
+			"path" : "Libraries/sfml/lib/cmake/SFML/SFMLStaticTargets-debug.cmake"
+		},
+		{
+			"path" : "Libraries/sfml/lib/cmake/SFML/SFMLStaticTargets-release.cmake"
+		},
+		{
+			"path" : "Libraries/sfml/lib/cmake/SFML/SFMLConfigDependencies.cmake"
+		},
+		{
+			"path" : "Libraries/imgui/CMakeLists.txt"
+		},
+		{
+			"path" : "Libraries/imgui-sfml/CMakeLists.txt"
+		},
+		{
+			"path" : "Libraries/sfml/lib/cmake/SFML/SFMLConfigVersion.cmake"
+		},
+		{
+			"path" : "Libraries/sfml/lib/cmake/SFML/SFMLConfig.cmake"
+		},
+		{
+			"path" : "Libraries/sfml/lib/cmake/SFML/SFMLStaticTargets.cmake"
+		},
+		{
+			"path" : "Libraries/sfml/lib/cmake/SFML/SFMLConfigDependencies.cmake"
+		},
+		{
+			"path" : "Libraries/imgui-sfml/cmake/FindImGui.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "C:/Program Files/cmake-4.0.2-windows-x86_64/share/cmake-4.0/Modules/FindOpenGL.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "C:/Program Files/cmake-4.0.2-windows-x86_64/share/cmake-4.0/Modules/FindPackageHandleStandardArgs.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "C:/Program Files/cmake-4.0.2-windows-x86_64/share/cmake-4.0/Modules/FindPackageMessage.cmake"
+		},
+		{
+			"isCMake" : true,
+			"isExternal" : true,
+			"path" : "C:/Program Files/cmake-4.0.2-windows-x86_64/share/cmake-4.0/Modules/GNUInstallDirs.cmake"
+		}
+	],
+	"kind" : "cmakeFiles",
+	"paths" : 
+	{
+		"build" : "C:/Users/user/Documents/Coding/Chemical-simulator/build",
+		"source" : "C:/Users/user/Documents/Coding/Chemical-simulator"
+	},
+	"version" : 
+	{
+		"major" : 1,
+		"minor" : 1
+	}
+}

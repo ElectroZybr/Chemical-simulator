@@ -1,0 +1,140 @@
+{
+	"configurations" : 
+	[
+		{
+			"directories" : 
+			[
+				{
+					"build" : ".",
+					"childIndexes" : 
+					[
+						1,
+						2
+					],
+					"hasInstallRule" : true,
+					"jsonFile" : "directory-.-Debug-d0094a50bb2071803777.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.17"
+					},
+					"projectIndex" : 0,
+					"source" : ".",
+					"targetIndexes" : 
+					[
+						0
+					]
+				},
+				{
+					"build" : "Libraries/imgui",
+					"jsonFile" : "directory-Libraries.imgui-Debug-a5d43f0e44229b07a12d.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.10"
+					},
+					"parentIndex" : 0,
+					"projectIndex" : 1,
+					"source" : "Libraries/imgui",
+					"targetIndexes" : 
+					[
+						2
+					]
+				},
+				{
+					"build" : "Libraries/imgui-sfml",
+					"hasInstallRule" : true,
+					"jsonFile" : "directory-Libraries.imgui-sfml-Debug-d5485b75be3a87c60a7a.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.13"
+					},
+					"parentIndex" : 0,
+					"projectIndex" : 2,
+					"source" : "Libraries/imgui-sfml",
+					"targetIndexes" : 
+					[
+						1
+					]
+				}
+			],
+			"name" : "Debug",
+			"projects" : 
+			[
+				{
+					"childIndexes" : 
+					[
+						1,
+						2
+					],
+					"directoryIndexes" : 
+					[
+						0
+					],
+					"name" : "Chemical-simulator",
+					"targetIndexes" : 
+					[
+						0
+					]
+				},
+				{
+					"directoryIndexes" : 
+					[
+						1
+					],
+					"name" : "imgui",
+					"parentIndex" : 0,
+					"targetIndexes" : 
+					[
+						2
+					]
+				},
+				{
+					"directoryIndexes" : 
+					[
+						2
+					],
+					"name" : "imgui_sfml",
+					"parentIndex" : 0,
+					"targetIndexes" : 
+					[
+						1
+					]
+				}
+			],
+			"targets" : 
+			[
+				{
+					"directoryIndex" : 0,
+					"id" : "Chemical-simulator::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-Chemical-simulator-Debug-cc1bd487c9c1e4177e47.json",
+					"name" : "Chemical-simulator",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 2,
+					"id" : "ImGui-SFML::@478e0b1d83a5aafd1e57",
+					"jsonFile" : "target-ImGui-SFML-Debug-caa97dcdb5a44d534510.json",
+					"name" : "ImGui-SFML",
+					"projectIndex" : 2
+				},
+				{
+					"directoryIndex" : 1,
+					"id" : "imgui::@f044a856410ebdd8ea90",
+					"jsonFile" : "target-imgui-Debug-5f15dd2a2ecf822e2687.json",
+					"name" : "imgui",
+					"projectIndex" : 1
+				}
+			]
+		}
+	],
+	"kind" : "codemodel",
+	"paths" : 
+	{
+		"build" : "C:/Users/user/Documents/Coding/Chemical-simulator/build",
+		"source" : "C:/Users/user/Documents/Coding/Chemical-simulator"
+	},
+	"version" : 
+	{
+		"major" : 2,
+		"minor" : 8
+	}
+}

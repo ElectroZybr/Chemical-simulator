@@ -1,0 +1,122 @@
+name: CI
+
+on: [push, pull_request, workflow_dispatch]
+
+concurrency:
+  group: environment-${{github.ref}}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build:
+    name: ${{matrix.platform.name}} ${{matrix.config.name}} ${{matrix.type.name}} ImGui ${{matrix.imgui.version}}
+    runs-on: ${{matrix.platform.os}}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+        - { name: Windows MSVC,    os: windows-2022 }
+        - { name: Windows ClangCL, os: windows-2022, flags: -T ClangCL }
+        - { name: Windows Clang,   os: windows-2022, flags: -GNinja -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ }
+        - { name: Linux GCC,       os: ubuntu-22.04, flags: -GNinja }
+        - { name: Linux Clang,     os: ubuntu-22.04, flags: -GNinja -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ }
+        - { name: macOS Clang,     os: macos-13,     flags: -GNinja -DIMGUI_SFML_BUILD_TESTING=OFF }
+        config:
+        - { name: Shared, flags: -DBUILD_SHARED_LIBS=ON -DIMGUI_SFML_BUILD_TESTING=OFF }
+        - { name: Static, flags: -DBUILD_SHARED_LIBS=OFF }
+        type:
+        - { name: Release }
+        - { name: Debug }
+        imgui:
+        - { version: 1.89, flags: -DIMGUI_SFML_DISABLE_OBSOLETE_FUNCTIONS=ON }
+        - { version: 1.91.5 }
+
+    steps:
+    - name: Get CMake and Ninja
+      uses: lukka/get-cmake@latest
+      with:
+        cmakeVersion: 3.22
+        ninjaVersion: latest
+
+    - name: Install Linux Dependencies
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt update
+        sudo apt install llvm xorg-dev libxrandr-dev libxcursor-dev libudev-dev libopenal-dev libflac-dev libvorbis-dev libgl1-mesa-dev libegl1-mesa-dev
+
+    - name: Checkout ImGui
+      uses: actions/checkout@v4
+      with:
+        repository: ocornut/imgui
+        path: imgui
+        ref: v${{matrix.imgui.version}}
+
+    - name: Checkout SFML
+      uses: actions/checkout@v4
+      with:
+        repository: SFML/SFML
+        path: sfml
+        ref: 2.6.0
+
+    - name: Configure SFML
+      run: |
+        cmake -S sfml -B sfml/build \
+          -DCMAKE_INSTALL_PREFIX=sfml/install \
+          -DCMAKE_BUILD_TYPE=${{matrix.type.name}} \
+          -DSFML_BUILD_AUDIO=OFF \
+          -DSFML_BUILD_NETWORK=OFF \
+          -DWARNINGS_AS_ERRORS=OFF \
+          ${{matrix.platform.flags}} \
+          ${{matrix.config.flags}}
+
+    - name: Build SFML
+      run: cmake --build sfml/build --config ${{matrix.type.name}} --target install
+
+    - name: Checkout ImGui-SFML
+      uses: actions/checkout@v4
+      with:
+        path: imgui-sfml
+
+    - name: Configure ImGui-SFML
+      run: |
+        cmake -S imgui-sfml -B imgui-sfml/build \
+          -DCMAKE_BUILD_TYPE=${{matrix.type.name}} \
+          -DCMAKE_CXX_EXTENSIONS=OFF \
+          -DCMAKE_CXX_STANDARD=11 \
+          -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+          -DCMAKE_INSTALL_PREFIX=$GITHUB_WORKSPACE/install \
+          -DCMAKE_VERBOSE_MAKEFILE=ON \
+          -DIMGUI_DIR=$GITHUB_WORKSPACE/imgui \
+          -DSFML_ROOT=$GITHUB_WORKSPACE/sfml/install \
+          -DIMGUI_SFML_BUILD_EXAMPLES=ON \
+          -DIMGUI_SFML_BUILD_TESTING=ON \
+          -DIMGUI_SFML_ENABLE_WARNINGS=ON \
+          ${{matrix.platform.flags}} \
+          ${{matrix.config.flags}} \
+          ${{matrix.imgui.flags}}
+
+    - name: Build ImGui-SFML
+      run: cmake --build imgui-sfml/build --config ${{matrix.type.name}} --target install
+
+    - name: Run clang-tidy
+      if: matrix.platform.name == 'Linux Clang' && matrix.config.name == 'Static' && matrix.type.name == 'Debug'
+      run: cmake --build imgui-sfml/build --target tidy
+
+    - name: Test ImGui-SFML
+      run: ctest --test-dir imgui-sfml/build --config ${{matrix.type.name}} --output-on-failure
+
+  clang-format:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DoozyX/clang-format-lint-action@v0.16.2
+        with:
+          source: '.'
+          extensions: 'h,cpp'
+          clangFormatVersion: 16
+          style: file

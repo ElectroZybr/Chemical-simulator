@@ -3,16 +3,13 @@
 #include <iostream>
 
 
-Camera::Camera(sf::RenderWindow& window, float moveSpeed, float zoomSpeed) 
-    : position(0, 0), zoom(1.f), moveSpeed(moveSpeed), zoomSpeed(zoomSpeed),
-        isDragging(false), lastMousePos(0, 0) {
-    view = window.getDefaultView();
-}
+Camera::Camera(sf::RenderWindow& window, sf::View& view, float moveSpeed, float zoomSpeed) 
+    : view(&view), position(0, 0), zoom(1.f), moveSpeed(moveSpeed), zoomSpeed(zoomSpeed),
+        isDragging(false), lastMousePos(0, 0) {}
     
 void Camera::update(float deltaTime, sf::RenderWindow& window) {
-    view.setCenter(position);
-    view.setSize(sf::Vector2f(window.getSize()) / zoom);
-    window.setView(view);
+    view->setCenter(position);
+    view->setSize(sf::Vector2f(window.getSize()) / zoom);
 }
 
 void Camera::move(float offsetX, float offsetY) {
@@ -34,6 +31,8 @@ void Camera::zoomAt(float factor, sf::Vector2f mousePos, sf::RenderWindow& windo
     float prevZoom = zoom;
     zoom *= (1.f + factor * zoomSpeed);
     zoom = std::max(0.1f, std::min(zoom, 10.f));
+
+    speed = moveSpeed / zoom;
     
     // Плавное следование за указателем мыши при зуме
     sf::Vector2i deltaPos = sf::Mouse::getPosition(window) - sf::Vector2i(window.getSize()) / 2;
@@ -44,17 +43,17 @@ float Camera::getZoom() const {
     return zoom;
 }
 
-const sf::View& Camera::getView() const {
-    return view;
-}
+// const sf::View Camera::getView() const {
+//     return view;
+// }
 
 void Camera::handleInput(float deltaTime, sf::RenderWindow& window) {
     // Управление WASD
-    float speed = moveSpeed * deltaTime;
-    if (sf::Keyboard::isKeyPressed(sf::Keyboard::W)) move(0, -speed);
-    if (sf::Keyboard::isKeyPressed(sf::Keyboard::S)) move(0, speed);
-    if (sf::Keyboard::isKeyPressed(sf::Keyboard::A)) move(-speed, 0);
-    if (sf::Keyboard::isKeyPressed(sf::Keyboard::D)) move(speed, 0);
+    float deltaSpeed = speed * deltaTime;
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::W)) move(0, -deltaSpeed);
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::S)) move(0, deltaSpeed);
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::A)) move(-deltaSpeed, 0);
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::D)) move(deltaSpeed, 0);
 }
 
 void Camera::handleEvent(const sf::Event& event, sf::RenderWindow& window) {
@@ -73,8 +72,8 @@ void Camera::handleEvent(const sf::Event& event, sf::RenderWindow& window) {
         
         // Преобразуем разницу в пикселях в мировые координаты
         sf::Vector2f deltaWorld = window.mapPixelToCoords(
-            sf::Vector2i(deltaPixel.x, deltaPixel.y), view
-        ) - window.mapPixelToCoords(sf::Vector2i(0, 0), view);
+            sf::Vector2i(deltaPixel.x, deltaPixel.y), *view
+        ) - window.mapPixelToCoords(sf::Vector2i(0, 0), *view);
         
         position = dragStartCameraPos + deltaWorld;
     }

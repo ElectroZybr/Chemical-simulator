@@ -3,9 +3,10 @@
 
 class Camera {
 private:
-    sf::View view;
+    sf::View* view;
     sf::Vector2f position;
     float zoom;
+    float speed;
     float moveSpeed;
     float zoomSpeed;
 
@@ -14,13 +15,9 @@ private:
 
     sf::Vector2i dragStartPixelPos;
     sf::Vector2f dragStartCameraPos;
-
-    sf::Vector2f zoomTarget;
-    float zoomAnimationProgress;
-    bool isZoomAnimating;
     
 public:
-    Camera(sf::RenderWindow& window, float moveSpeed = 500.f, float zoomSpeed = 0.1f);
+    Camera(sf::RenderWindow& window, sf::View& view, float moveSpeed = 500.f, float zoomSpeed = 0.1f);
     
     void update(float deltaTime, sf::RenderWindow& window);
     
