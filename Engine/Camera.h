@@ -17,7 +17,7 @@ private:
     sf::Vector2f dragStartCameraPos;
     
 public:
-    Camera(sf::RenderWindow& window, sf::View& view, float moveSpeed = 500.f, float zoomSpeed = 0.1f);
+    Camera(sf::RenderWindow& window, sf::View* view, float moveSpeed = 500.f, float zoomSpeed = 0.1f);
     
     void update(float deltaTime, sf::RenderWindow& window);
     

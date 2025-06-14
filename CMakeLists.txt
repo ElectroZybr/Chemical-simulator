@@ -19,10 +19,14 @@ add_subdirectory(Libraries/imgui-sfml)
 add_executable(${CMAKE_PROJECT_NAME}
         # custom files:
         main.cpp
+        interface.h
+        interface.cpp
         # 3d engine:
         engine/Consts.h
         engine/math/Vec2D.h
         engine/math/Vec2D.cpp
+        engine/physics/Atom.h
+        engine/physics/Atom.cpp
         engine/Camera.h
         engine/Camera.cpp
         # engine/gui/Button.h

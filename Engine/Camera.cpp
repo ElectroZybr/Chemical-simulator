@@ -1,10 +1,11 @@
 #include <cmath>
 #include "Camera.h"
+#include "../interface.h"
 #include <iostream>
 
 
-Camera::Camera(sf::RenderWindow& window, sf::View& view, float moveSpeed, float zoomSpeed) 
-    : view(&view), position(0, 0), zoom(1.f), moveSpeed(moveSpeed), zoomSpeed(zoomSpeed),
+Camera::Camera(sf::RenderWindow& window, sf::View* view, float moveSpeed, float zoomSpeed) 
+    : view(view), position(0, 0), zoom(1.f), moveSpeed(moveSpeed), zoomSpeed(zoomSpeed),
         isDragging(false), lastMousePos(0, 0) {}
     
 void Camera::update(float deltaTime, sf::RenderWindow& window) {
@@ -57,8 +58,8 @@ void Camera::handleInput(float deltaTime, sf::RenderWindow& window) {
 }
 
 void Camera::handleEvent(const sf::Event& event, sf::RenderWindow& window) {
-    if (event.type == sf::Event::MouseButtonPressed && 
-        event.mouseButton.button == sf::Mouse::Left) {
+    if (!Interface::cursorHovered && event.type == sf::Event::MouseButtonPressed && 
+        event.mouseButton.button == sf::Mouse::Right) {
         // Начало перетаскивания
         isDragging = true;
         dragStartPixelPos = sf::Mouse::getPosition(window);
@@ -77,7 +78,7 @@ void Camera::handleEvent(const sf::Event& event, sf::RenderWindow& window) {
         
         position = dragStartCameraPos + deltaWorld;
     }
-    else if (event.type == sf::Event::MouseButtonReleased && event.mouseButton.button == sf::Mouse::Left) {
+    else if (event.type == sf::Event::MouseButtonReleased && event.mouseButton.button == sf::Mouse::Right) {
         // Конец перетаскивания
         isDragging = false;
     }

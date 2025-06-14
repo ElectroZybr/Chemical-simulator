@@ -7,9 +7,21 @@
 },
 {
   "directory": "C:/Users/user/Documents/Coding/Chemical-simulator/build",
+  "command": "C:\\mingw64\\bin\\g++.exe -DIMGUI_USER_CONFIG=\\\"imconfig-SFML.h\\\" -DSFML_STATIC @CMakeFiles/Chemical-simulator.dir/includes_CXX.rsp -g -std=gnu++1z -o CMakeFiles\\Chemical-simulator.dir\\interface.cpp.obj -c C:\\Users\\user\\Documents\\Coding\\Chemical-simulator\\interface.cpp",
+  "file": "C:/Users/user/Documents/Coding/Chemical-simulator/interface.cpp",
+  "output": "CMakeFiles/Chemical-simulator.dir/interface.cpp.obj"
+},
+{
+  "directory": "C:/Users/user/Documents/Coding/Chemical-simulator/build",
   "command": "C:\\mingw64\\bin\\g++.exe -DIMGUI_USER_CONFIG=\\\"imconfig-SFML.h\\\" -DSFML_STATIC @CMakeFiles/Chemical-simulator.dir/includes_CXX.rsp -g -std=gnu++1z -o CMakeFiles\\Chemical-simulator.dir\\engine\\math\\Vec2D.cpp.obj -c C:\\Users\\user\\Documents\\Coding\\Chemical-simulator\\engine\\math\\Vec2D.cpp",
   "file": "C:/Users/user/Documents/Coding/Chemical-simulator/engine/math/Vec2D.cpp",
   "output": "CMakeFiles/Chemical-simulator.dir/engine/math/Vec2D.cpp.obj"
+},
+{
+  "directory": "C:/Users/user/Documents/Coding/Chemical-simulator/build",
+  "command": "C:\\mingw64\\bin\\g++.exe -DIMGUI_USER_CONFIG=\\\"imconfig-SFML.h\\\" -DSFML_STATIC @CMakeFiles/Chemical-simulator.dir/includes_CXX.rsp -g -std=gnu++1z -o CMakeFiles\\Chemical-simulator.dir\\engine\\physics\\Atom.cpp.obj -c C:\\Users\\user\\Documents\\Coding\\Chemical-simulator\\engine\\physics\\Atom.cpp",
+  "file": "C:/Users/user/Documents/Coding/Chemical-simulator/engine/physics/Atom.cpp",
+  "output": "CMakeFiles/Chemical-simulator.dir/engine/physics/Atom.cpp.obj"
 },
 {
   "directory": "C:/Users/user/Documents/Coding/Chemical-simulator/build",

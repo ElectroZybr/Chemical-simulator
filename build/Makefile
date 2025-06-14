@@ -247,6 +247,54 @@ engine/math/Vec2D.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\Chemical-simulator.dir\build.make CMakeFiles/Chemical-simulator.dir/engine/math/Vec2D.cpp.s
 .PHONY : engine/math/Vec2D.cpp.s
 
+engine/physics/Atom.obj: engine/physics/Atom.cpp.obj
+.PHONY : engine/physics/Atom.obj
+
+# target to build an object file
+engine/physics/Atom.cpp.obj:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\Chemical-simulator.dir\build.make CMakeFiles/Chemical-simulator.dir/engine/physics/Atom.cpp.obj
+.PHONY : engine/physics/Atom.cpp.obj
+
+engine/physics/Atom.i: engine/physics/Atom.cpp.i
+.PHONY : engine/physics/Atom.i
+
+# target to preprocess a source file
+engine/physics/Atom.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\Chemical-simulator.dir\build.make CMakeFiles/Chemical-simulator.dir/engine/physics/Atom.cpp.i
+.PHONY : engine/physics/Atom.cpp.i
+
+engine/physics/Atom.s: engine/physics/Atom.cpp.s
+.PHONY : engine/physics/Atom.s
+
+# target to generate assembly for a file
+engine/physics/Atom.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\Chemical-simulator.dir\build.make CMakeFiles/Chemical-simulator.dir/engine/physics/Atom.cpp.s
+.PHONY : engine/physics/Atom.cpp.s
+
+interface.obj: interface.cpp.obj
+.PHONY : interface.obj
+
+# target to build an object file
+interface.cpp.obj:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\Chemical-simulator.dir\build.make CMakeFiles/Chemical-simulator.dir/interface.cpp.obj
+.PHONY : interface.cpp.obj
+
+interface.i: interface.cpp.i
+.PHONY : interface.i
+
+# target to preprocess a source file
+interface.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\Chemical-simulator.dir\build.make CMakeFiles/Chemical-simulator.dir/interface.cpp.i
+.PHONY : interface.cpp.i
+
+interface.s: interface.cpp.s
+.PHONY : interface.s
+
+# target to generate assembly for a file
+interface.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\Chemical-simulator.dir\build.make CMakeFiles/Chemical-simulator.dir/interface.cpp.s
+.PHONY : interface.cpp.s
+
 main.obj: main.cpp.obj
 .PHONY : main.obj
 
@@ -292,6 +340,12 @@ help:
 	@echo ... engine/math/Vec2D.obj
 	@echo ... engine/math/Vec2D.i
 	@echo ... engine/math/Vec2D.s
+	@echo ... engine/physics/Atom.obj
+	@echo ... engine/physics/Atom.i
+	@echo ... engine/physics/Atom.s
+	@echo ... interface.obj
+	@echo ... interface.i
+	@echo ... interface.s
 	@echo ... main.obj
 	@echo ... main.i
 	@echo ... main.s

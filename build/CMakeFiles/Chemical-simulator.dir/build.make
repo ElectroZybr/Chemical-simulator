@@ -86,11 +86,26 @@ CMakeFiles/Chemical-simulator.dir/main.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/Chemical-simulator.dir/main.cpp.s"
 	C:\mingw64\bin\g++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S C:\Users\user\Documents\Coding\Chemical-simulator\main.cpp -o CMakeFiles\Chemical-simulator.dir\main.cpp.s
 
+CMakeFiles/Chemical-simulator.dir/interface.cpp.obj: CMakeFiles/Chemical-simulator.dir/flags.make
+CMakeFiles/Chemical-simulator.dir/interface.cpp.obj: CMakeFiles/Chemical-simulator.dir/includes_CXX.rsp
+CMakeFiles/Chemical-simulator.dir/interface.cpp.obj: C:/Users/user/Documents/Coding/Chemical-simulator/interface.cpp
+CMakeFiles/Chemical-simulator.dir/interface.cpp.obj: CMakeFiles/Chemical-simulator.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=C:\Users\user\Documents\Coding\Chemical-simulator\build\CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/Chemical-simulator.dir/interface.cpp.obj"
+	C:\mingw64\bin\g++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/Chemical-simulator.dir/interface.cpp.obj -MF CMakeFiles\Chemical-simulator.dir\interface.cpp.obj.d -o CMakeFiles\Chemical-simulator.dir\interface.cpp.obj -c C:\Users\user\Documents\Coding\Chemical-simulator\interface.cpp
+
+CMakeFiles/Chemical-simulator.dir/interface.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/Chemical-simulator.dir/interface.cpp.i"
+	C:\mingw64\bin\g++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E C:\Users\user\Documents\Coding\Chemical-simulator\interface.cpp > CMakeFiles\Chemical-simulator.dir\interface.cpp.i
+
+CMakeFiles/Chemical-simulator.dir/interface.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/Chemical-simulator.dir/interface.cpp.s"
+	C:\mingw64\bin\g++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S C:\Users\user\Documents\Coding\Chemical-simulator\interface.cpp -o CMakeFiles\Chemical-simulator.dir\interface.cpp.s
+
 CMakeFiles/Chemical-simulator.dir/engine/math/Vec2D.cpp.obj: CMakeFiles/Chemical-simulator.dir/flags.make
 CMakeFiles/Chemical-simulator.dir/engine/math/Vec2D.cpp.obj: CMakeFiles/Chemical-simulator.dir/includes_CXX.rsp
 CMakeFiles/Chemical-simulator.dir/engine/math/Vec2D.cpp.obj: C:/Users/user/Documents/Coding/Chemical-simulator/engine/math/Vec2D.cpp
 CMakeFiles/Chemical-simulator.dir/engine/math/Vec2D.cpp.obj: CMakeFiles/Chemical-simulator.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=C:\Users\user\Documents\Coding\Chemical-simulator\build\CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/Chemical-simulator.dir/engine/math/Vec2D.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=C:\Users\user\Documents\Coding\Chemical-simulator\build\CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Building CXX object CMakeFiles/Chemical-simulator.dir/engine/math/Vec2D.cpp.obj"
 	C:\mingw64\bin\g++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/Chemical-simulator.dir/engine/math/Vec2D.cpp.obj -MF CMakeFiles\Chemical-simulator.dir\engine\math\Vec2D.cpp.obj.d -o CMakeFiles\Chemical-simulator.dir\engine\math\Vec2D.cpp.obj -c C:\Users\user\Documents\Coding\Chemical-simulator\engine\math\Vec2D.cpp
 
 CMakeFiles/Chemical-simulator.dir/engine/math/Vec2D.cpp.i: cmake_force
@@ -101,11 +116,26 @@ CMakeFiles/Chemical-simulator.dir/engine/math/Vec2D.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/Chemical-simulator.dir/engine/math/Vec2D.cpp.s"
 	C:\mingw64\bin\g++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S C:\Users\user\Documents\Coding\Chemical-simulator\engine\math\Vec2D.cpp -o CMakeFiles\Chemical-simulator.dir\engine\math\Vec2D.cpp.s
 
+CMakeFiles/Chemical-simulator.dir/engine/physics/Atom.cpp.obj: CMakeFiles/Chemical-simulator.dir/flags.make
+CMakeFiles/Chemical-simulator.dir/engine/physics/Atom.cpp.obj: CMakeFiles/Chemical-simulator.dir/includes_CXX.rsp
+CMakeFiles/Chemical-simulator.dir/engine/physics/Atom.cpp.obj: C:/Users/user/Documents/Coding/Chemical-simulator/engine/physics/Atom.cpp
+CMakeFiles/Chemical-simulator.dir/engine/physics/Atom.cpp.obj: CMakeFiles/Chemical-simulator.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=C:\Users\user\Documents\Coding\Chemical-simulator\build\CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Building CXX object CMakeFiles/Chemical-simulator.dir/engine/physics/Atom.cpp.obj"
+	C:\mingw64\bin\g++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/Chemical-simulator.dir/engine/physics/Atom.cpp.obj -MF CMakeFiles\Chemical-simulator.dir\engine\physics\Atom.cpp.obj.d -o CMakeFiles\Chemical-simulator.dir\engine\physics\Atom.cpp.obj -c C:\Users\user\Documents\Coding\Chemical-simulator\engine\physics\Atom.cpp
+
+CMakeFiles/Chemical-simulator.dir/engine/physics/Atom.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/Chemical-simulator.dir/engine/physics/Atom.cpp.i"
+	C:\mingw64\bin\g++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E C:\Users\user\Documents\Coding\Chemical-simulator\engine\physics\Atom.cpp > CMakeFiles\Chemical-simulator.dir\engine\physics\Atom.cpp.i
+
+CMakeFiles/Chemical-simulator.dir/engine/physics/Atom.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/Chemical-simulator.dir/engine/physics/Atom.cpp.s"
+	C:\mingw64\bin\g++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S C:\Users\user\Documents\Coding\Chemical-simulator\engine\physics\Atom.cpp -o CMakeFiles\Chemical-simulator.dir\engine\physics\Atom.cpp.s
+
 CMakeFiles/Chemical-simulator.dir/engine/Camera.cpp.obj: CMakeFiles/Chemical-simulator.dir/flags.make
 CMakeFiles/Chemical-simulator.dir/engine/Camera.cpp.obj: CMakeFiles/Chemical-simulator.dir/includes_CXX.rsp
 CMakeFiles/Chemical-simulator.dir/engine/Camera.cpp.obj: C:/Users/user/Documents/Coding/Chemical-simulator/engine/Camera.cpp
 CMakeFiles/Chemical-simulator.dir/engine/Camera.cpp.obj: CMakeFiles/Chemical-simulator.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=C:\Users\user\Documents\Coding\Chemical-simulator\build\CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Building CXX object CMakeFiles/Chemical-simulator.dir/engine/Camera.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=C:\Users\user\Documents\Coding\Chemical-simulator\build\CMakeFiles --progress-num=$(CMAKE_PROGRESS_5) "Building CXX object CMakeFiles/Chemical-simulator.dir/engine/Camera.cpp.obj"
 	C:\mingw64\bin\g++.exe $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/Chemical-simulator.dir/engine/Camera.cpp.obj -MF CMakeFiles\Chemical-simulator.dir\engine\Camera.cpp.obj.d -o CMakeFiles\Chemical-simulator.dir\engine\Camera.cpp.obj -c C:\Users\user\Documents\Coding\Chemical-simulator\engine\Camera.cpp
 
 CMakeFiles/Chemical-simulator.dir/engine/Camera.cpp.i: cmake_force
@@ -119,14 +149,18 @@ CMakeFiles/Chemical-simulator.dir/engine/Camera.cpp.s: cmake_force
 # Object files for target Chemical-simulator
 Chemical__simulator_OBJECTS = \
 "CMakeFiles/Chemical-simulator.dir/main.cpp.obj" \
+"CMakeFiles/Chemical-simulator.dir/interface.cpp.obj" \
 "CMakeFiles/Chemical-simulator.dir/engine/math/Vec2D.cpp.obj" \
+"CMakeFiles/Chemical-simulator.dir/engine/physics/Atom.cpp.obj" \
 "CMakeFiles/Chemical-simulator.dir/engine/Camera.cpp.obj"
 
 # External object files for target Chemical-simulator
 Chemical__simulator_EXTERNAL_OBJECTS =
 
 C:/Users/user/Documents/Coding/Chemical-simulator/Chemical-simulator.exe: CMakeFiles/Chemical-simulator.dir/main.cpp.obj
+C:/Users/user/Documents/Coding/Chemical-simulator/Chemical-simulator.exe: CMakeFiles/Chemical-simulator.dir/interface.cpp.obj
 C:/Users/user/Documents/Coding/Chemical-simulator/Chemical-simulator.exe: CMakeFiles/Chemical-simulator.dir/engine/math/Vec2D.cpp.obj
+C:/Users/user/Documents/Coding/Chemical-simulator/Chemical-simulator.exe: CMakeFiles/Chemical-simulator.dir/engine/physics/Atom.cpp.obj
 C:/Users/user/Documents/Coding/Chemical-simulator/Chemical-simulator.exe: CMakeFiles/Chemical-simulator.dir/engine/Camera.cpp.obj
 C:/Users/user/Documents/Coding/Chemical-simulator/Chemical-simulator.exe: CMakeFiles/Chemical-simulator.dir/build.make
 C:/Users/user/Documents/Coding/Chemical-simulator/Chemical-simulator.exe: C:/Users/user/Documents/Coding/Chemical-simulator/Libraries/sfml/lib/libsfml-system-s-d.a
@@ -143,7 +177,7 @@ C:/Users/user/Documents/Coding/Chemical-simulator/Chemical-simulator.exe: C:/Lib
 C:/Users/user/Documents/Coding/Chemical-simulator/Chemical-simulator.exe: CMakeFiles/Chemical-simulator.dir/linkLibs.rsp
 C:/Users/user/Documents/Coding/Chemical-simulator/Chemical-simulator.exe: CMakeFiles/Chemical-simulator.dir/objects1.rsp
 C:/Users/user/Documents/Coding/Chemical-simulator/Chemical-simulator.exe: CMakeFiles/Chemical-simulator.dir/link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=C:\Users\user\Documents\Coding\Chemical-simulator\build\CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Linking CXX executable C:\Users\user\Documents\Coding\Chemical-simulator\Chemical-simulator.exe"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=C:\Users\user\Documents\Coding\Chemical-simulator\build\CMakeFiles --progress-num=$(CMAKE_PROGRESS_6) "Linking CXX executable C:\Users\user\Documents\Coding\Chemical-simulator\Chemical-simulator.exe"
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles\Chemical-simulator.dir\link.txt --verbose=$(VERBOSE)
 
 # Rule to build all files generated by this target.
