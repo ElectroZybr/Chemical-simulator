@@ -31,7 +31,7 @@ void Camera::zoomAt(float factor, sf::Vector2f mousePos, sf::RenderWindow& windo
     // Изменяем уровень зума с учетом направления к курсору
     float prevZoom = zoom;
     zoom *= (1.f + factor * zoomSpeed);
-    zoom = std::max(0.1f, std::min(zoom, 10.f));
+    zoom = std::max(0.1f, std::min(zoom, 20.f));
 
     speed = moveSpeed / zoom;
     

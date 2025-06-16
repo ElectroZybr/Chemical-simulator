@@ -146,7 +146,6 @@ int Interface::getSelectedAtom() {
 
 int Interface::Update() {
     ImGui::SFML::Update(*window, clock.restart());
-    cursorHovered = false;
     
 
     ImGui::SetNextWindowPos(ImVec2(0, 0));
@@ -184,10 +183,6 @@ int Interface::Update() {
         ImGui::EndPopup();
     }
     
-    // // Проверка на вхождение курсора в область
-    // if (ImGui::IsItemHovered())
-    //     cursorHovered = true;
-
     ImGui::PopFont();
     ImGui::End();
 
@@ -240,10 +235,6 @@ int Interface::Update() {
         if ((i + 1) % 8 != 0) ImGui::SameLine(0.0f, 7.5f*current_ui_scale);
     }
 
-    // // Проверка на вхождение курсора в область
-    // if (ImGui::IsItemHovered())
-    //     cursorHovered = true;
-
     ImGui::PopFont();
     ImGui::End();
 
@@ -286,11 +277,11 @@ int Interface::Update() {
     ImGui::SameLine();
 
     if (pause) {
-        if (ImGui::Button(ICON_FA_PAUSE, ImVec2(50*current_ui_scale, 50*current_ui_scale))) {
+        if (ImGui::Button(ICON_FA_PLAY, ImVec2(50*current_ui_scale, 50*current_ui_scale))) {
             pause = false;
         }
     } else {
-        if (ImGui::Button(ICON_FA_PLAY, ImVec2(50*current_ui_scale, 50*current_ui_scale))) {
+        if (ImGui::Button(ICON_FA_PAUSE, ImVec2(50*current_ui_scale, 50*current_ui_scale))) {
             pause = true;
         }
     }
@@ -308,10 +299,6 @@ int Interface::Update() {
         if (ImGui::MenuItem("exit")) { /* действие */ }
         ImGui::EndPopup();
     }
-
-    // // Проверка на вхождение курсора в область
-    // if (ImGui::IsItemHovered())
-    //     cursorHovered = true;
 
     ImGui::PopFont();
     ImGui::End();
@@ -331,6 +318,7 @@ int Interface::Update() {
     ImGui::Text("FPS: %.1f", ImGui::GetIO().Framerate);
     ImGui::PopFont();
     ImGui::End();
-    
+
+    // Проверка на вхождение курсора в область
     cursorHovered = ImGui::IsAnyItemHovered() || ImGui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow) || ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopup);
 }

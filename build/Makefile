@@ -271,6 +271,30 @@ engine/physics/Atom.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\Chemical-simulator.dir\build.make CMakeFiles/Chemical-simulator.dir/engine/physics/Atom.cpp.s
 .PHONY : engine/physics/Atom.cpp.s
 
+engine/physics/SpatialGrid.obj: engine/physics/SpatialGrid.cpp.obj
+.PHONY : engine/physics/SpatialGrid.obj
+
+# target to build an object file
+engine/physics/SpatialGrid.cpp.obj:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\Chemical-simulator.dir\build.make CMakeFiles/Chemical-simulator.dir/engine/physics/SpatialGrid.cpp.obj
+.PHONY : engine/physics/SpatialGrid.cpp.obj
+
+engine/physics/SpatialGrid.i: engine/physics/SpatialGrid.cpp.i
+.PHONY : engine/physics/SpatialGrid.i
+
+# target to preprocess a source file
+engine/physics/SpatialGrid.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\Chemical-simulator.dir\build.make CMakeFiles/Chemical-simulator.dir/engine/physics/SpatialGrid.cpp.i
+.PHONY : engine/physics/SpatialGrid.cpp.i
+
+engine/physics/SpatialGrid.s: engine/physics/SpatialGrid.cpp.s
+.PHONY : engine/physics/SpatialGrid.s
+
+# target to generate assembly for a file
+engine/physics/SpatialGrid.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles\Chemical-simulator.dir\build.make CMakeFiles/Chemical-simulator.dir/engine/physics/SpatialGrid.cpp.s
+.PHONY : engine/physics/SpatialGrid.cpp.s
+
 interface.obj: interface.cpp.obj
 .PHONY : interface.obj
 
@@ -343,6 +367,9 @@ help:
 	@echo ... engine/physics/Atom.obj
 	@echo ... engine/physics/Atom.i
 	@echo ... engine/physics/Atom.s
+	@echo ... engine/physics/SpatialGrid.obj
+	@echo ... engine/physics/SpatialGrid.i
+	@echo ... engine/physics/SpatialGrid.s
 	@echo ... interface.obj
 	@echo ... interface.i
 	@echo ... interface.s

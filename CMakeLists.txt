@@ -21,16 +21,16 @@ add_executable(${CMAKE_PROJECT_NAME}
         main.cpp
         interface.h
         interface.cpp
-        # 3d engine:
+        # engine:
         engine/Consts.h
         engine/math/Vec2D.h
         engine/math/Vec2D.cpp
         engine/physics/Atom.h
         engine/physics/Atom.cpp
+        engine/physics/SpatialGrid.h
+        engine/physics/SpatialGrid.cpp
         engine/Camera.h
         engine/Camera.cpp
-        # engine/gui/Button.h
-        # engine/gui/Button.cpp
         )
 
 target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE sfml-system sfml-network sfml-graphics sfml-window sfml-audio)

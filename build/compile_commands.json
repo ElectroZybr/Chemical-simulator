@@ -25,6 +25,12 @@
 },
 {
   "directory": "C:/Users/user/Documents/Coding/Chemical-simulator/build",
+  "command": "C:\\mingw64\\bin\\g++.exe -DIMGUI_USER_CONFIG=\\\"imconfig-SFML.h\\\" -DSFML_STATIC @CMakeFiles/Chemical-simulator.dir/includes_CXX.rsp -g -std=gnu++1z -o CMakeFiles\\Chemical-simulator.dir\\engine\\physics\\SpatialGrid.cpp.obj -c C:\\Users\\user\\Documents\\Coding\\Chemical-simulator\\engine\\physics\\SpatialGrid.cpp",
+  "file": "C:/Users/user/Documents/Coding/Chemical-simulator/engine/physics/SpatialGrid.cpp",
+  "output": "CMakeFiles/Chemical-simulator.dir/engine/physics/SpatialGrid.cpp.obj"
+},
+{
+  "directory": "C:/Users/user/Documents/Coding/Chemical-simulator/build",
   "command": "C:\\mingw64\\bin\\g++.exe -DIMGUI_USER_CONFIG=\\\"imconfig-SFML.h\\\" -DSFML_STATIC @CMakeFiles/Chemical-simulator.dir/includes_CXX.rsp -g -std=gnu++1z -o CMakeFiles\\Chemical-simulator.dir\\engine\\Camera.cpp.obj -c C:\\Users\\user\\Documents\\Coding\\Chemical-simulator\\engine\\Camera.cpp",
   "file": "C:/Users/user/Documents/Coding/Chemical-simulator/engine/Camera.cpp",
   "output": "CMakeFiles/Chemical-simulator.dir/engine/Camera.cpp.obj"

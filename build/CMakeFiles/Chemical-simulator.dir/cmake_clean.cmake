@@ -8,6 +8,8 @@ file(REMOVE_RECURSE
   "CMakeFiles/Chemical-simulator.dir/engine/math/Vec2D.cpp.obj.d"
   "CMakeFiles/Chemical-simulator.dir/engine/physics/Atom.cpp.obj"
   "CMakeFiles/Chemical-simulator.dir/engine/physics/Atom.cpp.obj.d"
+  "CMakeFiles/Chemical-simulator.dir/engine/physics/SpatialGrid.cpp.obj"
+  "CMakeFiles/Chemical-simulator.dir/engine/physics/SpatialGrid.cpp.obj.d"
   "CMakeFiles/Chemical-simulator.dir/interface.cpp.obj"
   "CMakeFiles/Chemical-simulator.dir/interface.cpp.obj.d"
   "CMakeFiles/Chemical-simulator.dir/main.cpp.obj"
