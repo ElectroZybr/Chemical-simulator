@@ -27,7 +27,8 @@ void drawTransparencyMap(sf::RenderWindow& window, const SpatialGrid* grid)
     // Заполняем пиксели
     for (size_t y = 0; y < grid->sizeX; ++y) {
         for (size_t x = 0; x < grid->sizeY; ++x) {
-            image.setPixel(x, y, sf::Color(255, 0, 0, grid->at(x, y)));
+            if (grid->at(x, y) != nullptr)
+                image.setPixel(x, y, sf::Color(255, 0, 0, 255));
         }
     }
     
@@ -84,6 +85,7 @@ double randomInRange(int range) {
 int main() {
     sf::RenderWindow window(sf::VideoMode(WIGHT, HEIGHT), "Chemical-simulator");
     window.setFramerateLimit(60);
+    float dt = 1.0f / 240.0f;
 
     Interface::init(window);
 
@@ -139,18 +141,22 @@ int main() {
         gridLines.push_back(sf::Vertex(sf::Vector2f(1000, y), sf::Color(60, 60, 60)));
     }
 
-    SpatialGrid grid(50, 50);
+    SpatialGrid grid(10, 10);
     Atom::setGrid(&grid);
-    // for (int y = 0; y < 255; ++y) {
-    //     for (int x = 0; x < 255; ++x) {
-    //         grid.put(x, y, x);
-    //     }
-    // }
 
     std::vector<Atom> atoms;
     sf::CircleShape atomShape(5.f);
+
+    atoms.push_back(Atom(5, 2, 1, Vec2D(0, 0), true));
+    atoms.push_back(Atom(5, 8, 1, Vec2D(0, -1)));
+
+    // atoms.push_back(Atom(2, 5, 1, Vec2D(1, 0)));
+    // atoms.push_back(Atom(8, 5, 1, Vec2D(-1, 0)));
     
     sf::Clock clock;
+
+    bool atomMoveFlag = false;
+    Atom* selectedMoveAtom;
     
     while (window.isOpen()) {
         float deltaTime = clock.restart().asSeconds();
@@ -172,9 +178,9 @@ int main() {
             Interface::CheckEvent(event);
 
             // создание атома
-            if (!Interface::cursorHovered && Interface::getSelectedAtom() != -1) {
-                if (event.type == sf::Event::MouseButtonPressed && event.mouseButton.button == sf::Mouse::Left) {
-                    float zoom = camera.getZoom();
+            if (event.type == sf::Event::MouseButtonPressed && event.mouseButton.button == sf::Mouse::Left) {
+                float zoom = camera.getZoom();
+                if (!Interface::cursorHovered && Interface::getSelectedAtom() != -1) {
 
                     // std::cout << getRandomInRange(10) << "\n";
                     // Vec2D rnd = randomUnitVector2D();
@@ -198,11 +204,19 @@ int main() {
                                               " Y: " << ((mouse_pos.y - (window.getSize().y / 2.f)) / zoom) + gameView.getCenter().y << 
                                          " | Type: " << Interface::getSelectedAtom() << 
                                         // " | Color: " << (int)atomColor.r << " " << (int)atomColor.g << " " << (int)atomColor.b << std::endl;
-                                         " | Speed: " << atom.speed.x() << " " << atom.speed.y() << std::endl;
+                                         " | Speed: " << atom.speed.x << " " << atom.speed.y << std::endl;
 
                                           
                     // std::cout << "Viev Center X: " << gameView.getCenter().x << " Y: " << gameView.getCenter().y << " | Mouse pos X: " << mouse_pos.x << " Y: " << mouse_pos.y << " | Zoom: " << zoom << std::endl;
-                }   
+                } else {
+                    // Передвижение атома мышкой
+                    selectedMoveAtom = grid.at((int)round(((mouse_pos.x - (window.getSize().x / 2.f)) / zoom) + gameView.getCenter().x-0.5), 
+                    (int)round(((mouse_pos.y - (window.getSize().y / 2.f)) / zoom) + gameView.getCenter().y-0.5));
+                    if (selectedMoveAtom != nullptr)
+                        atomMoveFlag = true;                    
+                } 
+            } else if (event.type == sf::Event::MouseButtonReleased && event.mouseButton.button == sf::Mouse::Left) {
+                atomMoveFlag = false;
             }
             
             camera.handleEvent(event, window);
@@ -231,13 +245,19 @@ int main() {
         // отрисовываем атомы
         for (auto& atom : atoms) {
             if (!Interface::getPause())    // Обновляем симуляцию если не пауза
-                atom.Update(deltaTime);
-            atomShape.setPosition(atom.coords.x(), atom.coords.y());
+                atom.Update(dt);
+            atomShape.setPosition(atom.coords.x, atom.coords.y);
             atomShape.setRadius(atom.getProps().radius);
             atomShape.setFillColor(atom.getProps().color);
 
-            // window.draw(atomShape);
+            window.draw(atomShape);
             // std::cout << atom.coords.x() << " " << atom.coords.y() << " " << atom.type << std::endl;
+        }
+        // Передвижение атома мышкой
+        if (atomMoveFlag) {
+            float zoom = camera.getZoom();
+            selectedMoveAtom->coords = Vec2D(((mouse_pos.x - (window.getSize().x / 2.f)) / zoom) + gameView.getCenter().x-0.5,
+                                             ((mouse_pos.y - (window.getSize().y / 2.f)) / zoom) + gameView.getCenter().y-0.5);
         }
 
         // Рисуем интерфейс

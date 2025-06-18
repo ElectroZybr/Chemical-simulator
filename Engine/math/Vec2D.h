@@ -5,10 +5,11 @@
 
 class Vec2D {
 private:
-    std::array<double, 2> _arr_point{};
-
+    // std::array<double, 2> _arr_point{};
+    
     static bool isNear(double a, double b);
 public:
+    double x, y;
     // Vec2D() = default;
 
     Vec2D(const Vec2D &vec);
@@ -17,8 +18,8 @@ public:
 
     // Vec2D &operator=(const Vec2D &) = default;
 
-    [[nodiscard]] double x() const { return _arr_point[0]; }
-    [[nodiscard]] double y() const { return _arr_point[1]; }
+    // [[nodiscard]] double x() const { return _arr_point[0]; }
+    // [[nodiscard]] double y() const { return _arr_point[1]; }
 
     [[nodiscard]] Vec2D operator-() const;
 

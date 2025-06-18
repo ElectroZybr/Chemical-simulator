@@ -23,12 +23,25 @@ private:
     // static StaticAtomicData[118]
 public:
     Vec2D coords;
+    Vec2D prevCoords;
     Vec2D speed;
     int type;
     double charge;
-    Atom (float x, float y, int type, Vec2D start_speed);
+    double energy;
+    int valence;
+    float r0 = 0.74;
+    float De = 4.52;
+    float a = 1.92;
+    bool isFixed = false;
+
+    Atom (float x, float y, int type, Vec2D start_speed, bool fixed = false);
 
     void Update(double deltaTime);
+    void Bounce();
+    void Collision();
+
+    float MorseForce(float distanse);
+    float MorsePotential(float distanse);
 
     static void setGrid(SpatialGrid* grid);
 

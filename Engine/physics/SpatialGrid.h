@@ -1,8 +1,10 @@
 #pragma once
 
+class Atom;
+
 class SpatialGrid {
 private:
-    char** grid;
+    Atom*** grid;
 public:
     int sizeX;
     int sizeY;
@@ -11,6 +13,8 @@ public:
     // void putMatrix5X5();
     void getMatrix5X5(int x, int y, char* matrix[5]);
 
-    void put(int x, int y, char val) { grid[x][y] = val; }
-    const char& at(int x, int y) const { return grid[x][y]; }
+    void put(int x, int y, Atom* val) { grid[x][y] = val; }
+    Atom* at(int x, int y) const { 
+        if (x >= 0 && x < sizeX && y >= 0 && y < sizeY) return grid[x][y]; 
+        return nullptr; }
 };
