@@ -126,8 +126,8 @@ Libraries/imgui-sfml/clean: Libraries/imgui-sfml/CMakeFiles/ImGui-SFML.dir/clean
 # Target rules for target CMakeFiles/Chemical-simulator.dir
 
 # All Build rule for target.
-CMakeFiles/Chemical-simulator.dir/all: Libraries/imgui-sfml/CMakeFiles/ImGui-SFML.dir/all
 CMakeFiles/Chemical-simulator.dir/all: Libraries/imgui/CMakeFiles/imgui.dir/all
+CMakeFiles/Chemical-simulator.dir/all: Libraries/imgui-sfml/CMakeFiles/ImGui-SFML.dir/all
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\Chemical-simulator.dir\build.make CMakeFiles/Chemical-simulator.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\Chemical-simulator.dir\build.make CMakeFiles/Chemical-simulator.dir/build
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=C:\Users\user\Documents\Coding\Chemical-simulator\build\CMakeFiles --progress-num=1,2,3,4,5,6,7 "Built target Chemical-simulator"

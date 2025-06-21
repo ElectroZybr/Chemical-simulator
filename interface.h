@@ -17,6 +17,7 @@ private:
     static float current_ui_scale;
     static int selectedAtom;
     static bool pause;
+    static float simulationSpeed;
 public:
     static int init(sf::RenderWindow& w);
     static void custom_style();
@@ -24,6 +25,7 @@ public:
     static void CheckEvent(const sf::Event& event);
     static bool getPause();
     static int getSelectedAtom();
+    static float getSimulationSpeed();
     static bool cursorHovered;
 };
 

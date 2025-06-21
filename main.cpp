@@ -5,6 +5,7 @@
 #include <functional>
 #include <memory>
 #include <random>
+#include <list>
 
 #include "imgui.h"
 #include "imgui-SFML.h"
@@ -27,7 +28,7 @@ void drawTransparencyMap(sf::RenderWindow& window, const SpatialGrid* grid)
     // Заполняем пиксели
     for (size_t y = 0; y < grid->sizeX; ++y) {
         for (size_t x = 0; x < grid->sizeY; ++x) {
-            if (grid->at(x, y) != nullptr)
+            if (!grid->at(x, y)->empty())
                 image.setPixel(x, y, sf::Color(255, 0, 0, 255));
         }
     }
@@ -85,24 +86,10 @@ double randomInRange(int range) {
 int main() {
     sf::RenderWindow window(sf::VideoMode(WIGHT, HEIGHT), "Chemical-simulator");
     window.setFramerateLimit(60);
-    float dt = 1.0f / 240.0f;
+    float dt;
 
     Interface::init(window);
 
-    // std::vector<std::vector<unsigned char>> alphaMap(100, std::vector<unsigned char>(100));
-    // for (int y = 0; y < 100; ++y) {
-    //     for (int x = 0; x < 100; ++x) {
-    //         alphaMap[y][x] = static_cast<unsigned char>((x + y) * 255 / 200);
-    //     }
-    // }
-
-    // sf::Texture texture;
-    // texture.create(10000, 10000);  // Создаем текстуру 10K×10K
-    // texture.setSmooth(false);       // Отключаем сглаживание
-
-    // sf::Shader computeShader, renderShader;
-    // computeShader.loadFromFile("compute_shader.glsl", sf::Shader::Compute);
-    // renderShader.loadFromFile("fragment_shader.glsl", sf::Shader::Fragment);
 
     // Создаем игровое окно и камеру
     sf::View gameView = window.getDefaultView();
@@ -111,10 +98,6 @@ int main() {
     // Создаем окно для интерфейса
     sf::View uiView = window.getDefaultView();
     
-    // Создаем тестовые объекты
-    sf::CircleShape circle(1.f);
-    circle.setFillColor(sf::Color::Red);
-    circle.setPosition(-1, -1);
     
     sf::Color wallColor = sf::Color(30, 30, 30, 255);
     sf::RectangleShape rect1(sf::Vector2f(50, 2000));
@@ -144,14 +127,14 @@ int main() {
     SpatialGrid grid(10, 10);
     Atom::setGrid(&grid);
 
-    std::vector<Atom> atoms;
+    std::list<Atom> atoms;
     sf::CircleShape atomShape(5.f);
 
-    atoms.push_back(Atom(5, 2, 1, Vec2D(0, 0), true));
-    atoms.push_back(Atom(5, 8, 1, Vec2D(0, -1)));
+    // atoms.push_back(Atom(5, 2, 1, Vec2D(0, 0), true));
+    // atoms.push_back(Atom(5, 8, 1, Vec2D(0, -1)));
 
-    // atoms.push_back(Atom(2, 5, 1, Vec2D(1, 0)));
-    // atoms.push_back(Atom(8, 5, 1, Vec2D(-1, 0)));
+    atoms.push_back(Atom(3, 5, 1, Vec2D(1, 0)));
+    atoms.push_back(Atom(7, 5, 1, Vec2D(-1, 0)));
     
     sf::Clock clock;
 
@@ -181,44 +164,33 @@ int main() {
             if (event.type == sf::Event::MouseButtonPressed && event.mouseButton.button == sf::Mouse::Left) {
                 float zoom = camera.getZoom();
                 if (!Interface::cursorHovered && Interface::getSelectedAtom() != -1) {
-
-                    // std::cout << getRandomInRange(10) << "\n";
-                    // Vec2D rnd = randomUnitVector2D();
-                    // std::cout << rnd.x() << "  " << rnd.y() << "  " << std::sqrt(rnd.x()*rnd.x() + rnd.y()*rnd.y()) << std::endl;
-                    // SpatialGrid grid(10, 10);
-                    // grid.put(5, 5, 6);
-                    // std::cout << (int)grid.at(5, 5) << "  " << (int)grid.at(2, 2) << std::endl;
-                    // for (int i = 0; i < 10; ++i) {
-                    //     for (int j = 0; j < 10; ++j)
-                    //         std::cout << (int)grid.at(i, j);
-                    //     std::cout << std::endl;
-                    // }
                     
                     atoms.push_back(Atom(((mouse_pos.x - (window.getSize().x / 2.f)) / zoom) + gameView.getCenter().x-0.25,
                                          ((mouse_pos.y - (window.getSize().y / 2.f)) / zoom) + gameView.getCenter().y-0.25,
                                            Interface::getSelectedAtom(), Vec2D(randomUnitVector2D() * randomInRange(5))));
 
-                    Atom atom = atoms.back();
+
+                    Atom& atom = atoms.back();
 
                     std::cout << "<Create atom> X: " << ((mouse_pos.x - (window.getSize().x / 2.f)) / zoom) + gameView.getCenter().x << 
                                               " Y: " << ((mouse_pos.y - (window.getSize().y / 2.f)) / zoom) + gameView.getCenter().y << 
                                          " | Type: " << Interface::getSelectedAtom() << 
-                                        // " | Color: " << (int)atomColor.r << " " << (int)atomColor.g << " " << (int)atomColor.b << std::endl;
-                                         " | Speed: " << atom.speed.x << " " << atom.speed.y << std::endl;
+                                       " | Adress: " << &atom << 
+                                        " | Speed: " << atom.speed.x << " " << atom.speed.y << std::endl;
 
-                                          
-                    // std::cout << "Viev Center X: " << gameView.getCenter().x << " Y: " << gameView.getCenter().y << " | Mouse pos X: " << mouse_pos.x << " Y: " << mouse_pos.y << " | Zoom: " << zoom << std::endl;
                 } else {
                     // Передвижение атома мышкой
-                    selectedMoveAtom = grid.at((int)round(((mouse_pos.x - (window.getSize().x / 2.f)) / zoom) + gameView.getCenter().x-0.5), 
-                    (int)round(((mouse_pos.y - (window.getSize().y / 2.f)) / zoom) + gameView.getCenter().y-0.5));
-                    if (selectedMoveAtom != nullptr)
-                        atomMoveFlag = true;                    
+                    std::unordered_set<Atom*>* block = grid.at((int)round(((mouse_pos.x - (window.getSize().x / 2.f)) / zoom) + gameView.getCenter().x-0.5), 
+                                                              (int)round(((mouse_pos.y - (window.getSize().y / 2.f)) / zoom) + gameView.getCenter().y-0.5));
+                    if (block != nullptr && !block->empty()) {
+                        selectedMoveAtom = *block->begin();
+                        atomMoveFlag = true; 
+                    }                   
                 } 
             } else if (event.type == sf::Event::MouseButtonReleased && event.mouseButton.button == sf::Mouse::Left) {
                 atomMoveFlag = false;
             }
-            
+            dt = (1.0f / 60.0f) * Interface::getSimulationSpeed();
             camera.handleEvent(event, window);
         }
 
@@ -232,18 +204,31 @@ int main() {
         
         // Очистка
         window.clear(sf::Color(35, 35, 35, 255));
+
+
+        // логи
+        // static int counter = 0;
+        // counter++;
+        // if (counter == 20) {
+        //     for (auto& atom : atoms)
+        //         if (!atom.isFixed)
+        //             std::cout << "<Log> energy: " << atom.energy << " | all energy " << atom.energy + abs(atom.speed.x) + abs(atom.speed.y) << std::endl;
+        //     counter = 0;
+        // }
         
+
         // Рисуем игровые объекты
         window.setView(gameView);
         window.draw(&gridLines[0], gridLines.size(), sf::Lines);
-        window.draw(circle);
+        // window.draw(circle);
         window.draw(rect1);
         window.draw(rect2);
         window.draw(rect3);
         window.draw(rect4);
         drawTransparencyMap(window, &grid);
         // отрисовываем атомы
-        for (auto& atom : atoms) {
+        for (Atom& atom : atoms) {
+            // std::cout  << atom.type << std::endl;
             if (!Interface::getPause())    // Обновляем симуляцию если не пауза
                 atom.Update(dt);
             atomShape.setPosition(atom.coords.x, atom.coords.y);

@@ -8,9 +8,9 @@
 struct StaticAtomicData{
     const double mass;
     const double radius;
+    const char maxValence;
     const double defaultCharge;
     const sf::Color color;
-// Другие константные характеристики
 };
 
 
@@ -18,9 +18,6 @@ class Atom {
 private:
     static SpatialGrid* grid;
     static const std::array<StaticAtomicData, 118> properties;
-    
-    // static const std::unordered_map<int, AtomTypeData> typeData;
-    // static StaticAtomicData[118]
 public:
     Vec2D coords;
     Vec2D prevCoords;
@@ -30,15 +27,16 @@ public:
     double energy;
     int valence;
     float r0 = 0.74;
-    float De = 4.52;
-    float a = 1.92;
+    float De = 0.52;
+    float a = 10;
     bool isFixed = false;
+    float prev_distance = 0;
 
     Atom (float x, float y, int type, Vec2D start_speed, bool fixed = false);
 
     void Update(double deltaTime);
     void Bounce();
-    void Collision();
+    void Collision(int curr_x, int curr_y, double deltaTime);
 
     float MorseForce(float distanse);
     float MorsePotential(float distanse);

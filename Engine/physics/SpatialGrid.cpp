@@ -2,10 +2,12 @@
 
 // char SpatialGrid::grid[5000][2500] = {0};
 SpatialGrid::SpatialGrid(int sizeX, int sizeY) : sizeX(sizeX), sizeY(sizeY) {
-    grid = new Atom**[sizeX];
+    grid = new std::unordered_set<Atom*>**[sizeX];
 
     for (int i = 0; i < sizeX; ++i) {
-        grid[i] = new Atom*[sizeY]();  // Зануляем память
+        grid[i] = new std::unordered_set<Atom*>*[sizeY];
+        for (int j = 0; j < sizeY; ++j)
+            grid[i][j] = new std::unordered_set<Atom*>;
     }
 
     // for (int i = 0; i < sizeY; ++i) {
@@ -22,6 +24,8 @@ SpatialGrid::~SpatialGrid() {
     // 1. Удаляем каждую строку
     for (int i = 0; i < sizeX; ++i) {
         delete[] grid[i];
+        for (int j = 0; j < sizeY; ++j)
+            delete[] grid[i][j];
     }
 
     // 2. Удаляем массив указателей

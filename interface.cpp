@@ -31,7 +31,7 @@ float Interface::current_ui_scale;
 int Interface::selectedAtom = -1;
 bool Interface::pause;
 bool Interface::cursorHovered = false;
-
+float Interface::simulationSpeed = 1;
 
 
 void Interface::custom_style() {
@@ -46,9 +46,9 @@ void Interface::custom_style() {
     style->IndentSpacing = 12.5;
     style->ScrollbarSize = 7.5;
     style->ScrollbarRounding = 7.5;
-    style->GrabMinSize = 7.5;
+    style->GrabMinSize = 15;
     style->GrabRounding = 3.5;
-    style->FrameRounding = 3;
+    style->FrameRounding = 5;
 
     colors[ImGuiCol_Text] = ImVec4(0.95, 0.96, 0.98, 1.00);
     colors[ImGuiCol_TextDisabled] = ImVec4(0.36, 0.42, 0.47, 1.00);
@@ -129,6 +129,10 @@ void Interface::CheckEvent(const sf::Event& event) {
         ImGui::GetIO().FontGlobalScale = current_ui_scale*(1./4.*3);
         std::cout << current_ui_scale << ' ' << ImGui::GetIO().FontGlobalScale << std::endl;
     }
+}
+
+float Interface::getSimulationSpeed() {
+    return simulationSpeed;
 }
 
 bool Interface::getPause() {
@@ -241,7 +245,7 @@ int Interface::Update() {
 
     
     ImGui::SetNextWindowPos(ImVec2(window->getSize().x - (122*current_ui_scale), 0));
-    ImGui::SetNextWindowSize(ImVec2(122*current_ui_scale, 65*current_ui_scale));
+    ImGui::SetNextWindowSize(ImVec2(122*current_ui_scale, 111*current_ui_scale));
 
     ImGui::Begin("Poops", nullptr, 
         ImGuiWindowFlags_NoMove |           // Запретить перемещение
@@ -285,20 +289,15 @@ int Interface::Update() {
             pause = true;
         }
     }
+
+    ImGui::PushItemWidth(106*current_ui_scale);
+    if (ImGui::SliderFloat("##Speed", &simulationSpeed, 0.1, 10, "%.1f", ImGuiSliderFlags_Logarithmic));
+        // simulationSpeed = 0.25 * (int)(simulationSpeed / 0.25);
+    ImGui::PopItemWidth();
+
     // if (ImGui::IsItemHovered()) {
     //     ImGui::SetTooltip("podscazka");
     // }
-
-    // Само выпадающее меню
-    if (ImGui::BeginPopup("my_popup")) {
-        if (ImGui::MenuItem("save")) { /* действие */ }
-        if (ImGui::MenuItem("open")) { /* действие */ }
-        
-        ImGui::Separator();
-        
-        if (ImGui::MenuItem("exit")) { /* действие */ }
-        ImGui::EndPopup();
-    }
 
     ImGui::PopFont();
     ImGui::End();
