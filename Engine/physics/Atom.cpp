@@ -32,8 +32,9 @@ void Atom::setGrid(SpatialGrid* grid_ptr) {
     grid = grid_ptr;
 }
 
-Atom::Atom(float x, float y, int type, Vec2D start_speed, bool fixed) : coords(x, y), type(type), speed(start_speed), charge(0), prevCoords(x, y), isFixed(fixed) 
-    {valence = getProps().maxValence;}
+Atom::Atom(float x, float y, int type, Vec2D start_speed, bool fixed) : coords(x, y), type(type), speed(start_speed), charge(0), prevCoords(x, y), isFixed(fixed) {
+    valence = getProps().maxValence;
+    connects.reserve(getProps().maxValence);}
 
 
 void Atom::Update(double deltaTime) {
@@ -90,13 +91,27 @@ void Atom::Collision(int curr_x, int curr_y, double deltaTime) {
                     float ny = dy / distance;
 
 
-                    if (distance < 0.74 && valence > 0) {
+                    if (distance < 0.74) {
+
                         valence = 0;
                     }
-                    if (distance > 0.74 * 1.5f) {
-                        other->valence--;
-                        valence--;
-                    }
+
+                    float dt_mass = deltaTime / getProps().mass;
+                    float other_dt_mass = deltaTime / other->getProps().mass;
+
+                    if (valence < getProps().maxValence) {
+                        float bond_force = a * (distance - r0);
+                        speed.x += bond_force * nx * dt_mass;
+                        speed.y += bond_force * ny * dt_mass;
+                        other->speed.x -= bond_force * nx * other_dt_mass;
+                        other->speed.y -= bond_force * ny * other_dt_mass;
+                    } 
+
+
+                    // if (distance > 0.74 * 1.5f) {
+                    //     other->valence--;
+                    //     valence--;
+                    // }
 
                     // if (valence > 0) {
                         // Нормализованный вектор столкновения
@@ -106,8 +121,6 @@ void Atom::Collision(int curr_x, int curr_y, double deltaTime) {
                         // float force_y = force_magnitude * ny;
                         
 
-                        float dt_mass = deltaTime / getProps().mass;
-                        float other_dt_mass = deltaTime / other->getProps().mass;
                         
                         float force_magnitude = MorseForce(distance);
                         speed.x += force_magnitude * nx * dt_mass;

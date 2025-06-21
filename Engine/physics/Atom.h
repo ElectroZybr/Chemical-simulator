@@ -2,6 +2,7 @@
 #include <array>
 #include "..\math\Vec2D.h"
 #include "SpatialGrid.h"
+#include <vector>
 
 
 // Общие данные для всех атомов одного типа
@@ -31,6 +32,7 @@ public:
     float a = 10;
     bool isFixed = false;
     float prev_distance = 0;
+    std::vector<Atom*> connects;
 
     Atom (float x, float y, int type, Vec2D start_speed, bool fixed = false);
 
