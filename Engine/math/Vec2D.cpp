@@ -1,5 +1,4 @@
 #include <cmath>
-#include <cassert>
 
 #include "Vec2D.h"
 #include "../Consts.h"
@@ -27,6 +26,20 @@ Vec2D Vec2D::operator+(const Vec2D &vec) const {
 
 Vec2D Vec2D::operator-(const Vec2D &vec) const {
     return Vec2D(x - vec.x, y - vec.y);
+}
+
+Vec2D Vec2D::operator-(double num) const {
+    return Vec2D(x - num, y - num);
+}
+
+void Vec2D::operator+=(const Vec2D &vec) {
+    x = x + vec.x;
+    y = y + vec.y;
+}
+
+void Vec2D::operator-=(const Vec2D &vec) {
+    x = x - vec.x;
+    y = y - vec.y;
 }
 
 Vec2D Vec2D::operator*(double number) const {
@@ -63,4 +76,8 @@ double Vec2D::dot(const Vec2D &vec) const {
 
 bool Vec2D::isNear(double a, double b) {
     return std::abs(a - b) < Consts::EPS;
+}
+
+double Vec2D::length() const {
+    return sqrt(x*x + y*y);
 }

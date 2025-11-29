@@ -126,16 +126,16 @@ Libraries/imgui-sfml/clean: Libraries/imgui-sfml/CMakeFiles/ImGui-SFML.dir/clean
 # Target rules for target CMakeFiles/Chemical-simulator.dir
 
 # All Build rule for target.
-CMakeFiles/Chemical-simulator.dir/all: Libraries/imgui/CMakeFiles/imgui.dir/all
 CMakeFiles/Chemical-simulator.dir/all: Libraries/imgui-sfml/CMakeFiles/ImGui-SFML.dir/all
+CMakeFiles/Chemical-simulator.dir/all: Libraries/imgui/CMakeFiles/imgui.dir/all
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\Chemical-simulator.dir\build.make CMakeFiles/Chemical-simulator.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\Chemical-simulator.dir\build.make CMakeFiles/Chemical-simulator.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=C:\Users\user\Documents\Coding\Chemical-simulator\build\CMakeFiles --progress-num=1,2,3,4,5,6,7 "Built target Chemical-simulator"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=C:\Users\user\Documents\Coding\Chemical-simulator\build\CMakeFiles --progress-num=1,2,3,4,5,6,7,8,9,10,11,12,13,14 "Built target Chemical-simulator"
 .PHONY : CMakeFiles/Chemical-simulator.dir/all
 
 # Build rule for subdir invocation for target.
 CMakeFiles/Chemical-simulator.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start C:\Users\user\Documents\Coding\Chemical-simulator\build\CMakeFiles 21
+	$(CMAKE_COMMAND) -E cmake_progress_start C:\Users\user\Documents\Coding\Chemical-simulator\build\CMakeFiles 28
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\Makefile2 CMakeFiles/Chemical-simulator.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start C:\Users\user\Documents\Coding\Chemical-simulator\build\CMakeFiles 0
 .PHONY : CMakeFiles/Chemical-simulator.dir/rule
@@ -147,7 +147,7 @@ Chemical-simulator: CMakeFiles/Chemical-simulator.dir/rule
 # codegen rule for target.
 CMakeFiles/Chemical-simulator.dir/codegen:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles\Chemical-simulator.dir\build.make CMakeFiles/Chemical-simulator.dir/codegen
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=C:\Users\user\Documents\Coding\Chemical-simulator\build\CMakeFiles --progress-num=1,2,3,4,5,6,7 "Finished codegen for target Chemical-simulator"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=C:\Users\user\Documents\Coding\Chemical-simulator\build\CMakeFiles --progress-num=1,2,3,4,5,6,7,8,9,10,11,12,13,14 "Finished codegen for target Chemical-simulator"
 .PHONY : CMakeFiles/Chemical-simulator.dir/codegen
 
 # clean rule for target.
@@ -162,7 +162,7 @@ CMakeFiles/Chemical-simulator.dir/clean:
 Libraries/imgui/CMakeFiles/imgui.dir/all:
 	$(MAKE) $(MAKESILENT) -f Libraries\imgui\CMakeFiles\imgui.dir\build.make Libraries/imgui/CMakeFiles/imgui.dir/depend
 	$(MAKE) $(MAKESILENT) -f Libraries\imgui\CMakeFiles\imgui.dir\build.make Libraries/imgui/CMakeFiles/imgui.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=C:\Users\user\Documents\Coding\Chemical-simulator\build\CMakeFiles --progress-num=16,17,18,19,20,21 "Built target imgui"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=C:\Users\user\Documents\Coding\Chemical-simulator\build\CMakeFiles --progress-num=23,24,25,26,27,28 "Built target imgui"
 .PHONY : Libraries/imgui/CMakeFiles/imgui.dir/all
 
 # Build rule for subdir invocation for target.
@@ -179,7 +179,7 @@ imgui: Libraries/imgui/CMakeFiles/imgui.dir/rule
 # codegen rule for target.
 Libraries/imgui/CMakeFiles/imgui.dir/codegen:
 	$(MAKE) $(MAKESILENT) -f Libraries\imgui\CMakeFiles\imgui.dir\build.make Libraries/imgui/CMakeFiles/imgui.dir/codegen
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=C:\Users\user\Documents\Coding\Chemical-simulator\build\CMakeFiles --progress-num=16,17,18,19,20,21 "Finished codegen for target imgui"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=C:\Users\user\Documents\Coding\Chemical-simulator\build\CMakeFiles --progress-num=23,24,25,26,27,28 "Finished codegen for target imgui"
 .PHONY : Libraries/imgui/CMakeFiles/imgui.dir/codegen
 
 # clean rule for target.
@@ -194,7 +194,7 @@ Libraries/imgui/CMakeFiles/imgui.dir/clean:
 Libraries/imgui-sfml/CMakeFiles/ImGui-SFML.dir/all:
 	$(MAKE) $(MAKESILENT) -f Libraries\imgui-sfml\CMakeFiles\ImGui-SFML.dir\build.make Libraries/imgui-sfml/CMakeFiles/ImGui-SFML.dir/depend
 	$(MAKE) $(MAKESILENT) -f Libraries\imgui-sfml\CMakeFiles\ImGui-SFML.dir\build.make Libraries/imgui-sfml/CMakeFiles/ImGui-SFML.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=C:\Users\user\Documents\Coding\Chemical-simulator\build\CMakeFiles --progress-num=8,9,10,11,12,13,14,15 "Built target ImGui-SFML"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=C:\Users\user\Documents\Coding\Chemical-simulator\build\CMakeFiles --progress-num=15,16,17,18,19,20,21,22 "Built target ImGui-SFML"
 .PHONY : Libraries/imgui-sfml/CMakeFiles/ImGui-SFML.dir/all
 
 # Build rule for subdir invocation for target.
@@ -211,7 +211,7 @@ ImGui-SFML: Libraries/imgui-sfml/CMakeFiles/ImGui-SFML.dir/rule
 # codegen rule for target.
 Libraries/imgui-sfml/CMakeFiles/ImGui-SFML.dir/codegen:
 	$(MAKE) $(MAKESILENT) -f Libraries\imgui-sfml\CMakeFiles\ImGui-SFML.dir\build.make Libraries/imgui-sfml/CMakeFiles/ImGui-SFML.dir/codegen
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=C:\Users\user\Documents\Coding\Chemical-simulator\build\CMakeFiles --progress-num=8,9,10,11,12,13,14,15 "Finished codegen for target ImGui-SFML"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=C:\Users\user\Documents\Coding\Chemical-simulator\build\CMakeFiles --progress-num=15,16,17,18,19,20,21,22 "Finished codegen for target ImGui-SFML"
 .PHONY : Libraries/imgui-sfml/CMakeFiles/ImGui-SFML.dir/codegen
 
 # clean rule for target.

@@ -19,7 +19,8 @@
 			"include",
 			"find_package",
 			"set_property",
-			"sfml_bind_dependency"
+			"sfml_bind_dependency",
+			"target_sources"
 		],
 		"files" : 
 		[
@@ -43,19 +44,19 @@
 			{
 				"command" : 1,
 				"file" : 0,
-				"line" : 36,
+				"line" : 51,
 				"parent" : 0
 			},
 			{
 				"command" : 1,
 				"file" : 0,
-				"line" : 37,
+				"line" : 52,
 				"parent" : 0
 			},
 			{
 				"command" : 1,
 				"file" : 0,
-				"line" : 38,
+				"line" : 53,
 				"parent" : 0
 			},
 			{
@@ -138,6 +139,12 @@
 				"file" : 4,
 				"line" : 81,
 				"parent" : 17
+			},
+			{
+				"command" : 7,
+				"file" : 0,
+				"line" : 49,
+				"parent" : 0
 			}
 		]
 	},
@@ -193,19 +200,59 @@
 				5,
 				7,
 				9,
-				11
+				11,
+				13,
+				15,
+				17,
+				19,
+				21,
+				23
+			]
+		},
+		{
+			"defines" : 
+			[
+				{
+					"backtrace" : 4,
+					"define" : "IMGUI_USER_CONFIG=\"imconfig-SFML.h\""
+				},
+				{
+					"backtrace" : 2,
+					"define" : "SFML_STATIC"
+				}
+			],
+			"includes" : 
+			[
+				{
+					"backtrace" : 3,
+					"path" : "C:/Users/user/Documents/Coding/Chemical-simulator/Libraries/imgui"
+				},
+				{
+					"backtrace" : 4,
+					"path" : "C:/Users/user/Documents/Coding/Chemical-simulator/Libraries/imgui-sfml"
+				},
+				{
+					"backtrace" : 2,
+					"isSystem" : true,
+					"path" : "C:/Users/user/Documents/Coding/Chemical-simulator/Libraries/sfml/include"
+				}
+			],
+			"language" : "RC",
+			"sourceIndexes" : 
+			[
+				24
 			]
 		}
 	],
 	"dependencies" : 
 	[
 		{
-			"backtrace" : 3,
-			"id" : "imgui::@f044a856410ebdd8ea90"
-		},
-		{
 			"backtrace" : 4,
 			"id" : "ImGui-SFML::@478e0b1d83a5aafd1e57"
+		},
+		{
+			"backtrace" : 3,
+			"id" : "imgui::@f044a856410ebdd8ea90"
 		}
 	],
 	"id" : "Chemical-simulator::@6890427a1f51a3e7e1df",
@@ -327,7 +374,14 @@
 				5,
 				7,
 				9,
-				11
+				11,
+				13,
+				15,
+				17,
+				19,
+				21,
+				23,
+				24
 			]
 		},
 		{
@@ -339,7 +393,13 @@
 				4,
 				6,
 				8,
-				10
+				10,
+				12,
+				14,
+				16,
+				18,
+				20,
+				22
 			]
 		}
 	],
@@ -380,6 +440,17 @@
 		},
 		{
 			"backtrace" : 1,
+			"path" : "engine/math/Vec3D.h",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "engine/math/Vec3D.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
 			"path" : "engine/physics/Atom.h",
 			"sourceGroupIndex" : 1
 		},
@@ -387,6 +458,28 @@
 			"backtrace" : 1,
 			"compileGroupIndex" : 0,
 			"path" : "engine/physics/Atom.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"path" : "engine/physics/Bond.h",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "engine/physics/Bond.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"path" : "engine/physics/BondTable.h",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "engine/physics/BondTable.cpp",
 			"sourceGroupIndex" : 0
 		},
 		{
@@ -409,6 +502,45 @@
 			"backtrace" : 1,
 			"compileGroupIndex" : 0,
 			"path" : "engine/Camera.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"path" : "engine/Renderer.h",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "engine/Renderer.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"path" : "engine/Simulation.h",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "engine/Simulation.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"path" : "engine/Tools.h",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "engine/Tools.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 20,
+			"compileGroupIndex" : 1,
+			"path" : "app_icon.rc",
 			"sourceGroupIndex" : 0
 		}
 	],

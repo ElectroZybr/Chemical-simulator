@@ -1,6 +1,6 @@
 // #ifndef interface
 // #define interface
-// #pragma once
+#pragma once
 
 #include "imgui.h"
 #include "imgui-SFML.h"
@@ -27,6 +27,8 @@ public:
     static int getSelectedAtom();
     static float getSimulationSpeed();
     static bool cursorHovered;
+    static int countSelectedAtom;
+    static bool drawToolTrip;
 };
 
 // #endif

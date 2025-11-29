@@ -32,6 +32,8 @@ int Interface::selectedAtom = -1;
 bool Interface::pause;
 bool Interface::cursorHovered = false;
 float Interface::simulationSpeed = 1;
+int Interface::countSelectedAtom = 0;
+bool Interface::drawToolTrip = false;
 
 
 void Interface::custom_style() {
@@ -291,7 +293,7 @@ int Interface::Update() {
     }
 
     ImGui::PushItemWidth(106*current_ui_scale);
-    if (ImGui::SliderFloat("##Speed", &simulationSpeed, 0.1, 10, "%.1f", ImGuiSliderFlags_Logarithmic));
+    if (ImGui::SliderFloat("##Speed", &simulationSpeed, 0.1, 50, "%.1f", ImGuiSliderFlags_Logarithmic));
         // simulationSpeed = 0.25 * (int)(simulationSpeed / 0.25);
     ImGui::PopItemWidth();
 
@@ -317,6 +319,16 @@ int Interface::Update() {
     ImGui::Text("FPS: %.1f", ImGui::GetIO().Framerate);
     ImGui::PopFont();
     ImGui::End();
+
+    if (drawToolTrip) {
+        ImVec2 mouse = ImGui::GetMousePos();
+        ImGui::SetNextWindowPos(ImVec2(mouse.x + 12, mouse.y + 12));
+
+        ImGui::BeginTooltip();
+        ImGui::Text("Selected: %d", countSelectedAtom);
+        ImGui::EndTooltip();
+    }
+
 
     // Проверка на вхождение курсора в область
     cursorHovered = ImGui::IsAnyItemHovered() || ImGui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow) || ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopup);

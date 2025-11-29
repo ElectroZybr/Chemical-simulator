@@ -31,22 +31,20 @@ void Camera::zoomAt(float factor, sf::Vector2f mousePos, sf::RenderWindow& windo
     // Изменяем уровень зума с учетом направления к курсору
     float prevZoom = zoom;
     zoom *= (1.f + factor * zoomSpeed);
-    zoom = std::max(0.1f, std::min(zoom, 50.f));
+    zoom = std::max(1.f, std::min(zoom, 500.f));
 
     speed = moveSpeed / zoom;
     
     // Плавное следование за указателем мыши при зуме
-    sf::Vector2i deltaPos = sf::Mouse::getPosition(window) - sf::Vector2i(window.getSize()) / 2;
-    position += sf::Vector2f(deltaPos) * 0.1f / zoom * factor;
+    if (zoom > 1.f && zoom < 500.f) {
+        sf::Vector2i deltaPos = sf::Mouse::getPosition(window) - sf::Vector2i(window.getSize()) / 2;
+        position += sf::Vector2f(deltaPos) * 0.1f / zoom * factor;
+    }
 }
 
 float Camera::getZoom() const {
     return zoom;
 }
-
-// const sf::View Camera::getView() const {
-//     return view;
-// }
 
 void Camera::handleInput(float deltaTime, sf::RenderWindow& window) {
     // Управление WASD
