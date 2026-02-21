@@ -31,17 +31,16 @@ void Atom::setGrid(SpatialGrid* grid_ptr) {
     grid = grid_ptr;
 }
 
-Atom::Atom(Vec3D start_coords, Vec3D start_speed, int type, bool fixed) : coords(start_coords), speed(start_speed), type(type), acceleration(0, 0), PrevAcceleration(0, 0) {
+Atom::Atom(Vec3D start_coords, Vec3D start_speed, int type, bool fixed) : coords(start_coords), speed(start_speed), type(type), isFixed(fixed), acceleration(0, 0), PrevAcceleration(0, 0) {
     valence = getProps().maxValence;
-    // bonds.reserve(getProps().maxValence);
+    bonds.reserve(getProps().maxValence);
     Bond::bond_default_props.init();}
-    // grid->insert((int)round(x), (int)round(y), this);}
+    //grid->insert((int)round(start_coords.x), (int)round(start_coords.y), this);}
 
 void Atom::PredictPosition(double deltaTime) {
     int prev_x = (int)round(coords.x), prev_y = (int)round(coords.y);
     
     if (isFixed == false)
-        // Euler(deltaTime);
         Verlet(deltaTime);
 
     //Bounce();
@@ -135,47 +134,36 @@ void Atom::ComputeForces(double deltaTime) {
                     if (other <= this) continue;
 
                     Vec3D delta = coords - other->coords;
-                    // delta = Vec3D(abs(delta.x), abs(delta.y), abs(delta.z));
                     float distance = sqrt(delta.dot(delta));
-                    if (distance < 1.3 * r0 && valence > 0 && other->valence > 0) {
-                        std::cout << "<Create bond>" << std::endl;
-                        Bond::CreateBond(this, other);
-                        // Bond new_bond = Bond(this, other, r0, 1, De, a);
-                        // bonds_list.push_back(Bond(this, other));
-                        // bonds.push_back(&bonds_list.back());
-                        // other->bonds.push_back(&bonds_list.back());
-                        // valence--;
-                        // other->valence--;
-                    }
-
-                    // if (bonds)
-                    // bool flag = false;
+                    
+                    bool flag = false;
                     // for (Bond* bond : bonds) {
                     //     if (this == bond->a && other == bond->b) {
-                    //         // std::cout << "<Force bond1> " << Force(this, other, deltaTime).x << std::endl;
-                    //         if (distance > 3) {
-                    //             std::cout << "<Break bond>" << std::endl;
-                    //             // bonds_list.remove
-                    //             this->bonds.
-                    //         }
-                    //         bond->forceBond(distance, deltaTime);
                     //         flag = true;
                     //     }
                     // }
-                    // if (!flag) {
-                        // Vec3D force = Force(this, other, deltaTime);
-                        // // std::cout << "<Morse Force>" << force.x << std::endl;
-                        // acceleration = acceleration + force / getProps().mass;
-                        // other->acceleration = other->acceleration - force / other->getProps().mass;
-                    // }
+
+                    if (getProps().maxValence - valence == 2) {
+                        Bond::angleForce(this, bonds[0], bonds[1]);
+                    }
+                    
+                    if (!flag) {
+                        if (distance < 1.3 * r0 && valence > 0 && other->valence > 0) {
+                            Bond::CreateBond(this, other);
+                        }
+                        Vec3D force = Force(this, other, deltaTime);
+                        // std::cout << "<Morse Force>" << force.x << std::endl;
+                        // acceleration = acceleration - force / getProps().mass;
+                        // other->acceleration = other->acceleration + force / other->getProps().mass;
+                    }
                 }
             }
         }
     }
 }
 
-Vec3D Atom::Force(Atom *a1, Atom *a2, double dt) {
-    Vec3D delta = a2->coords - a1->coords;
+Vec3D Atom::Force(Atom *a, Atom *b, double dt) {
+    Vec3D delta = b->coords - a->coords;
     float distance_sq = delta.dot(delta);
 
     // Вычисляем расстояние (избегаем деления на 0)
@@ -195,17 +183,18 @@ void Atom::Euler(double dt) {
 
 void Atom::Verlet(double dt) {
     // Предсказание новой позиции на основе предыдущей и ускорения
-    coords += speed * dt + acceleration * (0.5 * dt * dt);
+    coords += speed * dt * 0.8 + acceleration * 0.5 * dt * dt;
 }
 
 void Atom::CorrectVelosity(double dt) {
     // Обновление скорости с использованием среднего ускорения
-    speed += (PrevAcceleration + acceleration) * (0.5 * dt);
+    speed += (PrevAcceleration + acceleration) * 0.5 * dt;
+    //speed = speed * 0.999; // небольшое гашение колебаний
 }
 
 float Atom::MorseForce(float distanse) {
-    float exponent = std::exp(-a * (distanse - r0));
-    return 2 * De * a * (1 - exponent) * exponent;
+    float exp_a = std::exp(-a * (distanse - r0));
+    return 2 * De * a * (exp_a * exp_a - exp_a);
 }
 
 float Atom::MorsePotential(float distanse) {

@@ -157,8 +157,13 @@ void Simulation::createRandomAtoms(int type, int quantity) {
         createAtom(Vec3D(std::rand() % grid.sizeX, std::rand() % grid.sizeY, 0), randomUnitVector3D(), type);
 }
 
-void Simulation::createAtom(Vec3D start_coords, Vec3D start_speed, int type, bool fixed) {
+Atom* Simulation::createAtom(Vec3D start_coords, Vec3D start_speed, int type, bool fixed) {
     atoms.push_back(Atom(start_coords, start_speed, type, fixed));
+    return &atoms.back();
+}
+
+void Simulation::addBond(Atom* a1, Atom* a2) {
+    Bond::CreateBond(a1, a2);
 }
 
 double Simulation::AverageTemp() {
@@ -214,6 +219,20 @@ void Simulation::logAtomPos() {
                   << " | Z " << atom.coords.z
                   << std::endl;
         i++;
+    }
+}
+
+void Simulation::logBondList() {
+    // for (Bond& bond : Bond::bonds_list) {
+    //     std::cout 
+    //         << bond.a << " " << bond.a->type << " "
+    //         << bond.b << " " << bond.b->type
+    //         << std::endl;
+    // }
+    for (Atom& atom : atoms) {
+        if (atom.bonds.size() > 0) {
+            std::cout << atom.bonds.size() << std::endl;
+        }
     }
 }
 

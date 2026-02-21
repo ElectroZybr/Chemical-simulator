@@ -1,0 +1,139 @@
+{
+	"abstract" : true,
+	"backtrace" : 5,
+	"backtraceGraph" : 
+	{
+		"commands" : 
+		[
+			"add_library",
+			"include",
+			"find_package",
+			"set_property",
+			"sfml_bind_dependency"
+		],
+		"files" : 
+		[
+			"Libraries/sfml/lib/cmake/SFML/SFMLStaticTargets.cmake",
+			"Libraries/sfml/lib/cmake/SFML/SFMLConfig.cmake",
+			"CMakeLists.txt",
+			"Libraries/sfml/lib/cmake/SFML/SFMLConfigDependencies.cmake",
+			"Libraries/imgui-sfml/CMakeLists.txt"
+		],
+		"nodes" : 
+		[
+			{
+				"file" : 2
+			},
+			{
+				"command" : 2,
+				"file" : 2,
+				"line" : 11,
+				"parent" : 0
+			},
+			{
+				"file" : 1,
+				"parent" : 1
+			},
+			{
+				"command" : 1,
+				"file" : 1,
+				"line" : 116,
+				"parent" : 2
+			},
+			{
+				"file" : 0,
+				"parent" : 3
+			},
+			{
+				"command" : 0,
+				"file" : 0,
+				"line" : 101,
+				"parent" : 4
+			},
+			{
+				"command" : 1,
+				"file" : 1,
+				"line" : 117,
+				"parent" : 2
+			},
+			{
+				"file" : 3,
+				"parent" : 6
+			},
+			{
+				"command" : 4,
+				"file" : 3,
+				"line" : 66,
+				"parent" : 7
+			},
+			{
+				"command" : 3,
+				"file" : 3,
+				"line" : 38,
+				"parent" : 8
+			},
+			{
+				"file" : 4
+			},
+			{
+				"command" : 2,
+				"file" : 4,
+				"line" : 30,
+				"parent" : 10
+			},
+			{
+				"file" : 1,
+				"parent" : 11
+			},
+			{
+				"command" : 1,
+				"file" : 1,
+				"line" : 117,
+				"parent" : 12
+			},
+			{
+				"file" : 3,
+				"parent" : 13
+			},
+			{
+				"command" : 4,
+				"file" : 3,
+				"line" : 66,
+				"parent" : 14
+			},
+			{
+				"command" : 3,
+				"file" : 3,
+				"line" : 38,
+				"parent" : 15
+			}
+		]
+	},
+	"codemodelVersion" : 
+	{
+		"major" : 2,
+		"minor" : 9
+	},
+	"id" : "Freetype::@6890427a1f51a3e7e1df",
+	"imported" : true,
+	"interfaceLinkLibraries" : 
+	[
+		{
+			"backtrace" : 9,
+			"fragment" : "C:/Users/elect/Documents/Coding/Chemical-simulator/Libraries/sfml/lib/libfreetype.a"
+		},
+		{
+			"backtrace" : 16,
+			"fragment" : "C:/Users/elect/Documents/Coding/Chemical-simulator/Libraries/sfml/lib/libfreetype.a"
+		}
+	],
+	"local" : true,
+	"name" : "Freetype",
+	"paths" : 
+	{
+		"build" : ".",
+		"source" : "."
+	},
+	"sources" : [],
+	"type" : "INTERFACE_LIBRARY"
+}

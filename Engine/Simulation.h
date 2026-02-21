@@ -11,11 +11,13 @@ public:
     void renderShot(float dt);
     void event();
     void createRandomAtoms(int type, int quantity);
-    void createAtom(Vec3D start_coords, Vec3D start_speed, int type, bool fixed = false);
+    Atom* createAtom(Vec3D start_coords, Vec3D start_speed, int type, bool fixed = false);
+    void addBond(Atom* a1, Atom* a2);
     double AverageTemp();
     void logEnergies();
     void logAtomPos();
     void logMousePos();
+    void logBondList();
     void drawGrid(bool flag);
     void drawBonds(bool flag);
     void setCameraPos(double x, double y);

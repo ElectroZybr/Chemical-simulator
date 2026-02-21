@@ -1,2 +1,0 @@
-C:\mingw64\bin\ar.exe qc libimguilib.a CMakeFiles/imguilib.dir/libs/imgui/imgui.cpp.obj CMakeFiles/imguilib.dir/libs/imgui/imgui_demo.cpp.obj CMakeFiles/imguilib.dir/libs/imgui/imgui_draw.cpp.obj CMakeFiles/imguilib.dir/libs/imgui/imgui_tables.cpp.obj CMakeFiles/imguilib.dir/libs/imgui/imgui_widgets.cpp.obj "CMakeFiles/imguilib.dir/libs/imgui-sfml/imgui-SFML.cpp.obj"
-C:\mingw64\bin\ranlib.exe libimguilib.a

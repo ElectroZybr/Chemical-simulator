@@ -32,17 +32,14 @@ public:
     Vec3D PrevAcceleration;
 
     int type;
-    // double charge;
-    // double energy;
     int valence;
-    float r0 = 0.74;
-    float De = 0.052;
-    float a = 0.25;
+    float r0 = 2.5;
+    float De = 0.2;
+    float a = 1.0;
 
     bool isFixed = false;
     bool isSelect = false;
-    // std::vector<Bond*> bonds;
-    // static std::list<Bond> bonds_list;
+    std::vector<Atom*> bonds;
 
     Atom (Vec3D start_coords, Vec3D start_speed, int type, bool fixed = false);
 

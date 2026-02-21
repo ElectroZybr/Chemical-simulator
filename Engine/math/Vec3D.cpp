@@ -91,3 +91,7 @@ Vec3D Vec3D::Random() {
 bool Vec3D::isNear(double a, double b) {
     return std::abs(a - b) < Consts::EPS;
 }
+
+double Vec3D::length() const {
+    return std::sqrt(dot(*this));
+}

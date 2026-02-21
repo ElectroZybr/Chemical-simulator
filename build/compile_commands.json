@@ -1,146 +1,146 @@
 [
 {
-  "directory": "C:/Users/user/Documents/Coding/Chemical-simulator/build",
-  "command": "C:\\mingw64\\bin\\g++.exe -DIMGUI_USER_CONFIG=\\\"imconfig-SFML.h\\\" -DSFML_STATIC @CMakeFiles/Chemical-simulator.dir/includes_CXX.rsp -g -std=gnu++1z -o CMakeFiles\\Chemical-simulator.dir\\main.cpp.obj -c C:\\Users\\user\\Documents\\Coding\\Chemical-simulator\\main.cpp",
-  "file": "C:/Users/user/Documents/Coding/Chemical-simulator/main.cpp",
+  "directory": "C:/Users/elect/Documents/Coding/Chemical-simulator/build",
+  "command": "c:\\mingw64\\bin\\g++.exe -DIMGUI_USER_CONFIG=\\\"imconfig-SFML.h\\\" -DSFML_STATIC @CMakeFiles/Chemical-simulator.dir/includes_CXX.rsp -g -std=gnu++1z -o CMakeFiles\\Chemical-simulator.dir\\main.cpp.obj -c C:\\Users\\elect\\Documents\\Coding\\Chemical-simulator\\main.cpp",
+  "file": "C:/Users/elect/Documents/Coding/Chemical-simulator/main.cpp",
   "output": "CMakeFiles/Chemical-simulator.dir/main.cpp.obj"
 },
 {
-  "directory": "C:/Users/user/Documents/Coding/Chemical-simulator/build",
-  "command": "C:\\mingw64\\bin\\g++.exe -DIMGUI_USER_CONFIG=\\\"imconfig-SFML.h\\\" -DSFML_STATIC @CMakeFiles/Chemical-simulator.dir/includes_CXX.rsp -g -std=gnu++1z -o CMakeFiles\\Chemical-simulator.dir\\interface.cpp.obj -c C:\\Users\\user\\Documents\\Coding\\Chemical-simulator\\interface.cpp",
-  "file": "C:/Users/user/Documents/Coding/Chemical-simulator/interface.cpp",
+  "directory": "C:/Users/elect/Documents/Coding/Chemical-simulator/build",
+  "command": "c:\\mingw64\\bin\\g++.exe -DIMGUI_USER_CONFIG=\\\"imconfig-SFML.h\\\" -DSFML_STATIC @CMakeFiles/Chemical-simulator.dir/includes_CXX.rsp -g -std=gnu++1z -o CMakeFiles\\Chemical-simulator.dir\\interface.cpp.obj -c C:\\Users\\elect\\Documents\\Coding\\Chemical-simulator\\interface.cpp",
+  "file": "C:/Users/elect/Documents/Coding/Chemical-simulator/interface.cpp",
   "output": "CMakeFiles/Chemical-simulator.dir/interface.cpp.obj"
 },
 {
-  "directory": "C:/Users/user/Documents/Coding/Chemical-simulator/build",
-  "command": "C:\\mingw64\\bin\\g++.exe -DIMGUI_USER_CONFIG=\\\"imconfig-SFML.h\\\" -DSFML_STATIC @CMakeFiles/Chemical-simulator.dir/includes_CXX.rsp -g -std=gnu++1z -o CMakeFiles\\Chemical-simulator.dir\\engine\\math\\Vec2D.cpp.obj -c C:\\Users\\user\\Documents\\Coding\\Chemical-simulator\\engine\\math\\Vec2D.cpp",
-  "file": "C:/Users/user/Documents/Coding/Chemical-simulator/engine/math/Vec2D.cpp",
+  "directory": "C:/Users/elect/Documents/Coding/Chemical-simulator/build",
+  "command": "c:\\mingw64\\bin\\g++.exe -DIMGUI_USER_CONFIG=\\\"imconfig-SFML.h\\\" -DSFML_STATIC @CMakeFiles/Chemical-simulator.dir/includes_CXX.rsp -g -std=gnu++1z -o CMakeFiles\\Chemical-simulator.dir\\engine\\math\\Vec2D.cpp.obj -c C:\\Users\\elect\\Documents\\Coding\\Chemical-simulator\\engine\\math\\Vec2D.cpp",
+  "file": "C:/Users/elect/Documents/Coding/Chemical-simulator/engine/math/Vec2D.cpp",
   "output": "CMakeFiles/Chemical-simulator.dir/engine/math/Vec2D.cpp.obj"
 },
 {
-  "directory": "C:/Users/user/Documents/Coding/Chemical-simulator/build",
-  "command": "C:\\mingw64\\bin\\g++.exe -DIMGUI_USER_CONFIG=\\\"imconfig-SFML.h\\\" -DSFML_STATIC @CMakeFiles/Chemical-simulator.dir/includes_CXX.rsp -g -std=gnu++1z -o CMakeFiles\\Chemical-simulator.dir\\engine\\math\\Vec3D.cpp.obj -c C:\\Users\\user\\Documents\\Coding\\Chemical-simulator\\engine\\math\\Vec3D.cpp",
-  "file": "C:/Users/user/Documents/Coding/Chemical-simulator/engine/math/Vec3D.cpp",
+  "directory": "C:/Users/elect/Documents/Coding/Chemical-simulator/build",
+  "command": "c:\\mingw64\\bin\\g++.exe -DIMGUI_USER_CONFIG=\\\"imconfig-SFML.h\\\" -DSFML_STATIC @CMakeFiles/Chemical-simulator.dir/includes_CXX.rsp -g -std=gnu++1z -o CMakeFiles\\Chemical-simulator.dir\\engine\\math\\Vec3D.cpp.obj -c C:\\Users\\elect\\Documents\\Coding\\Chemical-simulator\\engine\\math\\Vec3D.cpp",
+  "file": "C:/Users/elect/Documents/Coding/Chemical-simulator/engine/math/Vec3D.cpp",
   "output": "CMakeFiles/Chemical-simulator.dir/engine/math/Vec3D.cpp.obj"
 },
 {
-  "directory": "C:/Users/user/Documents/Coding/Chemical-simulator/build",
-  "command": "C:\\mingw64\\bin\\g++.exe -DIMGUI_USER_CONFIG=\\\"imconfig-SFML.h\\\" -DSFML_STATIC @CMakeFiles/Chemical-simulator.dir/includes_CXX.rsp -g -std=gnu++1z -o CMakeFiles\\Chemical-simulator.dir\\engine\\physics\\Atom.cpp.obj -c C:\\Users\\user\\Documents\\Coding\\Chemical-simulator\\engine\\physics\\Atom.cpp",
-  "file": "C:/Users/user/Documents/Coding/Chemical-simulator/engine/physics/Atom.cpp",
+  "directory": "C:/Users/elect/Documents/Coding/Chemical-simulator/build",
+  "command": "c:\\mingw64\\bin\\g++.exe -DIMGUI_USER_CONFIG=\\\"imconfig-SFML.h\\\" -DSFML_STATIC @CMakeFiles/Chemical-simulator.dir/includes_CXX.rsp -g -std=gnu++1z -o CMakeFiles\\Chemical-simulator.dir\\engine\\physics\\Atom.cpp.obj -c C:\\Users\\elect\\Documents\\Coding\\Chemical-simulator\\engine\\physics\\Atom.cpp",
+  "file": "C:/Users/elect/Documents/Coding/Chemical-simulator/engine/physics/Atom.cpp",
   "output": "CMakeFiles/Chemical-simulator.dir/engine/physics/Atom.cpp.obj"
 },
 {
-  "directory": "C:/Users/user/Documents/Coding/Chemical-simulator/build",
-  "command": "C:\\mingw64\\bin\\g++.exe -DIMGUI_USER_CONFIG=\\\"imconfig-SFML.h\\\" -DSFML_STATIC @CMakeFiles/Chemical-simulator.dir/includes_CXX.rsp -g -std=gnu++1z -o CMakeFiles\\Chemical-simulator.dir\\engine\\physics\\Bond.cpp.obj -c C:\\Users\\user\\Documents\\Coding\\Chemical-simulator\\engine\\physics\\Bond.cpp",
-  "file": "C:/Users/user/Documents/Coding/Chemical-simulator/engine/physics/Bond.cpp",
+  "directory": "C:/Users/elect/Documents/Coding/Chemical-simulator/build",
+  "command": "c:\\mingw64\\bin\\g++.exe -DIMGUI_USER_CONFIG=\\\"imconfig-SFML.h\\\" -DSFML_STATIC @CMakeFiles/Chemical-simulator.dir/includes_CXX.rsp -g -std=gnu++1z -o CMakeFiles\\Chemical-simulator.dir\\engine\\physics\\Bond.cpp.obj -c C:\\Users\\elect\\Documents\\Coding\\Chemical-simulator\\engine\\physics\\Bond.cpp",
+  "file": "C:/Users/elect/Documents/Coding/Chemical-simulator/engine/physics/Bond.cpp",
   "output": "CMakeFiles/Chemical-simulator.dir/engine/physics/Bond.cpp.obj"
 },
 {
-  "directory": "C:/Users/user/Documents/Coding/Chemical-simulator/build",
-  "command": "C:\\mingw64\\bin\\g++.exe -DIMGUI_USER_CONFIG=\\\"imconfig-SFML.h\\\" -DSFML_STATIC @CMakeFiles/Chemical-simulator.dir/includes_CXX.rsp -g -std=gnu++1z -o CMakeFiles\\Chemical-simulator.dir\\engine\\physics\\BondTable.cpp.obj -c C:\\Users\\user\\Documents\\Coding\\Chemical-simulator\\engine\\physics\\BondTable.cpp",
-  "file": "C:/Users/user/Documents/Coding/Chemical-simulator/engine/physics/BondTable.cpp",
+  "directory": "C:/Users/elect/Documents/Coding/Chemical-simulator/build",
+  "command": "c:\\mingw64\\bin\\g++.exe -DIMGUI_USER_CONFIG=\\\"imconfig-SFML.h\\\" -DSFML_STATIC @CMakeFiles/Chemical-simulator.dir/includes_CXX.rsp -g -std=gnu++1z -o CMakeFiles\\Chemical-simulator.dir\\engine\\physics\\BondTable.cpp.obj -c C:\\Users\\elect\\Documents\\Coding\\Chemical-simulator\\engine\\physics\\BondTable.cpp",
+  "file": "C:/Users/elect/Documents/Coding/Chemical-simulator/engine/physics/BondTable.cpp",
   "output": "CMakeFiles/Chemical-simulator.dir/engine/physics/BondTable.cpp.obj"
 },
 {
-  "directory": "C:/Users/user/Documents/Coding/Chemical-simulator/build",
-  "command": "C:\\mingw64\\bin\\g++.exe -DIMGUI_USER_CONFIG=\\\"imconfig-SFML.h\\\" -DSFML_STATIC @CMakeFiles/Chemical-simulator.dir/includes_CXX.rsp -g -std=gnu++1z -o CMakeFiles\\Chemical-simulator.dir\\engine\\physics\\SpatialGrid.cpp.obj -c C:\\Users\\user\\Documents\\Coding\\Chemical-simulator\\engine\\physics\\SpatialGrid.cpp",
-  "file": "C:/Users/user/Documents/Coding/Chemical-simulator/engine/physics/SpatialGrid.cpp",
+  "directory": "C:/Users/elect/Documents/Coding/Chemical-simulator/build",
+  "command": "c:\\mingw64\\bin\\g++.exe -DIMGUI_USER_CONFIG=\\\"imconfig-SFML.h\\\" -DSFML_STATIC @CMakeFiles/Chemical-simulator.dir/includes_CXX.rsp -g -std=gnu++1z -o CMakeFiles\\Chemical-simulator.dir\\engine\\physics\\SpatialGrid.cpp.obj -c C:\\Users\\elect\\Documents\\Coding\\Chemical-simulator\\engine\\physics\\SpatialGrid.cpp",
+  "file": "C:/Users/elect/Documents/Coding/Chemical-simulator/engine/physics/SpatialGrid.cpp",
   "output": "CMakeFiles/Chemical-simulator.dir/engine/physics/SpatialGrid.cpp.obj"
 },
 {
-  "directory": "C:/Users/user/Documents/Coding/Chemical-simulator/build",
-  "command": "C:\\mingw64\\bin\\g++.exe -DIMGUI_USER_CONFIG=\\\"imconfig-SFML.h\\\" -DSFML_STATIC @CMakeFiles/Chemical-simulator.dir/includes_CXX.rsp -g -std=gnu++1z -o CMakeFiles\\Chemical-simulator.dir\\engine\\Camera.cpp.obj -c C:\\Users\\user\\Documents\\Coding\\Chemical-simulator\\engine\\Camera.cpp",
-  "file": "C:/Users/user/Documents/Coding/Chemical-simulator/engine/Camera.cpp",
+  "directory": "C:/Users/elect/Documents/Coding/Chemical-simulator/build",
+  "command": "c:\\mingw64\\bin\\g++.exe -DIMGUI_USER_CONFIG=\\\"imconfig-SFML.h\\\" -DSFML_STATIC @CMakeFiles/Chemical-simulator.dir/includes_CXX.rsp -g -std=gnu++1z -o CMakeFiles\\Chemical-simulator.dir\\engine\\Camera.cpp.obj -c C:\\Users\\elect\\Documents\\Coding\\Chemical-simulator\\engine\\Camera.cpp",
+  "file": "C:/Users/elect/Documents/Coding/Chemical-simulator/engine/Camera.cpp",
   "output": "CMakeFiles/Chemical-simulator.dir/engine/Camera.cpp.obj"
 },
 {
-  "directory": "C:/Users/user/Documents/Coding/Chemical-simulator/build",
-  "command": "C:\\mingw64\\bin\\g++.exe -DIMGUI_USER_CONFIG=\\\"imconfig-SFML.h\\\" -DSFML_STATIC @CMakeFiles/Chemical-simulator.dir/includes_CXX.rsp -g -std=gnu++1z -o CMakeFiles\\Chemical-simulator.dir\\engine\\Renderer.cpp.obj -c C:\\Users\\user\\Documents\\Coding\\Chemical-simulator\\engine\\Renderer.cpp",
-  "file": "C:/Users/user/Documents/Coding/Chemical-simulator/engine/Renderer.cpp",
+  "directory": "C:/Users/elect/Documents/Coding/Chemical-simulator/build",
+  "command": "c:\\mingw64\\bin\\g++.exe -DIMGUI_USER_CONFIG=\\\"imconfig-SFML.h\\\" -DSFML_STATIC @CMakeFiles/Chemical-simulator.dir/includes_CXX.rsp -g -std=gnu++1z -o CMakeFiles\\Chemical-simulator.dir\\engine\\Renderer.cpp.obj -c C:\\Users\\elect\\Documents\\Coding\\Chemical-simulator\\engine\\Renderer.cpp",
+  "file": "C:/Users/elect/Documents/Coding/Chemical-simulator/engine/Renderer.cpp",
   "output": "CMakeFiles/Chemical-simulator.dir/engine/Renderer.cpp.obj"
 },
 {
-  "directory": "C:/Users/user/Documents/Coding/Chemical-simulator/build",
-  "command": "C:\\mingw64\\bin\\g++.exe -DIMGUI_USER_CONFIG=\\\"imconfig-SFML.h\\\" -DSFML_STATIC @CMakeFiles/Chemical-simulator.dir/includes_CXX.rsp -g -std=gnu++1z -o CMakeFiles\\Chemical-simulator.dir\\engine\\Simulation.cpp.obj -c C:\\Users\\user\\Documents\\Coding\\Chemical-simulator\\engine\\Simulation.cpp",
-  "file": "C:/Users/user/Documents/Coding/Chemical-simulator/engine/Simulation.cpp",
+  "directory": "C:/Users/elect/Documents/Coding/Chemical-simulator/build",
+  "command": "c:\\mingw64\\bin\\g++.exe -DIMGUI_USER_CONFIG=\\\"imconfig-SFML.h\\\" -DSFML_STATIC @CMakeFiles/Chemical-simulator.dir/includes_CXX.rsp -g -std=gnu++1z -o CMakeFiles\\Chemical-simulator.dir\\engine\\Simulation.cpp.obj -c C:\\Users\\elect\\Documents\\Coding\\Chemical-simulator\\engine\\Simulation.cpp",
+  "file": "C:/Users/elect/Documents/Coding/Chemical-simulator/engine/Simulation.cpp",
   "output": "CMakeFiles/Chemical-simulator.dir/engine/Simulation.cpp.obj"
 },
 {
-  "directory": "C:/Users/user/Documents/Coding/Chemical-simulator/build",
-  "command": "C:\\mingw64\\bin\\g++.exe -DIMGUI_USER_CONFIG=\\\"imconfig-SFML.h\\\" -DSFML_STATIC @CMakeFiles/Chemical-simulator.dir/includes_CXX.rsp -g -std=gnu++1z -o CMakeFiles\\Chemical-simulator.dir\\engine\\Tools.cpp.obj -c C:\\Users\\user\\Documents\\Coding\\Chemical-simulator\\engine\\Tools.cpp",
-  "file": "C:/Users/user/Documents/Coding/Chemical-simulator/engine/Tools.cpp",
+  "directory": "C:/Users/elect/Documents/Coding/Chemical-simulator/build",
+  "command": "c:\\mingw64\\bin\\g++.exe -DIMGUI_USER_CONFIG=\\\"imconfig-SFML.h\\\" -DSFML_STATIC @CMakeFiles/Chemical-simulator.dir/includes_CXX.rsp -g -std=gnu++1z -o CMakeFiles\\Chemical-simulator.dir\\engine\\Tools.cpp.obj -c C:\\Users\\elect\\Documents\\Coding\\Chemical-simulator\\engine\\Tools.cpp",
+  "file": "C:/Users/elect/Documents/Coding/Chemical-simulator/engine/Tools.cpp",
   "output": "CMakeFiles/Chemical-simulator.dir/engine/Tools.cpp.obj"
 },
 {
-  "directory": "C:/Users/user/Documents/Coding/Chemical-simulator/build/Libraries/imgui",
-  "command": "C:\\mingw64\\bin\\g++.exe  @CMakeFiles/imgui.dir/includes_CXX.rsp -g -std=gnu++1z -o CMakeFiles\\imgui.dir\\imgui.cpp.obj -c C:\\Users\\user\\Documents\\Coding\\Chemical-simulator\\Libraries\\imgui\\imgui.cpp",
-  "file": "C:/Users/user/Documents/Coding/Chemical-simulator/Libraries/imgui/imgui.cpp",
+  "directory": "C:/Users/elect/Documents/Coding/Chemical-simulator/build/Libraries/imgui",
+  "command": "c:\\mingw64\\bin\\g++.exe  @CMakeFiles/imgui.dir/includes_CXX.rsp -g -std=gnu++1z -o CMakeFiles\\imgui.dir\\imgui.cpp.obj -c C:\\Users\\elect\\Documents\\Coding\\Chemical-simulator\\Libraries\\imgui\\imgui.cpp",
+  "file": "C:/Users/elect/Documents/Coding/Chemical-simulator/Libraries/imgui/imgui.cpp",
   "output": "Libraries/imgui/CMakeFiles/imgui.dir/imgui.cpp.obj"
 },
 {
-  "directory": "C:/Users/user/Documents/Coding/Chemical-simulator/build/Libraries/imgui",
-  "command": "C:\\mingw64\\bin\\g++.exe  @CMakeFiles/imgui.dir/includes_CXX.rsp -g -std=gnu++1z -o CMakeFiles\\imgui.dir\\imgui_draw.cpp.obj -c C:\\Users\\user\\Documents\\Coding\\Chemical-simulator\\Libraries\\imgui\\imgui_draw.cpp",
-  "file": "C:/Users/user/Documents/Coding/Chemical-simulator/Libraries/imgui/imgui_draw.cpp",
+  "directory": "C:/Users/elect/Documents/Coding/Chemical-simulator/build/Libraries/imgui",
+  "command": "c:\\mingw64\\bin\\g++.exe  @CMakeFiles/imgui.dir/includes_CXX.rsp -g -std=gnu++1z -o CMakeFiles\\imgui.dir\\imgui_draw.cpp.obj -c C:\\Users\\elect\\Documents\\Coding\\Chemical-simulator\\Libraries\\imgui\\imgui_draw.cpp",
+  "file": "C:/Users/elect/Documents/Coding/Chemical-simulator/Libraries/imgui/imgui_draw.cpp",
   "output": "Libraries/imgui/CMakeFiles/imgui.dir/imgui_draw.cpp.obj"
 },
 {
-  "directory": "C:/Users/user/Documents/Coding/Chemical-simulator/build/Libraries/imgui",
-  "command": "C:\\mingw64\\bin\\g++.exe  @CMakeFiles/imgui.dir/includes_CXX.rsp -g -std=gnu++1z -o CMakeFiles\\imgui.dir\\imgui_tables.cpp.obj -c C:\\Users\\user\\Documents\\Coding\\Chemical-simulator\\Libraries\\imgui\\imgui_tables.cpp",
-  "file": "C:/Users/user/Documents/Coding/Chemical-simulator/Libraries/imgui/imgui_tables.cpp",
+  "directory": "C:/Users/elect/Documents/Coding/Chemical-simulator/build/Libraries/imgui",
+  "command": "c:\\mingw64\\bin\\g++.exe  @CMakeFiles/imgui.dir/includes_CXX.rsp -g -std=gnu++1z -o CMakeFiles\\imgui.dir\\imgui_tables.cpp.obj -c C:\\Users\\elect\\Documents\\Coding\\Chemical-simulator\\Libraries\\imgui\\imgui_tables.cpp",
+  "file": "C:/Users/elect/Documents/Coding/Chemical-simulator/Libraries/imgui/imgui_tables.cpp",
   "output": "Libraries/imgui/CMakeFiles/imgui.dir/imgui_tables.cpp.obj"
 },
 {
-  "directory": "C:/Users/user/Documents/Coding/Chemical-simulator/build/Libraries/imgui",
-  "command": "C:\\mingw64\\bin\\g++.exe  @CMakeFiles/imgui.dir/includes_CXX.rsp -g -std=gnu++1z -o CMakeFiles\\imgui.dir\\imgui_widgets.cpp.obj -c C:\\Users\\user\\Documents\\Coding\\Chemical-simulator\\Libraries\\imgui\\imgui_widgets.cpp",
-  "file": "C:/Users/user/Documents/Coding/Chemical-simulator/Libraries/imgui/imgui_widgets.cpp",
+  "directory": "C:/Users/elect/Documents/Coding/Chemical-simulator/build/Libraries/imgui",
+  "command": "c:\\mingw64\\bin\\g++.exe  @CMakeFiles/imgui.dir/includes_CXX.rsp -g -std=gnu++1z -o CMakeFiles\\imgui.dir\\imgui_widgets.cpp.obj -c C:\\Users\\elect\\Documents\\Coding\\Chemical-simulator\\Libraries\\imgui\\imgui_widgets.cpp",
+  "file": "C:/Users/elect/Documents/Coding/Chemical-simulator/Libraries/imgui/imgui_widgets.cpp",
   "output": "Libraries/imgui/CMakeFiles/imgui.dir/imgui_widgets.cpp.obj"
 },
 {
-  "directory": "C:/Users/user/Documents/Coding/Chemical-simulator/build/Libraries/imgui",
-  "command": "C:\\mingw64\\bin\\g++.exe  @CMakeFiles/imgui.dir/includes_CXX.rsp -g -std=gnu++1z -o CMakeFiles\\imgui.dir\\imgui_demo.cpp.obj -c C:\\Users\\user\\Documents\\Coding\\Chemical-simulator\\Libraries\\imgui\\imgui_demo.cpp",
-  "file": "C:/Users/user/Documents/Coding/Chemical-simulator/Libraries/imgui/imgui_demo.cpp",
+  "directory": "C:/Users/elect/Documents/Coding/Chemical-simulator/build/Libraries/imgui",
+  "command": "c:\\mingw64\\bin\\g++.exe  @CMakeFiles/imgui.dir/includes_CXX.rsp -g -std=gnu++1z -o CMakeFiles\\imgui.dir\\imgui_demo.cpp.obj -c C:\\Users\\elect\\Documents\\Coding\\Chemical-simulator\\Libraries\\imgui\\imgui_demo.cpp",
+  "file": "C:/Users/elect/Documents/Coding/Chemical-simulator/Libraries/imgui/imgui_demo.cpp",
   "output": "Libraries/imgui/CMakeFiles/imgui.dir/imgui_demo.cpp.obj"
 },
 {
-  "directory": "C:/Users/user/Documents/Coding/Chemical-simulator/build/Libraries/imgui-sfml",
-  "command": "C:\\mingw64\\bin\\g++.exe -DIMGUI_USER_CONFIG=\\\"imconfig-SFML.h\\\" -DSFML_STATIC @CMakeFiles/ImGui-SFML.dir/includes_CXX.rsp -g -std=gnu++1z -o CMakeFiles\\ImGui-SFML.dir\\imgui-SFML.cpp.obj -c C:\\Users\\user\\Documents\\Coding\\Chemical-simulator\\Libraries\\imgui-sfml\\imgui-SFML.cpp",
-  "file": "C:/Users/user/Documents/Coding/Chemical-simulator/Libraries/imgui-sfml/imgui-SFML.cpp",
+  "directory": "C:/Users/elect/Documents/Coding/Chemical-simulator/build/Libraries/imgui-sfml",
+  "command": "c:\\mingw64\\bin\\g++.exe -DIMGUI_USER_CONFIG=\\\"imconfig-SFML.h\\\" -DSFML_STATIC @CMakeFiles/ImGui-SFML.dir/includes_CXX.rsp -g -std=gnu++1z -o CMakeFiles\\ImGui-SFML.dir\\imgui-SFML.cpp.obj -c C:\\Users\\elect\\Documents\\Coding\\Chemical-simulator\\Libraries\\imgui-sfml\\imgui-SFML.cpp",
+  "file": "C:/Users/elect/Documents/Coding/Chemical-simulator/Libraries/imgui-sfml/imgui-SFML.cpp",
   "output": "Libraries/imgui-sfml/CMakeFiles/ImGui-SFML.dir/imgui-SFML.cpp.obj"
 },
 {
-  "directory": "C:/Users/user/Documents/Coding/Chemical-simulator/build/Libraries/imgui-sfml",
-  "command": "C:\\mingw64\\bin\\g++.exe -DIMGUI_USER_CONFIG=\\\"imconfig-SFML.h\\\" -DSFML_STATIC @CMakeFiles/ImGui-SFML.dir/includes_CXX.rsp -g -std=gnu++1z -o CMakeFiles\\ImGui-SFML.dir\\__\\imgui\\imgui.cpp.obj -c C:\\Users\\user\\Documents\\Coding\\Chemical-simulator\\Libraries\\imgui\\imgui.cpp",
-  "file": "C:/Users/user/Documents/Coding/Chemical-simulator/Libraries/imgui/imgui.cpp",
+  "directory": "C:/Users/elect/Documents/Coding/Chemical-simulator/build/Libraries/imgui-sfml",
+  "command": "c:\\mingw64\\bin\\g++.exe -DIMGUI_USER_CONFIG=\\\"imconfig-SFML.h\\\" -DSFML_STATIC @CMakeFiles/ImGui-SFML.dir/includes_CXX.rsp -g -std=gnu++1z -o CMakeFiles\\ImGui-SFML.dir\\__\\imgui\\imgui.cpp.obj -c C:\\Users\\elect\\Documents\\Coding\\Chemical-simulator\\Libraries\\imgui\\imgui.cpp",
+  "file": "C:/Users/elect/Documents/Coding/Chemical-simulator/Libraries/imgui/imgui.cpp",
   "output": "Libraries/imgui-sfml/CMakeFiles/ImGui-SFML.dir/__/imgui/imgui.cpp.obj"
 },
 {
-  "directory": "C:/Users/user/Documents/Coding/Chemical-simulator/build/Libraries/imgui-sfml",
-  "command": "C:\\mingw64\\bin\\g++.exe -DIMGUI_USER_CONFIG=\\\"imconfig-SFML.h\\\" -DSFML_STATIC @CMakeFiles/ImGui-SFML.dir/includes_CXX.rsp -g -std=gnu++1z -o CMakeFiles\\ImGui-SFML.dir\\__\\imgui\\imgui_draw.cpp.obj -c C:\\Users\\user\\Documents\\Coding\\Chemical-simulator\\Libraries\\imgui\\imgui_draw.cpp",
-  "file": "C:/Users/user/Documents/Coding/Chemical-simulator/Libraries/imgui/imgui_draw.cpp",
+  "directory": "C:/Users/elect/Documents/Coding/Chemical-simulator/build/Libraries/imgui-sfml",
+  "command": "c:\\mingw64\\bin\\g++.exe -DIMGUI_USER_CONFIG=\\\"imconfig-SFML.h\\\" -DSFML_STATIC @CMakeFiles/ImGui-SFML.dir/includes_CXX.rsp -g -std=gnu++1z -o CMakeFiles\\ImGui-SFML.dir\\__\\imgui\\imgui_draw.cpp.obj -c C:\\Users\\elect\\Documents\\Coding\\Chemical-simulator\\Libraries\\imgui\\imgui_draw.cpp",
+  "file": "C:/Users/elect/Documents/Coding/Chemical-simulator/Libraries/imgui/imgui_draw.cpp",
   "output": "Libraries/imgui-sfml/CMakeFiles/ImGui-SFML.dir/__/imgui/imgui_draw.cpp.obj"
 },
 {
-  "directory": "C:/Users/user/Documents/Coding/Chemical-simulator/build/Libraries/imgui-sfml",
-  "command": "C:\\mingw64\\bin\\g++.exe -DIMGUI_USER_CONFIG=\\\"imconfig-SFML.h\\\" -DSFML_STATIC @CMakeFiles/ImGui-SFML.dir/includes_CXX.rsp -g -std=gnu++1z -o CMakeFiles\\ImGui-SFML.dir\\__\\imgui\\imgui_tables.cpp.obj -c C:\\Users\\user\\Documents\\Coding\\Chemical-simulator\\Libraries\\imgui\\imgui_tables.cpp",
-  "file": "C:/Users/user/Documents/Coding/Chemical-simulator/Libraries/imgui/imgui_tables.cpp",
+  "directory": "C:/Users/elect/Documents/Coding/Chemical-simulator/build/Libraries/imgui-sfml",
+  "command": "c:\\mingw64\\bin\\g++.exe -DIMGUI_USER_CONFIG=\\\"imconfig-SFML.h\\\" -DSFML_STATIC @CMakeFiles/ImGui-SFML.dir/includes_CXX.rsp -g -std=gnu++1z -o CMakeFiles\\ImGui-SFML.dir\\__\\imgui\\imgui_tables.cpp.obj -c C:\\Users\\elect\\Documents\\Coding\\Chemical-simulator\\Libraries\\imgui\\imgui_tables.cpp",
+  "file": "C:/Users/elect/Documents/Coding/Chemical-simulator/Libraries/imgui/imgui_tables.cpp",
   "output": "Libraries/imgui-sfml/CMakeFiles/ImGui-SFML.dir/__/imgui/imgui_tables.cpp.obj"
 },
 {
-  "directory": "C:/Users/user/Documents/Coding/Chemical-simulator/build/Libraries/imgui-sfml",
-  "command": "C:\\mingw64\\bin\\g++.exe -DIMGUI_USER_CONFIG=\\\"imconfig-SFML.h\\\" -DSFML_STATIC @CMakeFiles/ImGui-SFML.dir/includes_CXX.rsp -g -std=gnu++1z -o CMakeFiles\\ImGui-SFML.dir\\__\\imgui\\imgui_widgets.cpp.obj -c C:\\Users\\user\\Documents\\Coding\\Chemical-simulator\\Libraries\\imgui\\imgui_widgets.cpp",
-  "file": "C:/Users/user/Documents/Coding/Chemical-simulator/Libraries/imgui/imgui_widgets.cpp",
+  "directory": "C:/Users/elect/Documents/Coding/Chemical-simulator/build/Libraries/imgui-sfml",
+  "command": "c:\\mingw64\\bin\\g++.exe -DIMGUI_USER_CONFIG=\\\"imconfig-SFML.h\\\" -DSFML_STATIC @CMakeFiles/ImGui-SFML.dir/includes_CXX.rsp -g -std=gnu++1z -o CMakeFiles\\ImGui-SFML.dir\\__\\imgui\\imgui_widgets.cpp.obj -c C:\\Users\\elect\\Documents\\Coding\\Chemical-simulator\\Libraries\\imgui\\imgui_widgets.cpp",
+  "file": "C:/Users/elect/Documents/Coding/Chemical-simulator/Libraries/imgui/imgui_widgets.cpp",
   "output": "Libraries/imgui-sfml/CMakeFiles/ImGui-SFML.dir/__/imgui/imgui_widgets.cpp.obj"
 },
 {
-  "directory": "C:/Users/user/Documents/Coding/Chemical-simulator/build/Libraries/imgui-sfml",
-  "command": "C:\\mingw64\\bin\\g++.exe -DIMGUI_USER_CONFIG=\\\"imconfig-SFML.h\\\" -DSFML_STATIC @CMakeFiles/ImGui-SFML.dir/includes_CXX.rsp -g -std=gnu++1z -o CMakeFiles\\ImGui-SFML.dir\\__\\imgui\\misc\\cpp\\imgui_stdlib.cpp.obj -c C:\\Users\\user\\Documents\\Coding\\Chemical-simulator\\Libraries\\imgui\\misc\\cpp\\imgui_stdlib.cpp",
-  "file": "C:/Users/user/Documents/Coding/Chemical-simulator/Libraries/imgui/misc/cpp/imgui_stdlib.cpp",
+  "directory": "C:/Users/elect/Documents/Coding/Chemical-simulator/build/Libraries/imgui-sfml",
+  "command": "c:\\mingw64\\bin\\g++.exe -DIMGUI_USER_CONFIG=\\\"imconfig-SFML.h\\\" -DSFML_STATIC @CMakeFiles/ImGui-SFML.dir/includes_CXX.rsp -g -std=gnu++1z -o CMakeFiles\\ImGui-SFML.dir\\__\\imgui\\misc\\cpp\\imgui_stdlib.cpp.obj -c C:\\Users\\elect\\Documents\\Coding\\Chemical-simulator\\Libraries\\imgui\\misc\\cpp\\imgui_stdlib.cpp",
+  "file": "C:/Users/elect/Documents/Coding/Chemical-simulator/Libraries/imgui/misc/cpp/imgui_stdlib.cpp",
   "output": "Libraries/imgui-sfml/CMakeFiles/ImGui-SFML.dir/__/imgui/misc/cpp/imgui_stdlib.cpp.obj"
 },
 {
-  "directory": "C:/Users/user/Documents/Coding/Chemical-simulator/build/Libraries/imgui-sfml",
-  "command": "C:\\mingw64\\bin\\g++.exe -DIMGUI_USER_CONFIG=\\\"imconfig-SFML.h\\\" -DSFML_STATIC @CMakeFiles/ImGui-SFML.dir/includes_CXX.rsp -g -std=gnu++1z -o CMakeFiles\\ImGui-SFML.dir\\__\\imgui\\imgui_demo.cpp.obj -c C:\\Users\\user\\Documents\\Coding\\Chemical-simulator\\Libraries\\imgui\\imgui_demo.cpp",
-  "file": "C:/Users/user/Documents/Coding/Chemical-simulator/Libraries/imgui/imgui_demo.cpp",
+  "directory": "C:/Users/elect/Documents/Coding/Chemical-simulator/build/Libraries/imgui-sfml",
+  "command": "c:\\mingw64\\bin\\g++.exe -DIMGUI_USER_CONFIG=\\\"imconfig-SFML.h\\\" -DSFML_STATIC @CMakeFiles/ImGui-SFML.dir/includes_CXX.rsp -g -std=gnu++1z -o CMakeFiles\\ImGui-SFML.dir\\__\\imgui\\imgui_demo.cpp.obj -c C:\\Users\\elect\\Documents\\Coding\\Chemical-simulator\\Libraries\\imgui\\imgui_demo.cpp",
+  "file": "C:/Users/elect/Documents/Coding/Chemical-simulator/Libraries/imgui/imgui_demo.cpp",
   "output": "Libraries/imgui-sfml/CMakeFiles/ImGui-SFML.dir/__/imgui/imgui_demo.cpp.obj"
 }
 ]

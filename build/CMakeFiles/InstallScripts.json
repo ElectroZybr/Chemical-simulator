@@ -1,9 +1,9 @@
 {
 	"InstallScripts" : 
 	[
-		"C:/Users/user/Documents/Coding/Chemical-simulator/build/cmake_install.cmake",
-		"C:/Users/user/Documents/Coding/Chemical-simulator/build/Libraries/imgui/cmake_install.cmake",
-		"C:/Users/user/Documents/Coding/Chemical-simulator/build/Libraries/imgui-sfml/cmake_install.cmake"
+		"C:/Users/elect/Documents/Coding/Chemical-simulator/build/cmake_install.cmake",
+		"C:/Users/elect/Documents/Coding/Chemical-simulator/build/Libraries/imgui/cmake_install.cmake",
+		"C:/Users/elect/Documents/Coding/Chemical-simulator/build/Libraries/imgui-sfml/cmake_install.cmake"
 	],
 	"Parallel" : false
 }

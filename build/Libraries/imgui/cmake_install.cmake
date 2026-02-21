@@ -1,4 +1,4 @@
-# Install script for directory: C:/Users/user/Documents/Coding/Chemical-simulator/Libraries/imgui
+# Install script for directory: C:/Users/elect/Documents/Coding/Chemical-simulator/Libraries/imgui
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
@@ -40,6 +40,6 @@ endif()
 string(REPLACE ";" "\n" CMAKE_INSTALL_MANIFEST_CONTENT
        "${CMAKE_INSTALL_MANIFEST_FILES}")
 if(CMAKE_INSTALL_LOCAL_ONLY)
-  file(WRITE "C:/Users/user/Documents/Coding/Chemical-simulator/build/Libraries/imgui/install_local_manifest.txt"
+  file(WRITE "C:/Users/elect/Documents/Coding/Chemical-simulator/build/Libraries/imgui/install_local_manifest.txt"
      "${CMAKE_INSTALL_MANIFEST_CONTENT}")
 endif()

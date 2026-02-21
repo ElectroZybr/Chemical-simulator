@@ -15,12 +15,14 @@ public:
     static Bond* CreateBond(Atom* a, Atom* b);
     static void BreakBond(Bond* bond);
     static std::list<Bond> bonds_list;
+    static void angleForce(Atom* a, Atom* b, Atom* c);
     std::list<Bond>::iterator self_it;
 
     Bond (Atom* a, Atom* b);//, float r0, float k, float D_e, float alpha
 
     void forceBond(double dt);
     float MorseForce(float distanse);
+    // void angleForce(Atom* a, Atom* b, Atom* c);
 
     Atom* a;
     Atom* b;

@@ -41,6 +41,8 @@ public:
     [[nodiscard]] double abs() const; // Returns vector length
     [[nodiscard]] Vec3D normalized() const; // Returns normalized vector without changing
 
+    [[nodiscard]] double length() const;
+
     static Vec3D Random();
 };
 

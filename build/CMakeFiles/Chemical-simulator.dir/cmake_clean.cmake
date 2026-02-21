@@ -1,7 +1,7 @@
 file(REMOVE_RECURSE
-  "C:/Users/user/Documents/Coding/Chemical-simulator/Chemical-simulator.exe"
-  "C:/Users/user/Documents/Coding/Chemical-simulator/Chemical-simulator.exe.manifest"
-  "C:/Users/user/Documents/Coding/Chemical-simulator/Chemical-simulator.pdb"
+  "C:/Users/elect/Documents/Coding/Chemical-simulator/Chemical-simulator.exe"
+  "C:/Users/elect/Documents/Coding/Chemical-simulator/Chemical-simulator.exe.manifest"
+  "C:/Users/elect/Documents/Coding/Chemical-simulator/Chemical-simulator.pdb"
   "CMakeFiles/Chemical-simulator.dir/app_icon.rc.obj"
   "CMakeFiles/Chemical-simulator.dir/engine/Camera.cpp.obj"
   "CMakeFiles/Chemical-simulator.dir/engine/Camera.cpp.obj.d"

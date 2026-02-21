@@ -1,1 +1,1 @@
--I"C:/Users/user/Documents/Coding/Chemical-simulator/Libraries/imgui" -I"C:/Users/user/Documents/Coding/Chemical-simulator/Libraries/imgui-sfml" -isystem "C:/Users/user/Documents/Coding/Chemical-simulator/Libraries/sfml/include"
+-I"C:/Users/elect/Documents/Coding/Chemical-simulator/Libraries/imgui" -I"C:/Users/elect/Documents/Coding/Chemical-simulator/Libraries/imgui-sfml" -isystem "C:/Users/elect/Documents/Coding/Chemical-simulator/Libraries/sfml/include"
