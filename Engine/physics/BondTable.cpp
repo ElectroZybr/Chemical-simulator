@@ -11,5 +11,8 @@ void BondTable::init() {
     set(AtomType::O, AtomType::O, BondParams{1.0, 200, 2.8});
 
     // C–C (водородная связь)
-    set(AtomType::C, AtomType::C, BondParams{1.0, 0.5, 1.0});
+    set(AtomType::C, AtomType::C, BondParams{1.0, 300, 3.0});
+
+    // C–H (водородная связь)
+    set(AtomType::C, AtomType::H, BondParams{1.0, 100, 3.0});
 }

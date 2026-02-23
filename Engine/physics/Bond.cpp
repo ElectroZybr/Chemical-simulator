@@ -14,30 +14,32 @@ Bond::Bond (Atom* _a, Atom* _b) : a(_a), b(_b) {//, float _r0, float _k, float _
     params.r0 = bond_params.r0;
     params.a = bond_params.a;
     params.De = bond_params.De;
-    // params.alpha = bond_params.alpha;
 }
 
 void Bond::forceBond(double dt) {
     Vec3D delta = a->coords - b->coords;
-    float distanse = sqrt(delta.dot(delta));
-    if (distanse > 3) {
-        Bond::BreakBond(this);
-        return;
-    }
-    Vec3D unit = (a->coords - b->coords) / distanse;
-    Vec3D force = unit * MorseForce(distanse);
+    Vec3D hat = delta.normalized();
+    float len = delta.length();
+    Vec3D force = hat * MorseForce(len);
 
-    a->acceleration = (a->acceleration + force / a->getProps().mass);
-    b->acceleration = (b->acceleration - force / b->getProps().mass);
+    a->force += force;
+    b->force -= force;
+}
+
+bool Bond::shouldBreak() const {
+    Vec3D delta = a->coords - b->coords;
+    float distanse = sqrt(delta.dot(delta));
+    return distanse > 3;
 }
 
 float Bond::MorseForce(float distanse) {
+    /* производная потенциала Морзе по расстоянию */
     float exp_a = std::exp(-params.a * (distanse - params.r0));
     return 2 * params.De * params.a * (exp_a * exp_a - exp_a);
 }
 
 void Bond::angleForce(Atom* o, Atom* b, Atom* c) {
-    // Атом o - центральный, b и c - присоединенные
+    /* Атом o - центральный, b и c - присоединенные */
     Vec3D delta_ob = b->coords - o->coords; // Вектор направления ob
     Vec3D delta_oc = c->coords - o->coords; // Вектор направления oc
 
@@ -60,49 +62,43 @@ void Bond::angleForce(Atom* o, Atom* b, Atom* c) {
 
     Vec3D force_b = -((oc_hat - ob_hat * cos_theta) / len_ob) * (-k * angle_loss / sin_theta); // градиент сил b
     Vec3D force_c = -((ob_hat - oc_hat * cos_theta) / len_oc) * (-k * angle_loss / sin_theta); // градиент сил c
+
+    b->force += force_b;
+    c->force += force_c;
     Vec3D force_o = -(force_b + force_c);
-
-    b->acceleration = (b->acceleration + force_b / b->getProps().mass);
-    c->acceleration = (c->acceleration + force_c / c->getProps().mass);
-    o->acceleration = (o->acceleration + force_o / o->getProps().mass);
-
-    // std::cout
-    //         // << "X " << force_b.x
-    //         // << " | Y " << force_b.y
-    //         << " | d " << theta_0
-    //         << " | Loss " << angle_loss * 180.0 / M_PI
-    //         << " | Angle " << angle_theta * 180.0 / M_PI
-    //         << std::endl;
-    // float distance_sq = delta.dot(delta);
 }
 
 Bond* Bond::CreateBond(Atom* a, Atom* b) {
     std::cout << "<Create bond>" << std::endl;
     bonds_list.emplace_back(a, b);
     auto it = std::prev(bonds_list.end());
-    // bonds_list.push_back(Bond(a, b));
-    it->self_it = it;
     a->bonds.push_back(b);
     b->bonds.push_back(a);
-    // std::cout << "<a>" << a->bonds[0] << std::endl;
-    // std::cout << "<a>" << a->bonds.size() << std::endl;
-    // std::cout << "<b>" << b->bonds.size() << std::endl;
+
     a->valence--;
     b->valence--;
     return &(*it);
 }
 
+void Bond::detach() {
+    std::vector<Atom*>* bonds = &a->bonds;
+    bonds->erase(std::remove(bonds->begin(), bonds->end(), b), bonds->end());
+    bonds = &b->bonds;
+    bonds->erase(std::remove(bonds->begin(), bonds->end(), a), bonds->end());
+
+    a->valence++;
+    b->valence++;
+}
+
 void Bond::BreakBond(Bond* bond) {
+    if (!bond) return;
     std::cout << "<Break bond>" << std::endl;
-    std::vector<Atom*>* bonds = &bond->a->bonds;
-    bonds->erase(std::remove(bonds->begin(), bonds->end(), bond->b), bonds->end());
-    bonds = &bond->b->bonds;
-    bonds->erase(std::remove(bonds->begin(), bonds->end(), bond->a), bonds->end());
-    // std::cout << bond->a->bonds.size() << std::endl;
-    // std::cout << "<a>" << bond->a->bonds[0] << std::endl;
+    bond->detach();
 
-    bond->a->valence++;
-    bond->b->valence++;
-
-    bonds_list.erase(bond->self_it);
+    for (auto it = bonds_list.begin(); it != bonds_list.end(); ++it) {
+        if (&(*it) == bond) {
+            bonds_list.erase(it);
+            return;
+        }
+    }
 }

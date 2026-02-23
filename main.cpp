@@ -68,15 +68,15 @@ int main() {
     // simulation.drawGrid(true);
     simulation.drawBonds(true);
 
-    Atom* hydrogen_1 = simulation.createAtom(Vec3D(50.5, 50.86, 1), Vec3D(0, 0, 0), 1);
-    Atom* oxygen_1 = simulation.createAtom(Vec3D(50, 50, 1), Vec3D(0, 0, 0), 8);
-    Atom* hydrogen_2 = simulation.createAtom(Vec3D(51, 50, 1), Vec3D(0, 0, 0), 1);
+    // Atom* hydrogen_1 = simulation.createAtom(Vec3D(50.5, 50.86, 1), Vec3D(2, 0, 0), 1);
+    // Atom* oxygen_1 = simulation.createAtom(Vec3D(50, 50, 1), Vec3D(0, 0, 0), 8);
+    // Atom* hydrogen_2 = simulation.createAtom(Vec3D(51, 50, 1), Vec3D(0, 0, 0), 1);
 
-    simulation.addBond(hydrogen_1, oxygen_1);
-    simulation.addBond(hydrogen_2, oxygen_1);
+    // simulation.addBond(hydrogen_1, oxygen_1);
+    // simulation.addBond(hydrogen_2, oxygen_1);
 
-    // simulation.createRandomAtoms(1, 200);
-    // simulation.createRandomAtoms(8, 100);
+    simulation.createRandomAtoms(1, 200);
+    simulation.createRandomAtoms(8, 100);
     
     sf::Clock clock;
     double shotTmr;

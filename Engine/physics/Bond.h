@@ -16,11 +16,12 @@ public:
     static void BreakBond(Bond* bond);
     static std::list<Bond> bonds_list;
     static void angleForce(Atom* a, Atom* b, Atom* c);
-    std::list<Bond>::iterator self_it;
 
     Bond (Atom* a, Atom* b);//, float r0, float k, float D_e, float alpha
 
     void forceBond(double dt);
+    bool shouldBreak() const;
+    void detach();
     float MorseForce(float distanse);
     // void angleForce(Atom* a, Atom* b, Atom* c);
 

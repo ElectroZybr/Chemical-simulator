@@ -28,14 +28,15 @@ private:
 public:
     Vec3D coords;
     Vec3D speed;
-    Vec3D acceleration;
-    Vec3D PrevAcceleration;
+    Vec3D force;
+    Vec3D prev_force;
 
     int type;
     int valence;
     float r0 = 2.5;
     float De = 0.2;
-    float a = 1.0;
+    float a = 1;
+    float eps = 1;
 
     bool isFixed = false;
     bool isSelect = false;
@@ -50,10 +51,12 @@ public:
 
     float MorseForce(float distanse);
     float MorsePotential(float distanse);
-    Vec3D Force(Atom *a1, Atom *a2, double dt);
+    float LennardJonesPotential(float d);
+    float LennardJonesForce(float d);
+    Vec3D NonBondedForce(Atom *a1, Atom *a2, double dt);
     void CorrectVelosity(double dt);
-    void Euler(double deltaTime);
-    void Verlet(double deltaTime);
+    void Euler(double dt);
+    void Verlet(double dt);
 
     float kineticEnergy() const;
     float pairPotentialEnergy(Atom* other);

@@ -1,9 +1,9 @@
 #include "Atom.h"
 #include <iostream>
 #include <cmath>
+#include <algorithm>
 
 SpatialGrid* Atom::grid = nullptr;
-// std::list<Bond> Atom::bonds_list;
 
 const std::array<StaticAtomicData, 118> Atom::properties = {{
         {0.0000, 0.0,  0, 0.0, sf::Color::Transparent       },
@@ -31,20 +31,20 @@ void Atom::setGrid(SpatialGrid* grid_ptr) {
     grid = grid_ptr;
 }
 
-Atom::Atom(Vec3D start_coords, Vec3D start_speed, int type, bool fixed) : coords(start_coords), speed(start_speed), type(type), isFixed(fixed), acceleration(0, 0), PrevAcceleration(0, 0) {
+Atom::Atom(Vec3D start_coords, Vec3D start_speed, int type, bool fixed) : coords(start_coords), speed(start_speed), type(type), isFixed(fixed), force(0, 0), prev_force(0, 0) {
     valence = getProps().maxValence;
     bonds.reserve(getProps().maxValence);
-    Bond::bond_default_props.init();}
-    //grid->insert((int)round(start_coords.x), (int)round(start_coords.y), this);}
+    Bond::bond_default_props.init();
+    int curr_x = (int)round(coords.x), curr_y = (int)round(coords.y);
+    grid->insert(curr_x, curr_y, this);}
 
-void Atom::PredictPosition(double deltaTime) {
+void Atom::PredictPosition(double dt) {
     int prev_x = (int)round(coords.x), prev_y = (int)round(coords.y);
     
     if (isFixed == false)
-        Verlet(deltaTime);
+        Verlet(dt);
 
-    //Bounce();
-    SoftWalls(deltaTime); 
+    SoftWalls(dt); 
     
     int curr_x = (int)round(coords.x), curr_y = (int)round(coords.y);
     if (prev_x != curr_x || prev_y != curr_y) {
@@ -52,8 +52,8 @@ void Atom::PredictPosition(double deltaTime) {
         grid->insert(curr_x, curr_y, this);
     }
 
-    PrevAcceleration = acceleration;
-    acceleration = Vec3D(0, 0, 0);
+    prev_force = force;
+    force = Vec3D(0, 0, 0);
 }
 
 void Atom::Bounce() {
@@ -136,12 +136,8 @@ void Atom::ComputeForces(double deltaTime) {
                     Vec3D delta = coords - other->coords;
                     float distance = sqrt(delta.dot(delta));
                     
-                    bool flag = false;
-                    // for (Bond* bond : bonds) {
-                    //     if (this == bond->a && other == bond->b) {
-                    //         flag = true;
-                    //     }
-                    // }
+                    bool flag = std::find(bonds.begin(), bonds.end(), other) != bonds.end();
+                    // bool flag = false;
 
                     if (getProps().maxValence - valence == 2) {
                         Bond::angleForce(this, bonds[0], bonds[1]);
@@ -151,10 +147,9 @@ void Atom::ComputeForces(double deltaTime) {
                         if (distance < 1.3 * r0 && valence > 0 && other->valence > 0) {
                             Bond::CreateBond(this, other);
                         }
-                        Vec3D force = Force(this, other, deltaTime);
-                        // std::cout << "<Morse Force>" << force.x << std::endl;
-                        // acceleration = acceleration - force / getProps().mass;
-                        // other->acceleration = other->acceleration + force / other->getProps().mass;
+                        Vec3D force = NonBondedForce(this, other, deltaTime);
+                        this->force -= force;
+                        other->force += force;
                     }
                 }
             }
@@ -162,19 +157,12 @@ void Atom::ComputeForces(double deltaTime) {
     }
 }
 
-Vec3D Atom::Force(Atom *a, Atom *b, double dt) {
+Vec3D Atom::NonBondedForce(Atom *a, Atom *b, double dt) {
+    /* сумма всех нековалентных сил */
     Vec3D delta = b->coords - a->coords;
-    float distance_sq = delta.dot(delta);
-
-    // Вычисляем расстояние (избегаем деления на 0)
-    float distance = sqrt(distance_sq);
-    if (distance < 1e-10f) distance = 1e-10f;
-    Vec3D normal = delta / distance;
-
-    // float force_magnitude = CovalentForce(distance);
-    float force_magnitude = MorseForce(distance);
-
-    return normal * force_magnitude;
+    Vec3D hat = delta.normalized();
+    float len = delta.length();
+    return hat * LennardJonesForce(len);
 }
 
 void Atom::Euler(double dt) {
@@ -182,24 +170,38 @@ void Atom::Euler(double dt) {
 }
 
 void Atom::Verlet(double dt) {
-    // Предсказание новой позиции на основе предыдущей и ускорения
-    coords += speed * dt * 0.8 + acceleration * 0.5 * dt * dt;
+    /* Предсказание новой позиции на основе предыдущей и ускорения */
+    Vec3D a = force / getProps().mass;
+    coords += speed * dt * 0.8 + a * 0.5 * dt * dt;
 }
 
 void Atom::CorrectVelosity(double dt) {
-    // Обновление скорости с использованием среднего ускорения
-    speed += (PrevAcceleration + acceleration) * 0.5 * dt;
-    //speed = speed * 0.999; // небольшое гашение колебаний
+    /* Обновление скорости с использованием среднего ускорения */
+    Vec3D a = force / getProps().mass;
+    Vec3D pr_a = prev_force / getProps().mass;
+    speed += (pr_a + a) * 0.5 * dt;
+}
+
+float Atom::MorsePotential(float distanse) {
+    /* потенциал Морзе */
+    float exponent = std::exp(-a * (distanse - r0));
+    return De * (1 - exponent) * (1 - exponent);
 }
 
 float Atom::MorseForce(float distanse) {
+    /* производная потенциала Морзе по расстоянию */
     float exp_a = std::exp(-a * (distanse - r0));
     return 2 * De * a * (exp_a * exp_a - exp_a);
 }
 
-float Atom::MorsePotential(float distanse) {
-    float exponent = std::exp(-a * (distanse - r0));
-    return De * (1 - exponent) * (1 - exponent);
+float Atom::LennardJonesPotential(float d) {
+    /* потенциал Леннард-Джонса */
+    return 4 * eps * (std::pow(a/d, 12) - std::pow(a/d, 6));
+}
+
+float Atom::LennardJonesForce(float d) {
+    /* производная потенциала Леннард-Джонса по расстоянию */
+    return 24 * eps * (2 * std::pow(a, 12) / std::pow(d, 13) - std::pow(a, 6) / std::pow(d, 7));
 }
 
 float Atom::kineticEnergy() const {

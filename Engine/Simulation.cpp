@@ -70,6 +70,14 @@ void Simulation::update(float dt) {
                 atom.PredictPosition(dt);
             for (Atom& atom : atoms)
                 atom.ComputeForces(dt);
+            for (auto it = Bond::bonds_list.begin(); it != Bond::bonds_list.end(); ) {
+                if (it->shouldBreak()) {
+                    it->detach();
+                    it = Bond::bonds_list.erase(it);
+                } else {
+                    ++it;
+                }
+            }
             for (Bond& bond : Bond::bonds_list)
                 bond.forceBond(dt);
             for (Atom& atom : atoms)
@@ -104,8 +112,8 @@ void Simulation::event() {
             // создание атома
             if (!Interface::cursorHovered && Interface::getSelectedAtom() != -1) {
                 
-                atoms.push_back(Atom(Vec3D(Tools::screenToWorld(mouse_pos, zoom)-0.5),
-                                     Vec3D(randomUnitVector3D() * randomInRange(1)), Interface::getSelectedAtom()));
+                atoms.emplace_back(Vec3D(Tools::screenToWorld(mouse_pos, zoom)-0.5),
+                                   Vec3D(randomUnitVector3D() * randomInRange(1)), Interface::getSelectedAtom());
 
 
                 Atom& atom = atoms.back();
@@ -158,7 +166,7 @@ void Simulation::createRandomAtoms(int type, int quantity) {
 }
 
 Atom* Simulation::createAtom(Vec3D start_coords, Vec3D start_speed, int type, bool fixed) {
-    atoms.push_back(Atom(start_coords, start_speed, type, fixed));
+    atoms.emplace_back(start_coords, start_speed, type, fixed);
     return &atoms.back();
 }
 
