@@ -22,24 +22,7 @@
 #define LPS  10
 #define Dt  0.01
 
-#include <windows.h>
 #include <vector>
-
-struct MonitorInfo {
-    RECT rect;  
-};
-
-BOOL CALLBACK MonitorEnumProc(HMONITOR hMonitor, HDC, LPRECT rect, LPARAM data) {
-    auto* monitors = reinterpret_cast<std::vector<MonitorInfo>*>(data);
-    monitors->push_back({ *rect });
-    return TRUE;
-}
-
-std::vector<MonitorInfo> getMonitors() {
-    std::vector<MonitorInfo> monitors;
-    EnumDisplayMonitors(NULL, NULL, MonitorEnumProc, (LPARAM)&monitors);
-    return monitors;
-}
 
 int main() {
     sf::RenderWindow window(sf::VideoMode(WIGHT, HEIGHT), "Chemical-simulator");
@@ -48,20 +31,7 @@ int main() {
     icon.loadFromFile("icon.png");
     window.setIcon(icon.getSize().x, icon.getSize().y, icon.getPixelsPtr());
 
-    // получить список мониторов
-    auto monitors = getMonitors();
-
-    // выброр монитора №1
-    int targetMonitor = 1;
-
-    if (targetMonitor < monitors.size()) {
-        HWND hwnd = window.getSystemHandle();
-        RECT r = monitors[targetMonitor].rect;
-        SetWindowPos(hwnd, HWND_TOP, r.left, r.top, 0, 0, SWP_NOZORDER);
-        ShowWindow(hwnd, SW_MAXIMIZE);
-    }
-
-    SpatialGrid grid(100, 100);
+    SpatialGrid grid(50, 50);
     Simulation simulation(window, grid);
     simulation.setCameraPos(50, 50);
 

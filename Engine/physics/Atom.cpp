@@ -147,10 +147,10 @@ void Atom::ComputeForces(double deltaTime) {
                         if (distance < 1.3 * r0 && valence > 0 && other->valence > 0) {
                             Bond::CreateBond(this, other);
                         }
-                        Vec3D force = NonBondedForce(this, other, deltaTime);
-                        this->force -= force;
-                        other->force += force;
                     }
+                    Vec3D force = NonBondedForce(this, other, deltaTime);
+                    this->force -= force;
+                    other->force += force;
                 }
             }
         }
