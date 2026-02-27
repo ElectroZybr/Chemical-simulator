@@ -31,7 +31,7 @@ int main() {
     icon.loadFromFile("icon.png");
     window.setIcon(icon.getSize().x, icon.getSize().y, icon.getPixelsPtr());
 
-    SpatialGrid grid(50, 50);
+    SpatialGrid grid(50, 50, 1.0f / 3.0f);
     Simulation simulation(window, grid);
     simulation.setCameraPos(50, 50);
 

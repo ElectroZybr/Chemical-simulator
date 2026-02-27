@@ -126,8 +126,11 @@ void Simulation::event() {
 
             } else {
                 // Передвижение атома мышкой
-                std::unordered_set<Atom*>* block = grid.at((int)round(((mouse_pos.x - (window.getSize().x / 2.f)) / zoom) + gameView.getCenter().x-0.5), 
-                                                            (int)round(((mouse_pos.y - (window.getSize().y / 2.f)) / zoom) + gameView.getCenter().y-0.5));
+                Vec2D world = Tools::screenToWorld(mouse_pos, zoom) - 0.5;
+                std::unordered_set<Atom*>* block = grid.at(
+                    grid.worldToCellX(world.x),
+                    grid.worldToCellY(world.y)
+                );
 
                 if (block != nullptr && !block->empty() && !selectionFrameMoveFlag) {
                     selectedMoveAtom = *block->begin();
@@ -192,13 +195,15 @@ void Simulation::logEnergies() {
 
     // Потенциальная энергия (уникальные пары) [по сетке]
     for (Atom& atom : atoms) {
-        int curr_x = (int)round(atom.coords.x), curr_y = (int)round(atom.coords.y);
-        for (int i = -2; i <= 2; ++i) {
-            for (int j = -2; j <= 2; ++j) {
-                for (Atom* other : *grid.at(curr_x-i, curr_y-j)) {
-                    // хитрожопая проверка
-                    if(other <= &atom) continue;
-                    PE += atom.pairPotentialEnergy(other);
+        int curr_x = grid.worldToCellX(atom.coords.x), curr_y = grid.worldToCellY(atom.coords.y);
+        int range = grid.worldRadiusToCellRange(2.0);
+        for (int i = -range; i <= range; ++i) {
+            for (int j = -range; j <= range; ++j) {
+                if (auto cell = grid.at(curr_x-i, curr_y-j)) {
+                    for (Atom* other : *cell) {
+                        if(other <= &atom) continue;
+                        PE += atom.pairPotentialEnergy(other);
+                    }
                 }
             }
         }
@@ -291,3 +296,4 @@ Vec3D randomUnitVector3D() {
 double randomInRange(int range) {
     return std::rand() % range + 1;
 }
+

@@ -1,39 +1,30 @@
 #include "SpatialGrid.h"
 
-// char SpatialGrid::grid[5000][2500] = {0};
-SpatialGrid::SpatialGrid(int sizeX, int sizeY) : sizeX(sizeX), sizeY(sizeY) {
-    grid = new std::unordered_set<Atom*>**[sizeX];
+#include <cmath>
 
-    for (int i = 0; i < sizeX; ++i) {
-        grid[i] = new std::unordered_set<Atom*>*[sizeY];
-        for (int j = 0; j < sizeY; ++j)
+SpatialGrid::SpatialGrid(int sizeX, int sizeY, float cellSize)
+    : sizeX(sizeX),
+      sizeY(sizeY),
+      cellSize(cellSize > 0.0f ? cellSize : 1.0f),
+      invCellSize(1.0f / (cellSize > 0.0f ? cellSize : 1.0f)) {
+    cellsX = std::max(1, static_cast<int>(std::ceil(sizeX * invCellSize)));
+    cellsY = std::max(1, static_cast<int>(std::ceil(sizeY * invCellSize)));
+
+    grid = new std::unordered_set<Atom*>**[cellsX];
+    for (int i = 0; i < cellsX; ++i) {
+        grid[i] = new std::unordered_set<Atom*>*[cellsY];
+        for (int j = 0; j < cellsY; ++j) {
             grid[i][j] = new std::unordered_set<Atom*>;
+        }
     }
-
-    // for (int i = 0; i < sizeY; ++i) {
-    //     for (int j = 0; j < sizeX; ++j) {
-    //         if (i == 0 || i == sizeY-1)
-    //             grid[i][j] = 255;
-    //         else if (j == 0 || j == sizeX-1)
-    //             grid[i][j] = 255;
-    //     }
-    // }
 }
 
 SpatialGrid::~SpatialGrid() {
-    // 1. Удаляем каждую строку
-    for (int i = 0; i < sizeX; ++i) {
+    for (int i = 0; i < cellsX; ++i) {
+        for (int j = 0; j < cellsY; ++j) {
+            delete grid[i][j];
+        }
         delete[] grid[i];
-        for (int j = 0; j < sizeY; ++j)
-            delete[] grid[i][j];
     }
-
-    // 2. Удаляем массив указателей
     delete[] grid;
 }
-
-// void SpatialGrid::getMatrix5X5(int x, int y, char* matrix[5]) {
-//     for (int i = 0; i < 5; ++i) {
-//         matrix[i] = &grid[x + i][y];
-//     }
-// }

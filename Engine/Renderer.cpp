@@ -84,12 +84,12 @@ void Renderer::drawTransparencyMap(sf::RenderWindow& window, const SpatialGrid& 
 {
     // Создаем изображение нужного размера
     sf::Image image;
-    image.create(grid.sizeX, grid.sizeY, sf::Color::Transparent);
+    image.create(grid.cellsX, grid.cellsY, sf::Color::Transparent);
     
     // Заполняем пиксели
-    for (size_t y = 0; y < grid.sizeX; ++y) {
-        for (size_t x = 0; x < grid.sizeY; ++x) {
-            if (!grid.at(x, y)->empty())
+    for (size_t y = 0; y < static_cast<size_t>(grid.cellsY); ++y) {
+        for (size_t x = 0; x < static_cast<size_t>(grid.cellsX); ++x) {
+            if (auto cell = grid.at(static_cast<int>(x), static_cast<int>(y)); cell && !cell->empty())
                 image.setPixel(x, y, sf::Color(255, 0, 0, 255));
         }
     }

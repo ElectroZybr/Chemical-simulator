@@ -35,21 +35,28 @@ Atom::Atom(Vec3D start_coords, Vec3D start_speed, int type, bool fixed) : coords
     valence = getProps().maxValence;
     bonds.reserve(getProps().maxValence);
     Bond::bond_default_props.init();
-    int curr_x = (int)round(coords.x), curr_y = (int)round(coords.y);
-    grid->insert(curr_x, curr_y, this);}
+    int curr_x = grid->worldToCellX(coords.x), curr_y = grid->worldToCellY(coords.y);
+    if (auto cell = grid->at(curr_x, curr_y)) {
+        cell->insert(this);
+    }
+}
 
 void Atom::PredictPosition(double dt) {
-    int prev_x = (int)round(coords.x), prev_y = (int)round(coords.y);
+    int prev_x = grid->worldToCellX(coords.x), prev_y = grid->worldToCellY(coords.y);
     
     if (isFixed == false)
         Verlet(dt);
 
     SoftWalls(dt); 
     
-    int curr_x = (int)round(coords.x), curr_y = (int)round(coords.y);
+    int curr_x = grid->worldToCellX(coords.x), curr_y = grid->worldToCellY(coords.y);
     if (prev_x != curr_x || prev_y != curr_y) {
-        grid->erase(prev_x, prev_y, this);
-        grid->insert(curr_x, curr_y, this);
+        if (auto prev_cell = grid->at(prev_x, prev_y)) {
+            prev_cell->erase(this);
+        }
+        if (auto curr_cell = grid->at(curr_x, curr_y)) {
+            curr_cell->insert(this);
+        }
     }
 
     prev_force = force;
@@ -124,10 +131,11 @@ void Atom::SoftWalls(double deltaTime) {
 }
 
 void Atom::ComputeForces(double deltaTime) {
-    int curr_x = (int)round(coords.x), curr_y = (int)round(coords.y);
+    int curr_x = grid->worldToCellX(coords.x), curr_y = grid->worldToCellY(coords.y);
+    int range = grid->worldRadiusToCellRange(2.0);
     // проверка взаимодействий с соседними атомами
-    for (int i = -2; i <= 2; ++i) {
-        for (int j = -2; j <= 2; ++j) {
+    for (int i = -range; i <= range; ++i) {
+        for (int j = -range; j <= range; ++j) {
             if (auto cell = grid->at(curr_x - i, curr_y - j)) {
                 for (Atom* other : *cell) {
                     // хитрожопая проверка
