@@ -29,6 +29,9 @@ private:
     std::vector<sf::Vertex> gridLines;
     sf::CircleShape atomShape;
     sf::RectangleShape frameShape;
+    sf::RectangleShape forceFieldQuad;
+    sf::Shader forceFieldShader;
+    bool forceFieldShaderLoaded = false;
     void drawTransparencyMap(sf::RenderWindow& window, const SpatialGrid& grid);
-    void drawForceField(const sf::Texture& forceTexture);
+    void drawForceField(const sf::Texture& forceTexture, const SpatialGrid& grid);
 };

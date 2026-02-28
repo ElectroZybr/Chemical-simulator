@@ -252,6 +252,22 @@ CMakeFiles/Chemical-simulator.dir/engine/Tools.cpp.obj: \
  c:/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/c++/bits/hashtable_policy.h \
  c:/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/c++/bits/unordered_set.h \
  c:/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/c++/iostream \
+ c:/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/c++/cmath \
+ c:/mingw64/x86_64-w64-mingw32/include/math.h \
+ c:/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/c++/bits/specfun.h \
+ c:/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/c++/tr1/gamma.tcc \
+ c:/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/c++/tr1/special_function_util.h \
+ c:/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/c++/tr1/bessel_function.tcc \
+ c:/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/c++/tr1/special_function_util.h \
+ c:/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/c++/tr1/beta_function.tcc \
+ c:/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/c++/tr1/ell_integral.tcc \
+ c:/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/c++/tr1/exp_integral.tcc \
+ c:/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/c++/tr1/hypergeometric.tcc \
+ c:/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/c++/tr1/legendre_function.tcc \
+ c:/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/c++/tr1/modified_bessel_func.tcc \
+ c:/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/c++/tr1/poly_hermite.tcc \
+ c:/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/c++/tr1/poly_laguerre.tcc \
+ c:/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/c++/tr1/riemann_zeta.tcc \
  C:/Users/elect/Documents/Coding/Chemical-simulator/interface.h \
  C:/Users/elect/Documents/Coding/Chemical-simulator/Libraries/imgui/imgui.h \
  C:/Users/elect/Documents/Coding/Chemical-simulator/Libraries/imgui-sfml/imconfig-SFML.h \
@@ -273,22 +289,6 @@ CMakeFiles/Chemical-simulator.dir/engine/Tools.cpp.obj: \
  c:/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/c++/bits/allocated_ptr.h \
  c:/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/c++/bits/list.tcc \
  C:\Users\elect\Documents\Coding\Chemical-simulator\engine\Camera.h \
- c:/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/c++/cmath \
- c:/mingw64/x86_64-w64-mingw32/include/math.h \
- c:/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/c++/bits/specfun.h \
- c:/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/c++/tr1/gamma.tcc \
- c:/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/c++/tr1/special_function_util.h \
- c:/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/c++/tr1/bessel_function.tcc \
- c:/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/c++/tr1/special_function_util.h \
- c:/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/c++/tr1/beta_function.tcc \
- c:/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/c++/tr1/ell_integral.tcc \
- c:/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/c++/tr1/exp_integral.tcc \
- c:/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/c++/tr1/hypergeometric.tcc \
- c:/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/c++/tr1/legendre_function.tcc \
- c:/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/c++/tr1/modified_bessel_func.tcc \
- c:/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/c++/tr1/poly_hermite.tcc \
- c:/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/c++/tr1/poly_laguerre.tcc \
- c:/mingw64/lib/gcc/x86_64-w64-mingw32/7.3.0/include/c++/tr1/riemann_zeta.tcc \
  C:\Users\elect\Documents\Coding\Chemical-simulator\engine\physics/Atom.h \
  C:/Users/elect/Documents/Coding/Chemical-simulator/engine/math/Vec2D.h \
  C:/Users/elect/Documents/Coding/Chemical-simulator/engine/math/Vec3D.h \

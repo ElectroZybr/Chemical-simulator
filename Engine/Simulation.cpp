@@ -7,8 +7,8 @@
 #include "imgui.h"
 #include "imgui-SFML.h"
 
-Simulation::Simulation(sf::RenderWindow& w, SpatialGrid& gr)
-    : window(w), gameView(window.getDefaultView()), uiView(window.getDefaultView()), grid(gr), render(w, gameView, uiView) 
+Simulation::Simulation(sf::RenderWindow& w, int sizeX, int sizeY)
+    : window(w), gameView(window.getDefaultView()), uiView(window.getDefaultView()), grid(sizeX, sizeY), render(w, gameView, uiView) 
     {
         Interface::init(window);
         Tools::init(&window, &gameView, &render, &grid);
@@ -17,52 +17,51 @@ Simulation::Simulation(sf::RenderWindow& w, SpatialGrid& gr)
         // резервируем место под создание атомов
         atoms.reserve(50000);
 
-        int x_size = 2000, y_size = 2000;
-        double k = 400;
-        k /= x_size;
-
-        std::vector<sf::Uint8> forcePixels(x_size * y_size * 4);
-        for (int x = 0; x < x_size; x++) {
-            for (int y = 0; y < y_size; y++) {
-                // float v = float(x) / grid.sizeX;  // 0..1
-
-                int idx = 4 * (y * x_size + x);
-
-                forcePixels[idx + 0] = 255; // R
-                forcePixels[idx + 1] = 0;                 // G
-                forcePixels[idx + 2] = 0;                 // B
-                forcePixels[idx + 3] = 0;               // A
-
-                // расстояния до краёв
-                int distL = x;
-                int distR = (x_size - 1) - x;
-
-                int distT = y;
-                int distB = (y_size - 1) - y;
-
-                // ширина зоны силы
-                int border = x_size / 50;
-
-                int alpha = 0;
-                if (distL < border)
-                    alpha += k * pow(distL - border, 2);
-
-                if (distR < border)
-                    alpha += k * pow(distR - border, 2);
-
-                if (distT < border)
-                    alpha += k * pow(distT - border, 2);
-
-                if (distB < border)
-                    alpha += k * pow(distB - border, 2);
-                
-                if (alpha > 255) alpha = 255;
-                forcePixels[idx + 3] = (sf::Uint8)alpha;
-            }
-        }
-        render.forceTexture.create(x_size, y_size);
-        render.forceTexture.update(forcePixels.data());
+        rebuildForceFieldTexture();
     }
+
+
+void Simulation::rebuildForceFieldTexture() {
+    // High-res force field texture mapped onto the same world-space size as the grid.
+    // More texels per world unit => cleaner look when zooming in.
+    constexpr int textureScale = 4;
+    const int worldWidth = std::max(1, grid.sizeX * grid.cellSize);
+    const int worldHeight = std::max(1, grid.sizeY * grid.cellSize);
+    const int width = worldWidth * textureScale;
+    const int height = worldHeight * textureScale;
+    const int borderX = std::max(1, width / 30);
+    const int borderY = std::max(1, height / 30);
+    const float kX = 400.0f / static_cast<float>(width);
+    const float kY = 400.0f / static_cast<float>(height);
+
+    std::vector<sf::Uint8> forcePixels(width * height * 4, 0);
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            const int idx = 4 * (y * width + x);
+            forcePixels[idx + 0] = 255;
+            forcePixels[idx + 1] = 0;
+            forcePixels[idx + 2] = 0;
+
+            const int distL = x;
+            const int distR = (width - 1) - x;
+            const int distT = y;
+            const int distB = (height - 1) - y;
+
+            float alpha = 0.0f;
+            if (distL < borderX) alpha += kX * (borderX - distL) * (borderX - distL);
+            if (distR < borderX) alpha += kX * (borderX - distR) * (borderX - distR);
+            if (distT < borderY) alpha += kY * (borderY - distT) * (borderY - distT);
+            if (distB < borderY) alpha += kY * (borderY - distB) * (borderY - distB);
+
+            if (alpha > 255.0f) alpha = 255.0f;
+            forcePixels[idx + 3] = static_cast<sf::Uint8>(alpha);
+        }
+    }
+
+    render.forceTexture.create(width, height);
+    render.forceTexture.update(forcePixels.data());
+    render.forceTexture.setSmooth(true);
+}
 
 void Simulation::update(float dt) {
     if (!Interface::getPause()) {
@@ -163,6 +162,11 @@ void Simulation::event() {
     }    
 }
 
+// SpatialGrid Simulation::createBox(int sizeX, int sizeY) {
+//     SpatialGrid grid(sizeX, sizeY);
+//     return SpatialGrid grid(sizeX, sizeY);
+// }
+
 void Simulation::createRandomAtoms(int type, int quantity) {
     for (int i = 0; i < quantity; ++i)
         createAtom(Vec3D(std::rand() % grid.sizeX, std::rand() % grid.sizeY, 0), randomUnitVector3D(), type);
@@ -184,44 +188,44 @@ double Simulation::AverageTemp() {
     // return T / atoms.size();
 }
 
-void Simulation::logEnergies() {
-    float KE = 0.0f;
-    float PE = 0.0f;
+// void Simulation::logEnergies() {
+//     float KE = 0.0f;
+//     float PE = 0.0f;
 
-    // Кинетическая энергия
-    for (Atom& atom : atoms) {
-        KE += atom.kineticEnergy();
-    }
+//     // Кинетическая энергия
+//     for (Atom& atom : atoms) {
+//         KE += atom.kineticEnergy();
+//     }
 
-    // Потенциальная энергия (уникальные пары) [по сетке]
-    for (Atom& atom : atoms) {
-        int curr_x = grid.worldToCellX(atom.coords.x), curr_y = grid.worldToCellY(atom.coords.y);
-        int range = grid.worldRadiusToCellRange(2.0);
-        for (int i = -range; i <= range; ++i) {
-            for (int j = -range; j <= range; ++j) {
-                if (auto cell = grid.at(curr_x-i, curr_y-j)) {
-                    for (Atom* other : *cell) {
-                        if(other <= &atom) continue;
-                        PE += atom.pairPotentialEnergy(other);
-                    }
-                }
-            }
-        }
-    }
+//     // Потенциальная энергия (уникальные пары) [по сетке]
+//     for (Atom& atom : atoms) {
+//         int curr_x = grid.worldToCellX(atom.coords.x), curr_y = grid.worldToCellY(atom.coords.y);
+//         int range = grid.worldRadiusToCellRange(2.0);
+//         for (int i = -range; i <= range; ++i) {
+//             for (int j = -range; j <= range; ++j) {
+//                 if (auto cell = grid.at(curr_x-i, curr_y-j)) {
+//                     for (Atom* other : *cell) {
+//                         if(other <= &atom) continue;
+//                         PE += atom.pairPotentialEnergy(other);
+//                     }
+//                 }
+//             }
+//         }
+//     }
 
-    // for (size_t i = 0; i < atoms.size(); ++i) {
-    //     for (size_t j = i + 1; j < atoms.size(); ++j) {
-    //         PE += atoms[i].pairPotentialEnergy(atoms[j]);
-    //     }
-    // }
+//     // for (size_t i = 0; i < atoms.size(); ++i) {
+//     //     for (size_t j = i + 1; j < atoms.size(); ++j) {
+//     //         PE += atoms[i].pairPotentialEnergy(atoms[j]);
+//     //     }
+//     // }
 
-    float totalE = KE + PE;
-    std::cout << "<Energy>"
-              << " KE=" << KE
-              << " | PE=" << PE
-              << " | E=" << totalE
-              << std::endl;
-}
+//     float totalE = KE + PE;
+//     std::cout << "<Energy>"
+//               << " KE=" << KE
+//               << " | PE=" << PE
+//               << " | E=" << totalE
+//               << std::endl;
+// }
 
 void Simulation::logAtomPos() {
     int i = 0;

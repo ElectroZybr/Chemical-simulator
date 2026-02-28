@@ -36,103 +36,58 @@ Atom::Atom(Vec3D start_coords, Vec3D start_speed, int type, bool fixed) : coords
     bonds.reserve(getProps().maxValence);
     Bond::bond_default_props.init();
     int curr_x = grid->worldToCellX(coords.x), curr_y = grid->worldToCellY(coords.y);
-    if (auto cell = grid->at(curr_x, curr_y)) {
-        cell->insert(this);
-    }
+    grid->insert(curr_x, curr_y, this);
 }
 
 void Atom::PredictPosition(double dt) {
     int prev_x = grid->worldToCellX(coords.x), prev_y = grid->worldToCellY(coords.y);
     
     if (isFixed == false)
-        Verlet(dt);
-
-    SoftWalls(dt); 
+        Verlet(dt); 
     
     int curr_x = grid->worldToCellX(coords.x), curr_y = grid->worldToCellY(coords.y);
     if (prev_x != curr_x || prev_y != curr_y) {
-        if (auto prev_cell = grid->at(prev_x, prev_y)) {
-            prev_cell->erase(this);
-        }
-        if (auto curr_cell = grid->at(curr_x, curr_y)) {
-            curr_cell->insert(this);
-        }
+        grid->erase(prev_x, prev_y, this);
+        grid->insert(curr_x, curr_y, this);
     }
 
     prev_force = force;
     force = Vec3D(0, 0, 0);
 }
 
-void Atom::Bounce() {
-    // Отражение от стен
-    double x = coords.x, y = coords.y;
-    if (x < 2 || x > grid->sizeX-3) {
-        if (x < 2) coords.x = 2;
-        else coords.x = grid->sizeX-3;
-        speed.x = -speed.x;
-    } 
-    if (y < 2 || y > grid->sizeY-3) {
-        if (y < 2) coords.y = 2;
-        else coords.y = grid->sizeY-3;
-        speed.y = -speed.y;
-    }
+void Atom::SoftWalls(double dt) {
+    applyWall(coords.x, speed.x, force.x, 0.0, static_cast<double>(grid->sizeX - 1));
+    applyWall(coords.y, speed.y, force.y, 0.0, static_cast<double>(grid->sizeY - 1));
+    applyWall(coords.z, speed.z, force.z, 0.0, 2.0);
 }
 
-void Atom::SoftWalls(double deltaTime) {
-    double k = 1;
-    double x = coords.x, y = coords.y, z = coords.z;
+inline void Atom::applyWall(double& coord, double& speed, double& force, double min, double max) {
+    constexpr double k = 100.0;
+    constexpr double border = 2.0;
 
-    // расстояния до краёв
-    int distL = x;
-    int distR = (grid->sizeX - 1) - x;
-
-    int distT = y;
-    int distB = (grid->sizeY - 1) - y;
-
-    int distF = z;
-    int distBk = (3 - 1) - z;
-
-    int border = 2;
-
-    if (distL < border) {
-        speed.x += k * pow(distL - border, 2) * deltaTime;
+    if (coord < min + border) {
+        double dist = coord - (min + border);
+        force -= k * dist;
+        if (coord < min) {
+            coord = min;
+            speed = -speed * 0.8;
+        }
     }
 
-    if (distR < border) {
-        speed.x -= k * pow(distR - border, 2) * deltaTime;
-    }
-
-    if (distT < border) {
-        speed.y += k * pow(distT - border, 2) * deltaTime;
-    }
-
-    if (distB < border) {
-        speed.y -= k * pow(distB - border, 2) * deltaTime;
-    }
-
-    if (distF < border) {
-        speed.z += k * pow(distF - border, 2) * deltaTime;
-    }
-
-    if (distBk < border) {
-        speed.z -= k * pow(distBk - border, 2) * deltaTime;
-    }
-
-    if (x < 0 || x > grid->sizeX-1) {
-        if (x < 0) coords.x = 0;
-        else coords.x = grid->sizeX-1;
-        speed.x = -speed.x * 0.8f;
-    } 
-    if (y < 0 || y > grid->sizeY-1) {
-        if (y < 0) coords.y = 0;
-        else coords.y = grid->sizeY-1;
-        speed.y = -speed.y * 0.8f;
+    if (coord > max - border) {
+        double dist = (max - border) - coord;
+        force += k * dist;
+        if (coord > max) {
+            coord = max;
+            speed = -speed * 0.8;
+        }
     }
 }
 
 void Atom::ComputeForces(double deltaTime) {
+    SoftWalls(deltaTime);
     int curr_x = grid->worldToCellX(coords.x), curr_y = grid->worldToCellY(coords.y);
-    int range = grid->worldRadiusToCellRange(2.0);
+    int range = 1;
     // проверка взаимодействий с соседними атомами
     for (int i = -range; i <= range; ++i) {
         for (int j = -range; j <= range; ++j) {
@@ -151,11 +106,11 @@ void Atom::ComputeForces(double deltaTime) {
                         Bond::angleForce(this, bonds[0], bonds[1]);
                     }
                     
-                    if (!flag) {
-                        if (distance < 1.3 * r0 && valence > 0 && other->valence > 0) {
-                            Bond::CreateBond(this, other);
-                        }
-                    }
+                    // if (!flag) {
+                    //     if (distance < 1.3 * r0 && valence > 0 && other->valence > 0) {
+                    //         Bond::CreateBond(this, other);
+                    //     }
+                    // }
                     Vec3D force = NonBondedForce(this, other, deltaTime);
                     this->force -= force;
                     other->force += force;

@@ -2,26 +2,23 @@
 
 #include <cmath>
 
-SpatialGrid::SpatialGrid(int sizeX, int sizeY, float cellSize)
+SpatialGrid::SpatialGrid(int sizeX, int sizeY, int cellSize)
     : sizeX(sizeX),
       sizeY(sizeY),
-      cellSize(cellSize > 0.0f ? cellSize : 1.0f),
-      invCellSize(1.0f / (cellSize > 0.0f ? cellSize : 1.0f)) {
-    cellsX = std::max(1, static_cast<int>(std::ceil(sizeX * invCellSize)));
-    cellsY = std::max(1, static_cast<int>(std::ceil(sizeY * invCellSize)));
+      cellSize(cellSize) {
 
-    grid = new std::unordered_set<Atom*>**[cellsX];
-    for (int i = 0; i < cellsX; ++i) {
-        grid[i] = new std::unordered_set<Atom*>*[cellsY];
-        for (int j = 0; j < cellsY; ++j) {
+    grid = new std::unordered_set<Atom*>**[sizeX];
+    for (int i = 0; i < sizeX; ++i) {
+        grid[i] = new std::unordered_set<Atom*>*[sizeY];
+        for (int j = 0; j < sizeY; ++j) {
             grid[i][j] = new std::unordered_set<Atom*>;
         }
     }
 }
 
 SpatialGrid::~SpatialGrid() {
-    for (int i = 0; i < cellsX; ++i) {
-        for (int j = 0; j < cellsY; ++j) {
+    for (int i = 0; i < sizeX; ++i) {
+        for (int j = 0; j < sizeY; ++j) {
             delete grid[i][j];
         }
         delete[] grid[i];

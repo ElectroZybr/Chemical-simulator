@@ -16,6 +16,9 @@ Renderer::Renderer(sf::RenderWindow& w, sf::View& gv, sf::View& uv)
             gridLines.push_back(sf::Vertex(sf::Vector2f(-1000, y), sf::Color(60, 60, 60)));
             gridLines.push_back(sf::Vertex(sf::Vector2f(1000, y), sf::Color(60, 60, 60)));
         }
+
+        forceFieldShaderLoaded = forceFieldShader.loadFromFile("force_shader.frag", sf::Shader::Fragment);
+        forceFieldQuad.setPosition(0.f, 0.f);
     }
 
 void Renderer::drawShot(const std::vector<Atom>& atoms, const SpatialGrid& grid, float deltaTime)
@@ -31,7 +34,7 @@ void Renderer::drawShot(const std::vector<Atom>& atoms, const SpatialGrid& grid,
     // Рисуем игровые объекты
     window.setView(gameView);
     window.draw(&gridLines[0], gridLines.size(), sf::Lines);
-    drawForceField(forceTexture);
+    drawForceField(forceTexture, grid);
 
     if (drawGrid)
         drawTransparencyMap(window, grid);
@@ -82,39 +85,41 @@ void Renderer::drawShot(const std::vector<Atom>& atoms, const SpatialGrid& grid,
 
 void Renderer::drawTransparencyMap(sf::RenderWindow& window, const SpatialGrid& grid)
 {
-    // Создаем изображение нужного размера
-    sf::Image image;
-    image.create(grid.cellsX, grid.cellsY, sf::Color::Transparent);
-    
-    // Заполняем пиксели
-    for (size_t y = 0; y < static_cast<size_t>(grid.cellsY); ++y) {
-        for (size_t x = 0; x < static_cast<size_t>(grid.cellsX); ++x) {
-            if (auto cell = grid.at(static_cast<int>(x), static_cast<int>(y)); cell && !cell->empty())
-                image.setPixel(x, y, sf::Color(255, 0, 0, 255));
+    sf::RectangleShape cellRect(sf::Vector2f(
+        static_cast<float>(grid.cellSize),
+        static_cast<float>(grid.cellSize)
+    ));
+    cellRect.setFillColor(sf::Color(255, 0, 0, 120));
+    cellRect.setOutlineColor(sf::Color(120, 0, 0, 180));
+    cellRect.setOutlineThickness(-1.0f);
+
+    for (int y = 0; y < grid.sizeY; ++y) {
+        for (int x = 0; x < grid.sizeX; ++x) {
+            if (auto cell = grid.at(x, y); cell && !cell->empty()) {
+                cellRect.setPosition(
+                    static_cast<float>(x * grid.cellSize),
+                    static_cast<float>(y * grid.cellSize)
+                );
+                window.draw(cellRect);
+            }
         }
     }
-    
-    // Создаем текстуру из изображения
-    sf::Texture texture;
-    texture.loadFromImage(image);
-    
-    // Отрисовываем спрайт
-    sf::Sprite sprite(texture);
-    window.draw(sprite);
 }
 
-void Renderer::drawForceField(const sf::Texture& forceTexture) {
-    sf::Shader shader;
-    shader.loadFromFile("force_shader.frag", sf::Shader::Fragment);
+void Renderer::drawForceField(const sf::Texture& forceTexture, const SpatialGrid& grid) {
+    if (!forceFieldShaderLoaded || forceTexture.getSize().x == 0 || forceTexture.getSize().y == 0) {
+        return;
+    }
 
-    shader.setUniform("field", forceTexture);
+    forceFieldShader.setUniform("field", forceTexture);
 
-    sf::RectangleShape screenQuad;
-    screenQuad.setSize(sf::Vector2f(100, 100));
-    screenQuad.setPosition(0, 0);
-    screenQuad.setTexture(&forceTexture);
+    forceFieldQuad.setSize(sf::Vector2f(
+        static_cast<float>(grid.sizeX),
+        static_cast<float>(grid.sizeY)
+    ));
+    forceFieldQuad.setTexture(&forceTexture, true);
 
-    window.draw(screenQuad, &shader);
+    window.draw(forceFieldQuad, &forceFieldShader);
 }
 
 void Renderer::setSelectionFrame(Vec2D start, Vec2D end, float scale) {
