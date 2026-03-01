@@ -1,0 +1,67 @@
+# Build directories
+/build/
+/build-*/
+
+# CMake generated files
+CMakeCache.txt
+cmake_install.cmake
+compile_commands.json
+CMakeFiles/
+CTestTestfile.cmake
+Testing/
+.cmake/
+
+# Binaries and libraries
+*.exe
+!Chemical-simulator.exe
+*.dll
+*.so
+*.dylib
+*.a
+*.lib
+*.pdb
+*.ilk
+
+# Object and intermediate files
+*.o
+*.obj
+*.lo
+*.slo
+*.gch
+*.pch
+*.idb
+*.ipdb
+*.iobj
+*.tlog
+
+# Visual Studio / MSBuild
+*.sln
+*.vcxproj*
+*.vs/
+*.user
+*.userosscache
+*.suo
+*.opensdf
+*.sdf
+*.cache
+*.recipe
+x64/
+Debug/
+Release/
+RelWithDebInfo/
+MinSizeRel/
+
+# CLion / JetBrains
+.idea/
+cmake-build-*/
+
+# VS Code
+.vscode/
+
+# Runtime / logs
+*.log
+*.tmp
+*.temp
+
+# Local app state
+imgui.ini

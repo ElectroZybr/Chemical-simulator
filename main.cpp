@@ -19,7 +19,7 @@
 #define WIGHT   800
 #define HEIGHT  600
 
-#define FPS  60
+#define FPS  30
 #define LPS  10
 #define Dt  0.01
 
@@ -39,30 +39,30 @@ int main() {
     // simulation.drawGrid(true);
     simulation.drawBonds(true);
 
-    Atom* hydrogen_1 = simulation.createAtom(Vec3D(50.5, 50.86, 1), Vec3D(2, 0, 0), 1);
+    // Atom* hydrogen_1 = simulation.createAtom(Vec3D(50.5, 50.86, 1), Vec3D(2, 0, 0), 1);
     // Atom* oxygen_1 = simulation.createAtom(Vec3D(50, 50, 1), Vec3D(0, 0, 0), 8);
     // Atom* hydrogen_2 = simulation.createAtom(Vec3D(51, 50, 1), Vec3D(0, 0, 0), 1);
 
     // simulation.addBond(hydrogen_1, oxygen_1);
     // simulation.addBond(hydrogen_2, oxygen_1);
 
-    // for (int i = 0; i <= 30; i++) {
-    //     for (int j = 0; j <= 30; j++) {
-    //         simulation.createAtom(Vec3D(3+i*3, 3+j*3, 1), Vec3D(0, 0, 0), 1);
-    //     }
-    // }
-
-    auto start = std::chrono::high_resolution_clock::now();
-
-    for (int i = 0; i < 100000; ++i) {
-        hydrogen_1->SoftWalls(0.1);
+    for (int i = 0; i <= 30; i++) {
+        for (int j = 0; j <= 30; j++) {
+            simulation.createAtom(Vec3D(3+i*3, 3+j*3, 1), Vec3D(0, 0, 0), 1);
+        }
     }
 
-    auto end = std::chrono::high_resolution_clock::now();
+    // auto start = std::chrono::high_resolution_clock::now();
 
-    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+    // for (int i = 0; i < 100000; ++i) {
+    //     hydrogen_1->SoftWalls(0.1);
+    // }
 
-    std::cout << "Time: " << duration.count() << " microseconds\n";
+    // auto end = std::chrono::high_resolution_clock::now();
+
+    // auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+
+    // std::cout << "Time: " << duration.count() << " microseconds\n";
     
 
     // simulation.createRandomAtoms(1, 200);
@@ -78,15 +78,25 @@ int main() {
 
         simTmr += deltaTime;
         if (simTmr >= Dt/Interface::getSimulationSpeed()) {
+            auto start = std::chrono::high_resolution_clock::now();
             simulation.update(Dt);
+            auto end = std::chrono::high_resolution_clock::now();
+            auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+
+            std::cout << "Time: " << duration.count() << " microseconds\n";
             simTmr = 0;
         }
 
         shotTmr += deltaTime;
         if (shotTmr >= 1./FPS) {
+            // auto start = std::chrono::high_resolution_clock::now();
             simulation.event();
             simulation.renderShot(shotTmr);
             shotTmr = 0;
+            // auto end = std::chrono::high_resolution_clock::now();
+            // auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+
+            // std::cout << "Time: " << duration.count() << " microseconds\n";
         }
 
         logTmr += deltaTime;
