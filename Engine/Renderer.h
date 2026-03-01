@@ -20,6 +20,7 @@ public:
     bool drawSelectionFrame = false;
     void setSelectionFrame(Vec2D start, Vec2D end, float scale);
     sf::Texture forceTexture;
+    void wallImage(const SpatialGrid& grid);
     
 private:
     sf::RenderWindow& window;
@@ -34,4 +35,5 @@ private:
     bool forceFieldShaderLoaded = false;
     void drawTransparencyMap(sf::RenderWindow& window, const SpatialGrid& grid);
     void drawForceField(const sf::Texture& forceTexture, const SpatialGrid& grid);
+    int getWallForce(int coord, int min, int max);
 };

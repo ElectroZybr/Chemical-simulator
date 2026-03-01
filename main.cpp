@@ -19,7 +19,7 @@
 #define WIGHT   800
 #define HEIGHT  600
 
-#define FPS  30
+#define FPS  60
 #define LPS  10
 #define Dt  0.01
 
@@ -33,7 +33,7 @@ int main() {
     window.setIcon(icon.getSize().x, icon.getSize().y, icon.getPixelsPtr());
 
     // SpatialGrid grid(50, 50);
-    Simulation simulation(window, 100, 100);
+    Simulation simulation(window, 50, 100);
     simulation.setCameraPos(25, 25);
 
     // simulation.drawGrid(true);
@@ -46,8 +46,8 @@ int main() {
     // simulation.addBond(hydrogen_1, oxygen_1);
     // simulation.addBond(hydrogen_2, oxygen_1);
 
-    for (int i = 0; i <= 30; i++) {
-        for (int j = 0; j <= 30; j++) {
+    for (int i = 0; i <= 15; i++) {
+        for (int j = 0; j <= 15; j++) {
             simulation.createAtom(Vec3D(3+i*3, 3+j*3, 1), Vec3D(0, 0, 0), 1);
         }
     }
@@ -78,12 +78,12 @@ int main() {
 
         simTmr += deltaTime;
         if (simTmr >= Dt/Interface::getSimulationSpeed()) {
-            auto start = std::chrono::high_resolution_clock::now();
+            // auto start = std::chrono::high_resolution_clock::now();
             simulation.update(Dt);
-            auto end = std::chrono::high_resolution_clock::now();
-            auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+            // auto end = std::chrono::high_resolution_clock::now();
+            // auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
 
-            std::cout << "Time: " << duration.count() << " microseconds\n";
+            // std::cout << "Time: " << duration.count() << " microseconds\n";
             simTmr = 0;
         }
 

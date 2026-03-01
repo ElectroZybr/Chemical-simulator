@@ -17,7 +17,7 @@ Simulation::Simulation(sf::RenderWindow& w, int sizeX, int sizeY)
         // резервируем место под создание атомов
         atoms.reserve(50000);
 
-        rebuildForceFieldTexture();
+        render.wallImage(grid);
     }
 
 

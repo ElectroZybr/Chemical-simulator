@@ -19,7 +19,53 @@ Renderer::Renderer(sf::RenderWindow& w, sf::View& gv, sf::View& uv)
 
         forceFieldShaderLoaded = forceFieldShader.loadFromFile("force_shader.frag", sf::Shader::Fragment);
         forceFieldQuad.setPosition(0.f, 0.f);
+
     }
+
+void Renderer::wallImage(const SpatialGrid& grid) {
+    constexpr int textureScale = 4;
+    const int worldWidth = grid.sizeX * grid.cellSize;
+    const int worldHeight = grid.sizeY * grid.cellSize;
+    const int width = worldWidth * textureScale;
+    const int height = worldHeight * textureScale;
+
+    std::vector<sf::Uint8> forcePixels(width * height * 4, 0);
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            const int idx = 4 * (y * width + x);
+            forcePixels[idx + 0] = 255;
+            forcePixels[idx + 1] = 0;
+            forcePixels[idx + 2] = 0;
+
+            int alpha = getWallForce(x, 0, width - 1) + getWallForce(y, 0, height - 1);
+            if (alpha > 255.0f) alpha = 255.0f;
+            forcePixels[idx + 3] = static_cast<sf::Uint8>(alpha);
+        }
+    }
+
+    forceTexture.create(width, height);
+    forceTexture.update(forcePixels.data());
+    forceTexture.setSmooth(true);
+}
+
+int Renderer::getWallForce(int coord, int min, int max) {
+    constexpr int border = 25;
+    const double k = 255.0 / static_cast<double>(border * border);
+    double force = 0.0;
+
+    if (coord < min + border) {
+        const double dist = static_cast<double>((min + border) - coord);
+        force += k * dist * dist;
+    }
+
+    if (coord > max - border) {
+        const double dist = static_cast<double>(coord - (max - border));
+        force += k * dist * dist;
+    }
+
+    if (force > 255.0) force = 255.0;
+    return static_cast<int>(force);
+}
 
 void Renderer::drawShot(const std::vector<Atom>& atoms, const SpatialGrid& grid, float deltaTime)
 {
