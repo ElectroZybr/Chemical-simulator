@@ -1,2 +1,0 @@
-C:\mingw64\bin\ar.exe qc libimgui.a CMakeFiles/imgui.dir/imgui.cpp.obj CMakeFiles/imgui.dir/imgui_draw.cpp.obj CMakeFiles/imgui.dir/imgui_tables.cpp.obj CMakeFiles/imgui.dir/imgui_widgets.cpp.obj CMakeFiles/imgui.dir/imgui_demo.cpp.obj
-C:\mingw64\bin\ranlib.exe libimgui.a
