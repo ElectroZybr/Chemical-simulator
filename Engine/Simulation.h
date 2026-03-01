@@ -3,14 +3,15 @@
 
 #include "physics/Atom.h"
 #include "physics/SpatialGrid.h"
+#include "SimBox.h"
 
 class Simulation {
 public:
-    Simulation(sf::RenderWindow& window, int sizeX, int sizeY);
+    Simulation(sf::RenderWindow& window, SimBox& sim_box);
     void update(float dt);
     void renderShot(float dt);
     void event();
-    SpatialGrid createBox(int sizeX, int sizeY);
+    void setSizeBox(Vec3D s, Vec3D e, int cellSize = -1);
     void createRandomAtoms(int type, int quantity);
     Atom* createAtom(Vec3D start_coords, Vec3D start_speed, int type, bool fixed = false);
     void addBond(Atom* a1, Atom* a2);
@@ -22,12 +23,13 @@ public:
     void drawGrid(bool flag);
     void drawBonds(bool flag);
     void setCameraPos(double x, double y);
+    // SpatialGrid grid;
+    SimBox& sim_box;
 
 private:
     sf::RenderWindow& window;
     sf::View gameView;
-    sf::View uiView;
-    SpatialGrid grid;
+    sf::View uiView;;
     std::vector<Atom> atoms;
     Renderer render;
 
@@ -35,8 +37,9 @@ private:
     bool selectionFrameMoveFlag = false;
     Atom* selectedMoveAtom;
     sf::Vector2i start_mouse_pos;
-
-    void rebuildForceFieldTexture();
+    double boxSizeX = 1.0;
+    double boxSizeY = 1.0;
+    double gridReserveRatio = 0.20;
 };
 
 Vec2D randomUnitVector2D();

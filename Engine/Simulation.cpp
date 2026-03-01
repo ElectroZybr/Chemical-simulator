@@ -7,61 +7,21 @@
 #include "imgui.h"
 #include "imgui-SFML.h"
 
-Simulation::Simulation(sf::RenderWindow& w, int sizeX, int sizeY)
-    : window(w), gameView(window.getDefaultView()), uiView(window.getDefaultView()), grid(sizeX, sizeY), render(w, gameView, uiView) 
+Simulation::Simulation(sf::RenderWindow& w, SimBox& box)
+    : window(w), gameView(window.getDefaultView()), uiView(window.getDefaultView()), render(w, gameView, uiView), sim_box(box)
     {
+        // sim_box = box;
+        sim_box.setRenderer(&render);
+
         Interface::init(window);
-        Tools::init(&window, &gameView, &render, &grid);
-        Atom::setGrid(&grid);
+        Tools::init(&window, &gameView, &render, &sim_box.grid);
+        Atom::setGrid(&sim_box.grid);
 
         // резервируем место под создание атомов
         atoms.reserve(50000);
 
-        render.wallImage(grid);
+        // setSizeBox(sizeX, sizeY);
     }
-
-
-void Simulation::rebuildForceFieldTexture() {
-    // High-res force field texture mapped onto the same world-space size as the grid.
-    // More texels per world unit => cleaner look when zooming in.
-    constexpr int textureScale = 4;
-    const int worldWidth = std::max(1, grid.sizeX * grid.cellSize);
-    const int worldHeight = std::max(1, grid.sizeY * grid.cellSize);
-    const int width = worldWidth * textureScale;
-    const int height = worldHeight * textureScale;
-    const int borderX = std::max(1, width / 30);
-    const int borderY = std::max(1, height / 30);
-    const float kX = 400.0f / static_cast<float>(width);
-    const float kY = 400.0f / static_cast<float>(height);
-
-    std::vector<sf::Uint8> forcePixels(width * height * 4, 0);
-    for (int y = 0; y < height; ++y) {
-        for (int x = 0; x < width; ++x) {
-            const int idx = 4 * (y * width + x);
-            forcePixels[idx + 0] = 255;
-            forcePixels[idx + 1] = 0;
-            forcePixels[idx + 2] = 0;
-
-            const int distL = x;
-            const int distR = (width - 1) - x;
-            const int distT = y;
-            const int distB = (height - 1) - y;
-
-            float alpha = 0.0f;
-            if (distL < borderX) alpha += kX * (borderX - distL) * (borderX - distL);
-            if (distR < borderX) alpha += kX * (borderX - distR) * (borderX - distR);
-            if (distT < borderY) alpha += kY * (borderY - distT) * (borderY - distT);
-            if (distB < borderY) alpha += kY * (borderY - distB) * (borderY - distB);
-
-            if (alpha > 255.0f) alpha = 255.0f;
-            forcePixels[idx + 3] = static_cast<sf::Uint8>(alpha);
-        }
-    }
-
-    render.forceTexture.create(width, height);
-    render.forceTexture.update(forcePixels.data());
-    render.forceTexture.setSmooth(true);
-}
 
 void Simulation::update(float dt) {
     if (!Interface::getPause()) {
@@ -85,7 +45,7 @@ void Simulation::update(float dt) {
 }
 
 void Simulation::renderShot(float deltaTime) {
-    render.drawShot(atoms, grid, deltaTime);
+    render.drawShot(atoms, sim_box, deltaTime);
 }
 
 void Simulation::event() {
@@ -126,9 +86,9 @@ void Simulation::event() {
             } else {
                 // Передвижение атома мышкой
                 Vec2D world = Tools::screenToWorld(mouse_pos, zoom) - 0.5;
-                std::unordered_set<Atom*>* block = grid.at(
-                    grid.worldToCellX(world.x),
-                    grid.worldToCellY(world.y)
+                std::unordered_set<Atom*>* block = sim_box.grid.at(
+                    sim_box.grid.worldToCellX(world.x),
+                    sim_box.grid.worldToCellY(world.y)
                 );
 
                 if (block != nullptr && !block->empty() && !selectionFrameMoveFlag) {
@@ -162,14 +122,21 @@ void Simulation::event() {
     }    
 }
 
-// SpatialGrid Simulation::createBox(int sizeX, int sizeY) {
-//     SpatialGrid grid(sizeX, sizeY);
-//     return SpatialGrid grid(sizeX, sizeY);
-// }
+void Simulation::setSizeBox(Vec3D s, Vec3D e, int cellSize) {
+    if (sim_box.setSizeBox(s, e, cellSize)) {
+        Atom::setGrid(&sim_box.grid);
+
+        for (Atom& atom : atoms) {
+            const int cellX = sim_box.grid.worldToCellX(atom.coords.x);
+            const int cellY = sim_box.grid.worldToCellY(atom.coords.y);
+            sim_box.grid.insert(cellX, cellY, &atom);
+        }
+    }
+}
 
 void Simulation::createRandomAtoms(int type, int quantity) {
     for (int i = 0; i < quantity; ++i)
-        createAtom(Vec3D(std::rand() % grid.sizeX, std::rand() % grid.sizeY, 0), randomUnitVector3D(), type);
+        createAtom(Vec3D(std::rand() % sim_box.grid.sizeX, std::rand() % sim_box.grid.sizeY, 0), randomUnitVector3D(), type);
 }
 
 Atom* Simulation::createAtom(Vec3D start_coords, Vec3D start_speed, int type, bool fixed) {
@@ -187,45 +154,6 @@ double Simulation::AverageTemp() {
     //     T += atom.speed.length();
     // return T / atoms.size();
 }
-
-// void Simulation::logEnergies() {
-//     float KE = 0.0f;
-//     float PE = 0.0f;
-
-//     // Кинетическая энергия
-//     for (Atom& atom : atoms) {
-//         KE += atom.kineticEnergy();
-//     }
-
-//     // Потенциальная энергия (уникальные пары) [по сетке]
-//     for (Atom& atom : atoms) {
-//         int curr_x = grid.worldToCellX(atom.coords.x), curr_y = grid.worldToCellY(atom.coords.y);
-//         int range = grid.worldRadiusToCellRange(2.0);
-//         for (int i = -range; i <= range; ++i) {
-//             for (int j = -range; j <= range; ++j) {
-//                 if (auto cell = grid.at(curr_x-i, curr_y-j)) {
-//                     for (Atom* other : *cell) {
-//                         if(other <= &atom) continue;
-//                         PE += atom.pairPotentialEnergy(other);
-//                     }
-//                 }
-//             }
-//         }
-//     }
-
-//     // for (size_t i = 0; i < atoms.size(); ++i) {
-//     //     for (size_t j = i + 1; j < atoms.size(); ++j) {
-//     //         PE += atoms[i].pairPotentialEnergy(atoms[j]);
-//     //     }
-//     // }
-
-//     float totalE = KE + PE;
-//     std::cout << "<Energy>"
-//               << " KE=" << KE
-//               << " | PE=" << PE
-//               << " | E=" << totalE
-//               << std::endl;
-// }
 
 void Simulation::logAtomPos() {
     int i = 0;

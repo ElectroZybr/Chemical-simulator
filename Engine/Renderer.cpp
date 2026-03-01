@@ -22,10 +22,10 @@ Renderer::Renderer(sf::RenderWindow& w, sf::View& gv, sf::View& uv)
 
     }
 
-void Renderer::wallImage(const SpatialGrid& grid) {
+void Renderer::wallImage(const Vec3D start, const Vec3D end) {
     constexpr int textureScale = 4;
-    const int worldWidth = grid.sizeX * grid.cellSize;
-    const int worldHeight = grid.sizeY * grid.cellSize;
+    const double worldWidth = end.x - start.x;
+    const double worldHeight = end.y - start.y;
     const int width = worldWidth * textureScale;
     const int height = worldHeight * textureScale;
 
@@ -49,7 +49,7 @@ void Renderer::wallImage(const SpatialGrid& grid) {
 }
 
 int Renderer::getWallForce(int coord, int min, int max) {
-    constexpr int border = 25;
+    constexpr int border = 7;
     const double k = 255.0 / static_cast<double>(border * border);
     double force = 0.0;
 
@@ -67,7 +67,7 @@ int Renderer::getWallForce(int coord, int min, int max) {
     return static_cast<int>(force);
 }
 
-void Renderer::drawShot(const std::vector<Atom>& atoms, const SpatialGrid& grid, float deltaTime)
+void Renderer::drawShot(const std::vector<Atom>& atoms, const SimBox& box, float deltaTime)
 {
     // Управление камерой
     camera.handleInput(deltaTime, window);  
@@ -80,10 +80,10 @@ void Renderer::drawShot(const std::vector<Atom>& atoms, const SpatialGrid& grid,
     // Рисуем игровые объекты
     window.setView(gameView);
     window.draw(&gridLines[0], gridLines.size(), sf::Lines);
-    drawForceField(forceTexture, grid);
+    drawForceField(forceTexture, box);
 
-    if (drawGrid)
-        drawTransparencyMap(window, grid);
+    // if (drawGrid)
+    //     drawTransparencyMap(window, grid);
 
     std::vector<const Atom*> sorted;
     for (const Atom& a : atoms) sorted.push_back(&a);
@@ -152,7 +152,7 @@ void Renderer::drawTransparencyMap(sf::RenderWindow& window, const SpatialGrid& 
     }
 }
 
-void Renderer::drawForceField(const sf::Texture& forceTexture, const SpatialGrid& grid) {
+void Renderer::drawForceField(const sf::Texture& forceTexture, const SimBox& box) {
     if (!forceFieldShaderLoaded || forceTexture.getSize().x == 0 || forceTexture.getSize().y == 0) {
         return;
     }
@@ -160,8 +160,8 @@ void Renderer::drawForceField(const sf::Texture& forceTexture, const SpatialGrid
     forceFieldShader.setUniform("field", forceTexture);
 
     forceFieldQuad.setSize(sf::Vector2f(
-        static_cast<float>(grid.sizeX),
-        static_cast<float>(grid.sizeY)
+        static_cast<float>(box.end.x - box.start.x),
+        static_cast<float>(box.end.y - box.start.y)
     ));
     forceFieldQuad.setTexture(&forceTexture, true);
 

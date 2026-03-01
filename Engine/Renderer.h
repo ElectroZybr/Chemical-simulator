@@ -4,6 +4,7 @@
 #include <list>
 #include <vector>
 #include "Camera.h"
+#include "SimBox.h"
 
 #include "physics/Atom.h"
 #include "physics/SpatialGrid.h"
@@ -11,7 +12,7 @@
 class Renderer {
 public:
     Renderer(sf::RenderWindow& window, sf::View& gameView, sf::View& uiView);
-    void drawShot(const std::vector<Atom>& atoms, const SpatialGrid& grid, float deltaTime);
+    void drawShot(const std::vector<Atom>& atoms, const SimBox& box, float deltaTime);
     Camera camera;
     float alpha = 0.05; // Коэфициент уменьшения по мере удаления атома
     bool drawGrid = false;
@@ -20,7 +21,7 @@ public:
     bool drawSelectionFrame = false;
     void setSelectionFrame(Vec2D start, Vec2D end, float scale);
     sf::Texture forceTexture;
-    void wallImage(const SpatialGrid& grid);
+    void wallImage(const Vec3D start, const Vec3D end);
     
 private:
     sf::RenderWindow& window;
@@ -34,6 +35,6 @@ private:
     sf::Shader forceFieldShader;
     bool forceFieldShaderLoaded = false;
     void drawTransparencyMap(sf::RenderWindow& window, const SpatialGrid& grid);
-    void drawForceField(const sf::Texture& forceTexture, const SpatialGrid& grid);
+    void drawForceField(const sf::Texture& forceTexture, const SimBox& box);
     int getWallForce(int coord, int min, int max);
 };

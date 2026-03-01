@@ -9,6 +9,8 @@ class Atom;
 class SpatialGrid {
 private:
     std::unordered_set<Atom*>*** grid;
+    void clearGridMemory();
+    void allocateGridMemory(int newSizeX, int newSizeY);
 public:
     int sizeX;
     int sizeY;
@@ -16,6 +18,7 @@ public:
 
     SpatialGrid(int sizeX, int sizeY, int cellSize = 3);
     ~SpatialGrid();
+    void resize(int newSizeX, int newSizeY, int newCellSize = -1);
 
     void insert(int x, int y, Atom* val) {
         if (auto cell = at(x, y)) {
@@ -30,7 +33,6 @@ public:
     }
 
     std::unordered_set<Atom*>* at(int x, int y) const {
-        // int curr_x = worldToCellX(x), curr_y = worldToCellY(y);
         if (x >= 0 && x < sizeX && y >= 0 && y < sizeY) return grid[x][y];
         return nullptr; }
 
@@ -43,11 +45,4 @@ public:
         if (y < 0.0) return -1;
         return static_cast<int>(y / cellSize);
     }
-
-
-
-    // int worldRadiusToCellRange(double worldRadius) const {
-    //     int r = static_cast<int>(worldRadius * invCellSize) + 1;
-    //     return std::max(1, r);
-    // }
 };

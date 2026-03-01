@@ -41,6 +41,8 @@ add_executable(${CMAKE_PROJECT_NAME}
         engine/Renderer.cpp
         engine/Simulation.h
         engine/Simulation.cpp
+        engine/SimBox.h
+        engine/SimBox.cpp
         engine/Tools.h
         engine/Tools.cpp
         )

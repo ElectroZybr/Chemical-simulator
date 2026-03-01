@@ -20,7 +20,7 @@
 #define HEIGHT  600
 
 #define FPS  60
-#define LPS  10
+#define LPS  30
 #define Dt  0.01
 
 #include <vector>
@@ -33,8 +33,10 @@ int main() {
     window.setIcon(icon.getSize().x, icon.getSize().y, icon.getPixelsPtr());
 
     // SpatialGrid grid(50, 50);
-    Simulation simulation(window, 50, 100);
+    SimBox box(Vec3D(-10, 0, 0), Vec3D(50, 100, 3));
+    Simulation simulation(window, box);
     simulation.setCameraPos(25, 25);
+    // simulation.sim_box.setSizeBox(Vec3D(0, 0, 0), Vec3D(50, 50.5, 3));
 
     // simulation.drawGrid(true);
     simulation.drawBonds(true);
@@ -69,9 +71,9 @@ int main() {
     // simulation.createRandomAtoms(8, 100);
     
     sf::Clock clock;
-    double shotTmr;
-    double simTmr;
-    double logTmr;
+    double shotTmr = 0.0;
+    double simTmr = 0.0;
+    double logTmr = 0.0;
     
     while (window.isOpen()) {
         float deltaTime = clock.restart().asSeconds();
@@ -105,6 +107,8 @@ int main() {
             // simulation.logAtomPos();
             // simulation.logMousePos();
             // simulation.logBondList();
+            if (simulation.sim_box.end.y > 20)
+                simulation.setSizeBox(Vec3D(0, 0, 0), Vec3D(50, simulation.sim_box.end.y-0.1, 3));
             logTmr = 0;
         }
     }
