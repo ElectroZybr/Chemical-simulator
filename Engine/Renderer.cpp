@@ -111,6 +111,10 @@ void Renderer::drawShot(const std::vector<Atom>& atoms, const SimBox& box, float
     window.draw(&gridLines[0], gridLines.size(), sf::Lines);
     drawForceField(forceTexture, box);
 
+    if (drawGrid) {
+        drawTransparencyMap(window, box.grid);
+    }
+
     sortedAtoms.clear();
     sortedAtoms.reserve(atoms.size());
     for (const Atom& a : atoms) sortedAtoms.push_back(&a);

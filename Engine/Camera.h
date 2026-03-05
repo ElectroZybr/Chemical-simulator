@@ -32,6 +32,8 @@ public:
     void zoomAt(float factor, sf::Vector2f mousePos, sf::RenderWindow& window);
     
     float getZoom() const;
+
+    void setZoom(float new_zoom);
     
     const sf::View& getView() const;
     // void resize(sf::Vector2f newSize);

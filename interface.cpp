@@ -191,11 +191,53 @@ int Interface::Update() {
     
     ImGui::PopFont();
     ImGui::End();
+    const float top_panel_width = 387.0f * current_ui_scale;
+    const float top_panel_height = 142.0f * current_ui_scale;
+    const float top_panel_x = window->getSize().x * 0.5f - top_panel_width * 0.5f;
+    const float tab_width = 180.0f * current_ui_scale;
+    const float tab_height = 8.0f * current_ui_scale;
+    const float tab_x = window->getSize().x * 0.5f - tab_width * 0.5f;
 
+    static float top_panel_anim = 0.0f; // 0 - hidden, 1 - shown
 
+    ImVec2 mouse = ImGui::GetMousePos();
+    sf::Vector2i mouse_local = sf::Mouse::getPosition(*window);
+    bool mouse_in_window = mouse_local.x >= 0 && mouse_local.y >= 0 &&
+                           mouse_local.x < static_cast<int>(window->getSize().x) &&
+                           mouse_local.y < static_cast<int>(window->getSize().y);
 
-    ImGui::SetNextWindowPos(ImVec2(window->getSize().x / 2 - (387*current_ui_scale/2), 0));
-    ImGui::SetNextWindowSize(ImVec2(387*current_ui_scale, 142*current_ui_scale));
+    bool over_tab = mouse_in_window &&
+                    mouse.x >= tab_x && mouse.x <= tab_x + tab_width &&
+                    mouse.y >= 0.0f && mouse.y <= tab_height;
+
+    float hidden_y = -top_panel_height;
+    float current_y = hidden_y + top_panel_anim * top_panel_height;
+    bool over_panel = mouse_in_window &&
+                      mouse.x >= top_panel_x && mouse.x <= top_panel_x + top_panel_width &&
+                      mouse.y >= current_y && mouse.y <= current_y + top_panel_height;
+
+    float target = (over_tab || over_panel) ? 1.0f : 0.0f;
+    float step = ImGui::GetIO().DeltaTime * 12.0f;
+    if (step > 1.0f) step = 1.0f;
+    top_panel_anim += (target - top_panel_anim) * step;
+    current_y = hidden_y + top_panel_anim * top_panel_height;
+
+    ImGui::SetNextWindowPos(ImVec2(tab_x, 0));
+    ImGui::SetNextWindowSize(ImVec2(tab_width, tab_height));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowMinSize, ImVec2(0.0f, 0.0f));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+    ImGui::Begin("Top panel tab", nullptr,
+        ImGuiWindowFlags_NoMove |
+        ImGuiWindowFlags_NoResize |
+        ImGuiWindowFlags_NoCollapse |
+        ImGuiWindowFlags_NoTitleBar |
+        ImGuiWindowFlags_NoScrollbar
+    );
+    ImGui::End();
+    ImGui::PopStyleVar(2);
+
+    ImGui::SetNextWindowPos(ImVec2(top_panel_x, current_y));
+    ImGui::SetNextWindowSize(ImVec2(top_panel_width, top_panel_height));
     ImGui::Begin("Top panel", nullptr, 
         ImGuiWindowFlags_NoMove |           // Запретить перемещение
         ImGuiWindowFlags_NoResize |         // Запретить изменение размера

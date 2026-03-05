@@ -22,7 +22,8 @@ public:
     void logBondList();
     void drawGrid(bool flag);
     void drawBonds(bool flag);
-    void setCameraPos(double x, double y);;
+    void setCameraPos(double x, double y);
+    void setCameraZoom(float new_zoom);
     SimBox& sim_box;
     Renderer render;
 
@@ -36,6 +37,8 @@ private:
     bool selectionFrameMoveFlag = false;
     Atom* selectedMoveAtom;
     sf::Vector2i start_mouse_pos;
+
+    bool checkNeighbor(Vec3D coords, float delta);
 };
 
 Vec2D randomUnitVector2D();

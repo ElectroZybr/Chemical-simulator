@@ -91,7 +91,7 @@ inline void Atom::applyWall(double& coord, double& speed, double& force, double 
 void Atom::ComputeForces(SimBox& box, double deltaTime) {
     SoftWalls(box, deltaTime);
     int curr_x = grid->worldToCellX(coords.x), curr_y = grid->worldToCellY(coords.y);
-    int range = 1;
+    static int range = 1;
     // проверка взаимодействий с соседними атомами
     for (int i = -range; i <= range; ++i) {
         for (int j = -range; j <= range; ++j) {
@@ -104,7 +104,6 @@ void Atom::ComputeForces(SimBox& box, double deltaTime) {
                     float distance = sqrt(delta.dot(delta));
                     
                     bool flag = std::find(bonds.begin(), bonds.end(), other) != bonds.end();
-                    // bool flag = false;
 
                     if (getProps().maxValence - valence == 2) {
                         Bond::angleForce(this, bonds[0], bonds[1]);

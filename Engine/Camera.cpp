@@ -46,6 +46,10 @@ float Camera::getZoom() const {
     return zoom;
 }
 
+void Camera::setZoom(float new_zoom) {
+    zoom = new_zoom;
+}
+
 void Camera::handleInput(float deltaTime, sf::RenderWindow& window) {
     // Управление WASD
     float deltaSpeed = speed * deltaTime;

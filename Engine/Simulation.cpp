@@ -139,8 +139,32 @@ void Simulation::setSizeBox(Vec3D s, Vec3D e, int cellSize) {
 }
 
 void Simulation::createRandomAtoms(int type, int quantity) {
-    for (int i = 0; i < quantity; ++i)
-        createAtom(Vec3D(std::rand() % sim_box.grid.sizeX, std::rand() % sim_box.grid.sizeY, 0), randomUnitVector3D(), type);
+    const int r_cut = 3;
+    for (int i = 0; i < quantity; ++i) {
+        for (int j = 0; j < 10; ++j) {
+            double r_x = std::rand() % sim_box.grid.sizeX;
+            double r_y = std::rand() % sim_box.grid.sizeY;
+            Vec3D coords(r_x, r_y, r_cut);
+            if (!checkNeighbor(coords, 3)) {
+                createAtom(coords, randomUnitVector3D(), type);
+                break;
+            }
+        }
+    }
+}
+
+bool Simulation::checkNeighbor(Vec3D coords, float delta) {
+    int curr_x = sim_box.grid.worldToCellX(coords.x), curr_y = sim_box.grid.worldToCellY(coords.y);
+    for (int i = -1; i <= 1; ++i) {
+        for (int j = -1; j <= 1; ++j) {
+            if (auto cell = sim_box.grid.at(curr_x - i, curr_y - j)) {
+                for (Atom* other : *cell) {
+                    if ((coords - other->coords).length() < delta) return true;
+                }
+            }
+        }
+    }
+    return false;
 }
 
 Atom* Simulation::createAtom(Vec3D start_coords, Vec3D start_speed, int type, bool fixed) {
@@ -206,6 +230,10 @@ void Simulation::drawBonds(bool flag) {
 
 void Simulation::setCameraPos(double x, double y) {
     render.camera.setPosition(x, y);
+}
+
+void Simulation::setCameraZoom(float new_zoom) {
+    render.camera.setZoom(new_zoom);
 }
 
 Vec2D randomUnitVector2D() {

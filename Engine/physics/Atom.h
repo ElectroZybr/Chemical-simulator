@@ -35,7 +35,7 @@ public:
     int valence;
     float r0 = 2.5;
     float De = 0.2;
-    float a = 3;
+    float a = 3.0;
     float eps = 0.1;
 
     bool isFixed = false;

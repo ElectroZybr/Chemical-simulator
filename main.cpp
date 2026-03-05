@@ -20,21 +20,23 @@
 #define HEIGHT  600
 
 #define FPS  60
-#define LPS  5
+#define LPS  30
 #define Dt  0.01
 
 #include <vector>
 
 int main() {
-    sf::RenderWindow window(sf::VideoMode(WIGHT, HEIGHT), "Chemical-simulator");
+    // sf::RenderWindow window(sf::VideoMode(WIGHT, HEIGHT), "Chemical-simulator");
+    sf::RenderWindow window(sf::VideoMode::getDesktopMode(), "Chemical-simulator", sf::Style::Fullscreen);
 
     sf::Image icon;
     icon.loadFromFile("icon.png");
     window.setIcon(icon.getSize().x, icon.getSize().y, icon.getPixelsPtr());
 
-    SimBox box(Vec3D(0, 0, 0), Vec3D(1000, 1000, 3));
+    SimBox box(Vec3D(0, 0, 0), Vec3D(100, 100, 3));
     Simulation simulation(window, box);
     simulation.setCameraPos(25, 25);
+    simulation.setCameraZoom(20);
     // simulation.sim_box.setSizeBox(Vec3D(0, 0, 0), Vec3D(50, 50.5, 3));
 
     // simulation.drawGrid(true);
@@ -53,20 +55,20 @@ int main() {
         }
     }
 
+    // for (int i = 0; i <= 15; i++) {
+    //     for (int j = 0; j <= 15; j++) {
+    //         simulation.createAtom(Vec3D(3+i*3, 3+j*3, 4), randomUnitVector3D(0.5), 1);
+    //     }
+    // }
+
+
     // auto start = std::chrono::high_resolution_clock::now();
 
     // for (int i = 0; i < 100000; ++i) {
     //     hydrogen_1->SoftWalls(0.1);
     // }
 
-    // auto end = std::chrono::high_resolution_clock::now();
-
-    // auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-
-    // std::cout << "Time: " << duration.count() << " microseconds\n";
-    
-
-    // simulation.createRandomAtoms(1, 200);
+    // simulation.createRandomAtoms(1, 100);
     // simulation.createRandomAtoms(8, 100);
     
     sf::Clock clock;
@@ -75,20 +77,28 @@ int main() {
     double logTmr = 0.0;
 
     auto duration = std::chrono::microseconds::zero();
-    int i;
+    int i = 0;
+    int sim_step = 0;
     
     while (window.isOpen()) {
         float deltaTime = clock.restart().asSeconds();
 
         simTmr += deltaTime;
         if (simTmr >= Dt/Interface::getSimulationSpeed()) {
-            // auto start = std::chrono::high_resolution_clock::now();
             simulation.update(Dt);
-            // auto end = std::chrono::high_resolution_clock::now();
-            // auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+            if (!Interface::getPause()) {
+                // if (sim_step < 5000)
+                //     simulation.setSizeBox(
+                //         Vec3D(simulation.sim_box.start.x+0.001, simulation.sim_box.start.y+0.001, simulation.sim_box.start.z),
+                //         Vec3D(simulation.sim_box.end.x-0.001, simulation.sim_box.end.y-0.001, simulation.sim_box.end.z));
 
-            // std::cout << "Time: " << duration.count() << " microseconds\n";
-            simTmr = 0;
+                if (sim_step > 10000 && sim_step < 100000)
+                    simulation.setSizeBox(
+                        Vec3D(simulation.sim_box.start.x-0.001, simulation.sim_box.start.y-0.001, simulation.sim_box.start.z),
+                        Vec3D(simulation.sim_box.end.x+0.001, simulation.sim_box.end.y+0.001, simulation.sim_box.end.z));
+                simTmr = 0;
+                sim_step++;
+            }
         }
 
         shotTmr += deltaTime;
@@ -112,8 +122,6 @@ int main() {
             // simulation.logAtomPos();
             // simulation.logMousePos();
             // simulation.logBondList();
-            // if (simulation.sim_box.end.y > 20)
-            //     simulation.setSizeBox(simulation.sim_box.start, Vec3D(50, simulation.sim_box.end.y-0.05, 3));
             logTmr = 0;
         }
     }
