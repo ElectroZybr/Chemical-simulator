@@ -1,12 +1,15 @@
 #pragma once
 
 #include <iostream>
+#include <span>
 #include <stdexcept>
 
 #include <webgpu/webgpu-raii.hpp>
+#include <webgpu/webgpu.hpp>
 
 #if defined(__linux__)
 #define GLFW_EXPOSE_NATIVE_X11
+
 #elif defined(_WIN32)
 #define GLFW_EXPOSE_NATIVE_WIN32
 #elif defined(__APPLE__)
@@ -202,6 +205,23 @@ public:
         desc.usage = usage;
         desc.mappedAtCreation = mappedAtCreation;
         return device_->createBuffer(desc);
+    }
+
+    wgpu::BindGroupLayout createBindGroupLayout(std::span<const wgpu::BindGroupLayoutEntry> entries, std::string_view label) {
+        wgpu::BindGroupLayoutDescriptor bglDesc{};
+        bglDesc.entryCount = entries.size();
+        bglDesc.entries = entries.data();
+        bglDesc.label = wgpu::StringView(label);
+        return device_->createBindGroupLayout(bglDesc);
+    }
+
+    wgpu::BindGroup createBindGroup(wgpu::BindGroupLayout layout, std::span<const wgpu::BindGroupEntry> entries, std::string_view label) {
+        wgpu::BindGroupDescriptor bgDesc{};
+        bgDesc.layout = layout;
+        bgDesc.entryCount = entries.size();
+        bgDesc.entries = entries.data();
+        bgDesc.label = wgpu::StringView(label);
+        return device_->createBindGroup(bgDesc);
     }
 
 private:

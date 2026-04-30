@@ -32,10 +32,10 @@ protected:
 private:
     static AtomStorage makeGridAtoms(int count);
 
-    wgpu::Texture targetTexture_ = nullptr;
-    wgpu::TextureView targetTextureView_ = nullptr;
-    wgpu::Texture depthTexture_ = nullptr;
-    wgpu::TextureView depthTextureView_ = nullptr;
+    wgpu::raii::Texture targetTexture_;
+    wgpu::raii::TextureView targetTextureView_;
+    wgpu::raii::Texture depthTexture_;
+    wgpu::raii::TextureView depthTextureView_;
 };
 
 wgpu::Device benchmarkDevice();
@@ -55,23 +55,21 @@ public:
         colorDesc.mipLevelCount = 1;
         colorDesc.sampleCount = 1;
         colorDesc.dimension = wgpu::TextureDimension::_2D;
-        colorTexture_ = ctx.device().createTexture(colorDesc);
-        colorTextureView_ = colorTexture_.createView();
+        colorTexture_ = ctx.device()->createTexture(colorDesc);
+        colorTextureView_ = colorTexture_->createView();
 
         atomStorage_ = makeGridAtoms(static_cast<int>(state.range(0)));
-        renderer_ = std::make_unique<TRenderer>(box_, ctx.device(), ctx.surfaceFormat());
+        renderer_ = std::make_unique<TRenderer>(box_, ctx.surfaceFormat());
         renderer_->camera.setScreenSize({800.0f, 600.0f});
         renderer_->camera.resetView();
-        createRenderTargets(ctx.device(), ctx.surfaceFormat());
+        createRenderTargets(*ctx.device(), ctx.surfaceFormat());
 
         ToolsManager::pickingSystem = new PickingSystem(atomStorage_, box_, renderer_);
     }
 
     void TearDown(benchmark::State&) override {
         // Дожидаемся завершения GPU работы
-        WGPUContext::instance().device().poll(true, nullptr);
-        colorTextureView_ = nullptr;
-        colorTexture_ = nullptr;
+        WGPUContext::instance().device()->poll(true, nullptr);
         renderer_.reset();
     }
 
@@ -80,8 +78,8 @@ protected:
         state.SetItemsProcessed(state.iterations() * static_cast<int64_t>(atomStorage_.size()));
     }
 
-    wgpu::Texture colorTexture_;
-    wgpu::TextureView colorTextureView_;
+    wgpu::raii::Texture colorTexture_;
+    wgpu::raii::TextureView colorTextureView_;
 
     std::unique_ptr<IRenderer> renderer_;
     AtomStorage atomStorage_;

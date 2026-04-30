@@ -7,7 +7,7 @@
 #include <cstdint>
 #include <vector>
 
-#include <webgpu/webgpu-raii.hpp>
+#include <webgpu/webgpu.hpp>
 
 struct ImageData {
     std::vector<std::byte> pixels;
@@ -70,6 +70,6 @@ private:
 
     void ensureIntermediateTexture(uint32_t width, uint32_t height, wgpu::TextureFormat format);
 
-    wgpu::Texture intermediate_;
-    wgpu::TextureView intermediateView_;
+    wgpu::raii::Texture intermediate_;
+    wgpu::raii::TextureView intermediateView_;
 };

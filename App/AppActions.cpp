@@ -67,12 +67,10 @@ namespace AppActions {
             std::unique_ptr<IRenderer> newRenderer;
             switch (type) {
             case RendererType::Renderer2D:
-                newRenderer = std::make_unique<Renderer2DWGPU>(simulation.box(), *WGPUContext::instance().device(),
-                                                               WGPUContext::instance().surfaceFormat());
+                newRenderer = std::make_unique<Renderer2DWGPU>(simulation.box(), WGPUContext::instance().surfaceFormat());
                 break;
             case RendererType::Renderer3D:
-                newRenderer = std::make_unique<Renderer3DWGPU>(simulation.box(), *WGPUContext::instance().device(),
-                                                               WGPUContext::instance().surfaceFormat());
+                newRenderer = std::make_unique<Renderer3DWGPU>(simulation.box(), WGPUContext::instance().surfaceFormat());
                 break;
             }
 

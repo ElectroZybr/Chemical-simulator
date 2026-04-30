@@ -273,10 +273,10 @@ std::vector<IOPanelSceneTile> loadIOPanelSceneTiles(std::string_view scenesDirec
             texDesc.mipLevelCount = 1;
             texDesc.sampleCount = 1;
             texDesc.dimension = wgpu::TextureDimension::_2D;
-            wgpu::Texture texture = WGPUContext::instance().device()->createTexture(texDesc);
+            wgpu::raii::Texture texture = WGPUContext::instance().device()->createTexture(texDesc);
 
             wgpu::TexelCopyTextureInfo dst{};
-            dst.texture = texture;
+            dst.texture = *texture;
             dst.mipLevel = 0;
             dst.aspect = wgpu::TextureAspect::All;
 
@@ -289,7 +289,7 @@ std::vector<IOPanelSceneTile> loadIOPanelSceneTiles(std::string_view scenesDirec
                                                                       extent);
 
             tile.previewTexture = texture;
-            tile.previewTextureView = texture.createView();
+            tile.previewTextureView = texture->createView();
             tile.previewSize = Vec2u(parsed.imageWidth, parsed.imageHeight);
             tile.hasPreview = true;
         }
