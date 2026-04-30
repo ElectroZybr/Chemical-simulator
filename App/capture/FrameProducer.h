@@ -7,7 +7,7 @@
 #include <cstdint>
 #include <vector>
 
-#include <webgpu/webgpu.hpp>
+#include <webgpu/webgpu-raii.hpp>
 
 struct ImageData {
     std::vector<std::byte> pixels;

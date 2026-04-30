@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-#include <webgpu/webgpu.hpp>
+#include <webgpu/webgpu-raii.hpp>
 
 #include "Engine/SimBox.h"
 #include "Engine/physics/AtomStorage.h"

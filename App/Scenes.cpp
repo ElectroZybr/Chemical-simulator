@@ -75,7 +75,7 @@ namespace Scenes {
                             continue;
                         }
 
-                        auto cell = box.grid.atomsInCell(nx, ny, nz);
+                        std::span<const uint32_t> cell = box.grid.atomsInCell(nx, ny, nz);
                         for (size_t atomIndex : cell) {
                             if (atomIndex >= atoms.size()) {
                                 continue;
@@ -123,8 +123,7 @@ namespace Scenes {
         const float layerShiftY = lj_min * std::sqrt(3.0f) / 6.0f;
         const float layerStep = lj_min * std::sqrt(2.0f / 3.0f);
 
-        sim.setSizeBox(Vec3f(2.0f * margin + count.x * lj_min + 1.5f * lj_min,
-                             2.0f * margin + count.y * rowStep + 1.5f * lj_min,
+        sim.setSizeBox(Vec3f(2.0f * margin + count.x * lj_min + 1.5f * lj_min, 2.0f * margin + count.y * rowStep + 1.5f * lj_min,
                              2.0f * margin + count.z * layerStep + lj_min));
 
         sim.reserveAtoms(sim.atoms().size() + atomTotal);
@@ -269,8 +268,7 @@ namespace Scenes {
             // Используем проценты
             for (size_t i = 0; i < atomSpecs.size(); ++i) {
                 if (atomSpecs[i].concentrationPercent > 0.0f) {
-                    atomCountsPerType[i] = static_cast<int>(
-                        std::round(totalAtomCount * atomSpecs[i].concentrationPercent / 100.0f));
+                    atomCountsPerType[i] = static_cast<int>(std::round(totalAtomCount * atomSpecs[i].concentrationPercent / 100.0f));
                 }
             }
             // Убеждаемся, что сумма равна totalAtomCount (корректируем последний тип)
@@ -286,7 +284,8 @@ namespace Scenes {
                     }
                 }
             }
-        } else {
+        }
+        else {
             // Используем абсолютные значения
             int reservedAtoms = 0;
             for (size_t i = 0; i < atomSpecs.size(); ++i) {
@@ -308,9 +307,8 @@ namespace Scenes {
         const float clampedDensity = std::clamp(density, 0.25f, 3.0f);
         const double effectiveSpacing = spacing / static_cast<double>(clampedDensity);
 
-        const int sideCount =
-            is3d ? std::max(1, static_cast<int>(std::ceil(std::cbrt(static_cast<double>(totalAtomCount)))))
-                 : std::max(1, static_cast<int>(std::ceil(std::sqrt(static_cast<double>(totalAtomCount)))));
+        const int sideCount = is3d ? std::max(1, static_cast<int>(std::ceil(std::cbrt(static_cast<double>(totalAtomCount)))))
+                                   : std::max(1, static_cast<int>(std::ceil(std::sqrt(static_cast<double>(totalAtomCount)))));
 
         const double span = sideCount * effectiveSpacing + 2.0 * margin;
         sim.setSizeBox(Vec3f(span, span, is3d ? span : 6));

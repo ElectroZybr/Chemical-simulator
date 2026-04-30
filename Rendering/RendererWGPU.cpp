@@ -3,6 +3,7 @@
 #include <cstring>
 #include <ranges>
 
+#include <webgpu/webgpu-raii.hpp>
 #include <webgpu/webgpu.hpp>
 
 #include "App/interaction/ToolsManager.h"
@@ -102,7 +103,7 @@ void RendererWGPU::initAtomPipeline(const char* atomWGSL) {
     plDesc.label = wgpu::StringView("AtomPipelineLayout");
     plDesc.bindGroupLayoutCount = 1;
     plDesc.bindGroupLayouts = (WGPUBindGroupLayout*)&atomBindGroupLayout;
-    auto pipelineLayout = device.createPipelineLayout(plDesc);
+    wgpu::PipelineLayout pipelineLayout = device.createPipelineLayout(plDesc);
 
     wgpu::VertexAttribute quadAttr;
     quadAttr.format = wgpu::VertexFormat::Float32x2;
@@ -166,7 +167,7 @@ void RendererWGPU::initLinePipeline(wgpu::RenderPipeline& outPipeline, const cha
     bglDesc.label = wgpu::StringView("LineBindGroupLayout");
     bglDesc.entryCount = 1;
     bglDesc.entries = &uboEntry;
-    auto bgl = device.createBindGroupLayout(bglDesc);
+    wgpu::BindGroupLayout bgl = device.createBindGroupLayout(bglDesc);
 
     wgpu::PipelineLayoutDescriptor plDesc{};
     plDesc.label = wgpu::StringView("LinePipelineLayout");
@@ -230,7 +231,7 @@ void RendererWGPU::initLinePipeline(wgpu::RenderPipeline& outPipeline, const cha
 }
 
 void RendererWGPU::initGridPipeline(const char* gridWGSL) {
-    auto shader = createShaderModule(device, gridWGSL);
+    wgpu::ShaderModule shader = createShaderModule(device, gridWGSL);
 
     wgpu::BindGroupLayoutEntry uboEntry{};
     uboEntry.binding = 0;
@@ -241,7 +242,7 @@ void RendererWGPU::initGridPipeline(const char* gridWGSL) {
     bglDesc.label = wgpu::StringView("GridBindGroupLayout");
     bglDesc.entryCount = 1;
     bglDesc.entries = &uboEntry;
-    auto bgl = device.createBindGroupLayout(bglDesc);
+    wgpu::BindGroupLayout bgl = device.createBindGroupLayout(bglDesc);
 
     wgpu::PipelineLayoutDescriptor plDesc{};
     plDesc.label = wgpu::StringView("GridPipelineLayout");
@@ -339,7 +340,7 @@ void RendererWGPU::ensureStorageBuffers(size_t count) {
 
     const uint64_t vec4Bytes = count * sizeof(AtomVec4);
     const uint64_t f32Bytes = count * sizeof(float);
-    const auto usage = wgpu::BufferUsage::Storage | wgpu::BufferUsage::CopyDst;
+    const wgpu::BufferUsage usage = wgpu::BufferUsage::Storage | wgpu::BufferUsage::CopyDst;
 
     sbPos = createBuffer(vec4Bytes, usage, wgpu::StringView("Atoms_Pos"));
     sbVel = createBuffer(vec4Bytes, usage, wgpu::StringView("Atoms_Vel"));

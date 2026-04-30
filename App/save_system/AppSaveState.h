@@ -1,4 +1,4 @@
-#include <webgpu/webgpu.hpp>
+#include <webgpu/webgpu-raii.hpp>
 #include <zpp_bits.h>
 
 #include "Engine/math/Vec3.h"

@@ -2,8 +2,7 @@
 
 #include <cassert>
 
-#include <webgpu.h>
-#include <webgpu/webgpu.hpp>
+#include <webgpu/webgpu-raii.hpp>
 
 #include "Rendering/WGPUContext.h"
 
@@ -31,5 +30,5 @@ wgpu::Buffer BufferPool::createBuffer() const {
     desc.size = bufferSize;
     desc.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::MapRead;
     desc.mappedAtCreation = false;
-    return WGPUContext::instance().device().createBuffer(desc);
+    return WGPUContext::instance().device()->createBuffer(desc);
 }

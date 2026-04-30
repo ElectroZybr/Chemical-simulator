@@ -42,7 +42,7 @@ int Application::run() {
     Simulation simulation(box);
     CaptureController captureController;
     std::unique_ptr<IRenderer> renderer =
-        std::make_unique<Renderer2DWGPU>(simulation.box(), WGPUContext::instance().device(), WGPUContext::instance().surfaceFormat());
+        std::make_unique<Renderer2DWGPU>(simulation.box(), *WGPUContext::instance().device(), WGPUContext::instance().surfaceFormat());
     Interface appInterface(window, simulation, renderer, captureController);
     AppActions::Handler appActions(window, captureController, simulation, renderer, appInterface.state());
     CaptureActions::Handler captureActions(captureController);
@@ -131,14 +131,14 @@ int Application::run() {
 
             // получаем surface текстуру один раз на кадр
             wgpu::SurfaceTexture surfaceTex;
-            ctx.surface().getCurrentTexture(&surfaceTex);
+            ctx.surface()->getCurrentTexture(&surfaceTex);
             wgpu::Texture surfaceTexture(surfaceTex.texture);
 
             // - нет захвата → возвращает view от surface напрямую
             // - идёт захват → возвращает view intermediate текстуры
             wgpu::TextureView renderTarget = captureController.acquireRenderTarget(surfaceTexture);
 
-            renderer->drawShot(renderTarget, ctx.depthView(), simulation.atoms(), simulation.bonds(), simulation.box());
+            renderer->drawShot(renderTarget, *ctx.depthView(), simulation.atoms(), simulation.bonds(), simulation.box());
             ToolsManager::pickingSystem->getOverlay().draw();
             ImGui::Render();
             auto* wgpuRenderer = static_cast<RendererWGPU*>(renderer.get());

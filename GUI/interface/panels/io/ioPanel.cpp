@@ -13,7 +13,6 @@
 #include "GUI/interface/UiState.h"
 #include "GUI/interface/file_dialog/FileDialogManager.h"
 #include "GUI/interface/panels/io/ioPanelWidgets.h"
-#include "Rendering/WGPUContext.h"
 
 namespace {
     constexpr float kSceneTileRounding = 10.0f;
@@ -25,7 +24,7 @@ void IOPanel::ensureSceneCatalogLoaded() {
     }
 
     try {
-        sceneTiles_ = loadIOPanelSceneTiles(scenesDirectory_.string(), WGPUContext::instance().device());
+        sceneTiles_ = loadIOPanelSceneTiles(scenesDirectory_.string());
     }
     catch (const std::exception&) {
         sceneTiles_.clear();

@@ -8,7 +8,7 @@
 #include <filesystem>
 #include <functional>
 
-#include <webgpu/webgpu.hpp>
+#include <webgpu/webgpu-raii.hpp>
 
 struct UiState;
 

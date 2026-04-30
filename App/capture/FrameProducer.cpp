@@ -8,7 +8,7 @@
 #include <memory>
 
 #include <webgpu.h>
-#include <webgpu/webgpu.hpp>
+#include <webgpu/webgpu-raii.hpp>
 
 #include "Engine/metrics/Profiler.h"
 #include "Rendering/WGPUContext.h"
@@ -62,7 +62,7 @@ void FrameProducer::onFrameRendered(wgpu::Texture surfaceTexture, float renderDe
 
     const uint32_t width = intermediate_.getWidth();
     const uint32_t height = intermediate_.getHeight();
-    const auto format = intermediate_.getFormat();
+    const wgpu::TextureFormat format = intermediate_.getFormat();
     const uint32_t bytesPerRow = calcBytesPerRow(width);
     const size_t bufferSize = static_cast<size_t>(height) * bytesPerRow;
 
@@ -92,12 +92,12 @@ void FrameProducer::onFrameRendered(wgpu::Texture surfaceTexture, float renderDe
         dst.layout.rowsPerImage = height;
 
         wgpu::Extent3D extent{width, height, 1};
-        wgpu::CommandEncoder encoder = WGPUContext::instance().device().createCommandEncoder();
+        wgpu::CommandEncoder encoder = WGPUContext::instance().device()->createCommandEncoder();
         encoder.copyTextureToBuffer(src, dst, extent);
         wgpu::CommandBuffer cmds = encoder.finish();
-        WGPUContext::instance().queue().submit(1, &cmds);
+        WGPUContext::instance().queue()->submit(1, &cmds);
 
-        auto ctx = std::make_unique<MapContext>();
+        std::unique_ptr<MapContext> ctx = std::make_unique<MapContext>();
         ctx->buffer = buffer;
         ctx->pool = &pool;
         ctx->streamer = s;
@@ -130,7 +130,6 @@ void FrameProducer::onFrameRendered(wgpu::Texture surfaceTexture, float renderDe
         submitCapture(streamer, {});
     }
 
-    // Блитаем intermediate → surface каждый кадр пока захват активен
     blitToSurface(surfaceTexture);
 }
 
@@ -151,10 +150,10 @@ void FrameProducer::blitToSurface(wgpu::Texture surfaceTexture) {
     dst.aspect = wgpu::TextureAspect::All;
 
     wgpu::Extent3D extent{width, height, 1};
-    wgpu::CommandEncoder enc = WGPUContext::instance().device().createCommandEncoder();
+    wgpu::CommandEncoder enc = WGPUContext::instance().device()->createCommandEncoder();
     enc.copyTextureToTexture(src, dst, extent);
     wgpu::CommandBuffer cmds = enc.finish();
-    WGPUContext::instance().queue().submit(1, &cmds);
+    WGPUContext::instance().queue()->submit(1, &cmds);
 }
 
 void FrameProducer::onBufferMapped(WGPUMapAsyncStatus status, WGPUStringView, void* userdata1, void*) {
@@ -218,7 +217,7 @@ void FrameProducer::ensureIntermediateTexture(uint32_t width, uint32_t height, w
     desc.mipLevelCount = 1;
     desc.sampleCount = 1;
     desc.dimension = wgpu::TextureDimension::_2D;
-    intermediate_ = WGPUContext::instance().device().createTexture(desc);
+    intermediate_ = WGPUContext::instance().device()->createTexture(desc);
     intermediateView_ = intermediate_.createView();
 
     pool = BufferPool{};

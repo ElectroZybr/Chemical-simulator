@@ -4,7 +4,7 @@
 #include <string_view>
 #include <vector>
 
-#include <webgpu/webgpu.hpp>
+#include <webgpu/webgpu-raii.hpp>
 
 #include "Engine/math/Vec2.h"
 
@@ -18,4 +18,4 @@ struct IOPanelSceneTile {
     bool hasPreview = false;
 };
 
-std::vector<IOPanelSceneTile> loadIOPanelSceneTiles(std::string_view scenesDirectory, wgpu::Device device);
+std::vector<IOPanelSceneTile> loadIOPanelSceneTiles(std::string_view scenesDirectory);
