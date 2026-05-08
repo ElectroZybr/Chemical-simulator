@@ -19,9 +19,7 @@ void Simulation::refreshMetricsCache() const {
 
 StepData Simulation::makeStepData() {
     return StepData{
-        .atomStorage = world_.getAtomStorage(),
-        .bonds = world_.getBonds(),
-        .box = world_,
+        .world = world_,
         .forceField = forceField_,
         .neighborList = world_.getNeighborList(),
         .allowBondFormation = bondFormationEnabled_,

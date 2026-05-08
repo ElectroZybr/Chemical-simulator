@@ -30,7 +30,7 @@ namespace {
 
 }
 
-RendererWGPU::RendererWGPU(World& simbox, wgpu::TextureFormat surfaceFormat) : IRenderer(simbox), surfaceFormat(surfaceFormat) {
+RendererWGPU::RendererWGPU(World& world, wgpu::TextureFormat surfaceFormat) : IRenderer(world), surfaceFormat(surfaceFormat) {
     uniformBuffer = WGPUContext::instance().createBuffer(sizeof(SceneUniforms), wgpu::BufferUsage::Uniform | wgpu::BufferUsage::CopyDst,
                                                          "RenderingUniforms");
 
@@ -353,8 +353,7 @@ template <typename T> void RendererWGPU::uploadStorageBuffer(wgpu::Buffer& buf, 
     WGPUContext::instance().queue()->writeBuffer(buf, 0, data, count * sizeof(T));
 }
 
-void RendererWGPU::drawShot(wgpu::TextureView targetView, wgpu::TextureView depthView, const AtomStorage& atoms, const Bond::List& bonds,
-                            const World& box) {
+void RendererWGPU::drawShot(wgpu::TextureView targetView, wgpu::TextureView depthView, const World& world) {
     updateMatrices();
 
     SceneUniforms uniforms{};
@@ -399,13 +398,13 @@ void RendererWGPU::drawShot(wgpu::TextureView targetView, wgpu::TextureView dept
     currentPass = currentEncoder->beginRenderPass(passDesc);
 
     if (drawBonds) {
-        drawBondsImpl(atoms, bonds);
+        drawBondsImpl(world.getAtomStorage(), world.getBonds());
     }
     if (drawGrid) {
-        drawGridImpl(box.getGrid());
+        drawGridImpl(world.getGrid());
     }
-    drawBoxImpl(box);
-    drawAtomsImpl(atoms);
+    drawBoxImpl(world.getWorldSize());
+    drawAtomsImpl(world.getAtomStorage());
 }
 
 void RendererWGPU::endFrame() {
@@ -466,9 +465,9 @@ void RendererWGPU::drawAtomsImpl(const AtomStorage& atoms) {
     currentPass->draw(6, count, 0, 0);
 }
 
-void RendererWGPU::drawBoxImpl(const World& box) {
-    if (box.getWorldSize().x != cachedBoxSize_.x || box.getWorldSize().y != cachedBoxSize_.y || box.getWorldSize().z != cachedBoxSize_.z) {
-        cachedBoxSize_ = box.getWorldSize();
+void RendererWGPU::drawBoxImpl(const Vec3f& worldSize) {
+    if (worldSize != cachedBoxSize_) {
+        cachedBoxSize_ = worldSize;
         const float x1 = cachedBoxSize_.x;
         const float y1 = cachedBoxSize_.y;
         const float z1 = cachedBoxSize_.z;

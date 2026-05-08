@@ -64,7 +64,7 @@ protected:
         return StepData{
             .atomStorage = simulation_->atoms(),
             .bonds = simulation_->bonds(),
-            .box = simulation_->world(),
+            .world = simulation_->world(),
             .forceField = simulation_->forceField(),
             .neighborList = simulation_->neighborList(),
             .allowBondFormation = simulation_->isBondFormationEnabled(),

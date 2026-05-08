@@ -2,10 +2,11 @@
 
 #include "Engine/NeighborSearch/NeighborList.h"
 #include "Engine/metrics/Profiler.h"
+#include "Engine/physics/AtomStorage.h"
 
 namespace {
     template <bool UseLJ, bool UseCoulomb>
-    void computePairInteractionsImpl(AtomStorage& atoms, NeighborList& neighborList, const LJForceField& ljForceField,
+    void computePairInteractionsImpl(AtomStorage& atoms, const NeighborList& neighborList, const LJForceField& ljForceField,
                                      const CoulombForceField& coulombForceField) {
         const auto& offsets = neighborList.offsets();
         const auto& neighbours = neighborList.neighbors();
@@ -67,17 +68,23 @@ namespace {
 
 ForceField::ForceField() = default;
 
-void ForceField::compute(AtomStorage& atoms, Bond::List& bonds, World& world, NeighborList& neighborList, bool allowBondFormation,
-                         float dt) const {
+void ForceField::compute(World& world, bool allowBondFormation, float dt) const {
     PROFILE_SCOPE("ForceField::compute");
 
+    AtomStorage& atoms = world.getAtomStorage();
+    Bond::List& bonds = world.getBonds();
+    NeighborList& neighborList = world.getNeighborList();
+
     wallForceField_.compute(world);
-    computePairInteractions(world, atoms, neighborList);
+    computePairInteractions(world);
     bondForceField_.compute(atoms, bonds, neighborList, allowBondFormation, dt);
 }
 
-void ForceField::computePairInteractions(World& world, AtomStorage& atoms, NeighborList& neighborList) const {
+void ForceField::computePairInteractions(World& world) const {
     PROFILE_SCOPE("ForceField::pairInteractions");
+
+    AtomStorage& atoms = world.getAtomStorage();
+    const NeighborList& neighborList = world.getNeighborList();
 
     if (world.isLJEnabled() && world.isCoulombEnabled()) {
         computePairInteractionsImpl<true, true>(atoms, neighborList, ljForceField_, coulombForceField_);

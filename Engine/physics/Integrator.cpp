@@ -20,7 +20,7 @@ void Integrator::step(StepData& stepData) {
 
     // Ограничение максимальной скорости атомов
     if (maxParticleSpeed_ > 0.0f) {
-        StepOps::postProcessVelocities(stepData.atomStorage, maxParticleSpeed_);
+        StepOps::postProcessVelocities(stepData.world.getAtomStorage(), maxParticleSpeed_);
     }
 }
 

@@ -1,8 +1,6 @@
 #pragma once
 
 #include "Engine/World.h"
-#include "Engine/physics/AtomStorage.h"
-#include "Engine/physics/Bond.h"
 #include "Engine/physics/ForceFields/BondForceField.h"
 #include "Engine/physics/ForceFields/CoulombForceField.h"
 #include "Engine/physics/ForceFields/LJForceField.h"
@@ -14,10 +12,10 @@ class ForceField {
 public:
     ForceField();
 
-    void compute(AtomStorage& atoms, Bond::List& bonds, World& world, NeighborList& neighborList, bool allowBondFormation, float dt) const;
+    void compute(World& world, bool allowBondFormation, float dt) const;
 
 private:
-    void computePairInteractions(World& world, AtomStorage& atoms, NeighborList& neighborList) const;
+    void computePairInteractions(World& world) const;
 
     WallForceField wallForceField_;
     LJForceField ljForceField_;

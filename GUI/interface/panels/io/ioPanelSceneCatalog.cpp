@@ -262,7 +262,7 @@ std::vector<IOPanelSceneTile> loadIOPanelSceneTiles(std::string_view scenesDirec
         tile.description = std::move(parsed.description);
 
         if (parsed.hasEmbeddedPreview && parsed.imageWidth > 0 && parsed.imageHeight > 0) {
-            if (!device) {
+            if (!WGPUContext::instance().device()) {
                 sceneTiles.emplace_back(std::move(tile));
                 continue;
             }

@@ -9,11 +9,10 @@
 
 class RendererWGPU : public IRenderer {
 public:
-    RendererWGPU(World& simbox, wgpu::TextureFormat surfaceFormat);
+    RendererWGPU(World& world, wgpu::TextureFormat surfaceFormat);
     ~RendererWGPU() override = default;
 
-    void drawShot(wgpu::TextureView targetView, wgpu::TextureView depthView, const AtomStorage& atoms, const Bond::List& bonds,
-                  const World& box) override;
+    void drawShot(wgpu::TextureView targetView, wgpu::TextureView depthView, const World& world) override;
     void endFrame() override;
 
     wgpu::raii::RenderPassEncoder& getCurrentPass() { return currentPass; }
@@ -94,7 +93,7 @@ private:
     // Draw
     void drawAtomsImpl(const AtomStorage& atoms);
     void drawBondsImpl(const AtomStorage& atoms, const Bond::List& bonds);
-    void drawBoxImpl(const World& box);
+    void drawBoxImpl(const Vec3f& worldSize);
     void drawGridImpl(const SpatialGrid& grid);
 
     // Data
