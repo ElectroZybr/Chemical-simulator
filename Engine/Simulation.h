@@ -19,8 +19,8 @@ public:
     void update();
     void setSizeBox(Vec3f newSize, int cellSize = -1);
 
-    bool createAtom(Vec3f start_coords, Vec3f start_speed, AtomData::Type type, bool fixed = false);
-    bool removeAtom(size_t atomIndex);
+    void createAtom(Vec3f start_coords, Vec3f start_speed, AtomData::Type type, bool fixed = false);
+    void removeAtom(size_t atomIndex);
     void addBond(size_t aIndex, size_t bIndex);
 
     void setDt(float dt) { Dt = dt; }

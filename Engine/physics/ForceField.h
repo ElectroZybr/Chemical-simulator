@@ -15,7 +15,6 @@ public:
     ForceField();
 
     void compute(AtomStorage& atoms, Bond::List& bonds, World& world, NeighborList& neighborList, bool allowBondFormation, float dt) const;
-    void syncWalls(const World& world);
 
 private:
     void computePairInteractions(World& world, AtomStorage& atoms, NeighborList& neighborList) const;

@@ -67,13 +67,11 @@ namespace {
 
 ForceField::ForceField() = default;
 
-void ForceField::syncWalls(const World& box) { wallForceField_.syncWalls(box); }
-
 void ForceField::compute(AtomStorage& atoms, Bond::List& bonds, World& world, NeighborList& neighborList, bool allowBondFormation,
                          float dt) const {
     PROFILE_SCOPE("ForceField::compute");
 
-    wallForceField_.compute(atoms, world.getGravity());
+    wallForceField_.compute(world);
     computePairInteractions(world, atoms, neighborList);
     bondForceField_.compute(atoms, bonds, neighborList, allowBondFormation, dt);
 }

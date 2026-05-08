@@ -5,12 +5,15 @@
 #include "Engine/NeighborSearch/NeighborList.h"
 #include "Engine/NeighborSearch/SpatialGrid.h"
 #include "Engine/math/Vec3.h"
+#include "Engine/physics/AtomData.h"
 #include "Engine/physics/AtomStorage.h"
 #include "Engine/physics/Bond.h"
 
 class World {
 public:
     World(Vec3f size);
+
+    void clear();
 
     void setWorldSize(const Vec3f& newSize) {
         size = newSize;
@@ -40,6 +43,11 @@ public:
 
     NeighborList& getNeighborList() noexcept { return neighborList_; }
     const NeighborList& getNeighborList() const noexcept { return neighborList_; }
+
+    void addAtom(const Vec3f& start_coords, const Vec3f& start_speed, AtomData::Type type, bool fixed);
+    void removeAtom(size_t atomIndex);
+    void clearAtoms() { atomStorage_.clear(); };
+    void clearBonds() { bonds_.clear(); }
 
     std::string worldTitle_;
     std::string worldDescription_;
