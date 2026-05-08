@@ -30,7 +30,7 @@ namespace {
 
 }
 
-RendererWGPU::RendererWGPU(SimBox& simbox, wgpu::TextureFormat surfaceFormat) : IRenderer(simbox), surfaceFormat(surfaceFormat) {
+RendererWGPU::RendererWGPU(World& simbox, wgpu::TextureFormat surfaceFormat) : IRenderer(simbox), surfaceFormat(surfaceFormat) {
     uniformBuffer = WGPUContext::instance().createBuffer(sizeof(SceneUniforms), wgpu::BufferUsage::Uniform | wgpu::BufferUsage::CopyDst,
                                                          "RenderingUniforms");
 
@@ -354,7 +354,7 @@ template <typename T> void RendererWGPU::uploadStorageBuffer(wgpu::Buffer& buf, 
 }
 
 void RendererWGPU::drawShot(wgpu::TextureView targetView, wgpu::TextureView depthView, const AtomStorage& atoms, const Bond::List& bonds,
-                            const SimBox& box) {
+                            const World& box) {
     updateMatrices();
 
     SceneUniforms uniforms{};
@@ -402,7 +402,7 @@ void RendererWGPU::drawShot(wgpu::TextureView targetView, wgpu::TextureView dept
         drawBondsImpl(atoms, bonds);
     }
     if (drawGrid) {
-        drawGridImpl(box.grid);
+        drawGridImpl(box.getGrid());
     }
     drawBoxImpl(box);
     drawAtomsImpl(atoms);
@@ -466,12 +466,12 @@ void RendererWGPU::drawAtomsImpl(const AtomStorage& atoms) {
     currentPass->draw(6, count, 0, 0);
 }
 
-void RendererWGPU::drawBoxImpl(const SimBox& box) {
-    if (box.size.x != cachedBoxSize_.x || box.size.y != cachedBoxSize_.y || box.size.z != cachedBoxSize_.z) {
-        cachedBoxSize_ = box.size;
-        const float x1 = box.size.x;
-        const float y1 = box.size.y;
-        const float z1 = box.size.z;
+void RendererWGPU::drawBoxImpl(const World& box) {
+    if (box.getWorldSize().x != cachedBoxSize_.x || box.getWorldSize().y != cachedBoxSize_.y || box.getWorldSize().z != cachedBoxSize_.z) {
+        cachedBoxSize_ = box.getWorldSize();
+        const float x1 = cachedBoxSize_.x;
+        const float y1 = cachedBoxSize_.y;
+        const float z1 = cachedBoxSize_.z;
         boxVertices_ = {
             0, y1, 0, x1, y1, 0, x1, y1, 0, x1, y1, z1, x1, y1, z1, 0,  y1, z1, 0, y1, z1, 0, y1, 0,
             0, 0,  0, x1, 0,  0, x1, 0,  0, x1, 0,  z1, x1, 0,  z1, 0,  0,  z1, 0, 0,  z1, 0, 0,  0,

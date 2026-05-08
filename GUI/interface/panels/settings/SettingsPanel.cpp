@@ -225,9 +225,9 @@ void SettingsPanel::draw(float uiScale, Vec2i windowSize, Simulation& simulation
     ImGui::PopItemWidth();
 
     ImGui::SeparatorText("Список соседей");
-    int cellSize = simulation.box().grid.cellSize;
+    int cellSize = simulation.world().getGridCellSize();
     if (ImGui::SliderInt("Cell size", &cellSize, 1, 32)) {
-        simulation.setSizeBox(simulation.box().size, cellSize);
+        simulation.setSizeBox(simulation.world().getWorldSize(), cellSize);
     }
 
     float cutoff = simulation.getNeighborListCutoff();

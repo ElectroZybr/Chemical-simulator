@@ -6,10 +6,9 @@
 #include "Engine/metrics/Profiler.h"
 #include "Engine/physics/Bond.h"
 
-Simulation::Simulation(SimBox& box) : sim_box_(box), integrator() {
-    atomStorage_.reserve(250000);
-    neighborList_.setParams(5.f, 1.f);
-    forceField_.syncWalls(sim_box_);
+Simulation::Simulation(World& world) : world_(world), integrator() {
+    world_.getNeighborList().setParams(5.f, 1.f);
+    forceField_.syncWalls(world_);
 }
 
 void Simulation::refreshMetricsCache() const {
@@ -17,17 +16,17 @@ void Simulation::refreshMetricsCache() const {
         return;
     }
 
-    metricsCache_ = EnergyMetrics::buildSnapshot(atomStorage_);
+    metricsCache_ = EnergyMetrics::buildSnapshot(world_.getAtomStorage());
     metricsCacheValid_ = true;
 }
 
 StepData Simulation::makeStepData() {
     return StepData{
-        .atomStorage = atomStorage_,
-        .bonds = bonds_,
-        .box = sim_box_,
+        .atomStorage = world_.getAtomStorage(),
+        .bonds = world_.getBonds(),
+        .box = world_,
         .forceField = forceField_,
-        .neighborList = neighborList_,
+        .neighborList = world_.getNeighborList(),
         .allowBondFormation = bondFormationEnabled_,
         .accelDamping = integrator.accelDamping(),
         .dt = Dt,
@@ -36,8 +35,8 @@ StepData Simulation::makeStepData() {
 
 void Simulation::update() {
     PROFILE_SCOPE("Simulation::update");
-    if (neighborList_.needsRebuild(atomStorage_)) {
-        neighborList_.rebuildPipeline(atomStorage_, sim_box_, sim_step);
+    if (world_.getNeighborList().needsRebuild(world_.getAtomStorage())) {
+        world_.getNeighborList().rebuildPipeline(world_.getAtomStorage(), world_, sim_step);
     }
 
     StepData stepData = makeStepData();
@@ -48,37 +47,37 @@ void Simulation::update() {
 }
 
 void Simulation::setSizeBox(Vec3f newSize, int cellSize) {
-    const bool resized = sim_box_.setSizeBox(newSize, cellSize);
-    if (resized) {
-        forceField_.syncWalls(sim_box_);
-        sim_box_.grid.rebuild(atomStorage_.xDataSpan(), atomStorage_.yDataSpan(), atomStorage_.zDataSpan());
-        neighborList_.clear();
-    }
+    world_.setWorldSize(newSize);
+    world_.setGridCellSize(cellSize);
+
+    forceField_.syncWalls(world_);
+    world_.getGrid().rebuild(world_.getAtomStorage().xDataSpan(), world_.getAtomStorage().yDataSpan(), world_.getAtomStorage().zDataSpan());
+    world_.getNeighborList().clear();
 }
 
 bool Simulation::createAtom(Vec3f start_coords, Vec3f start_speed, AtomData::Type type, bool fixed) {
-    atomStorage_.addAtom(start_coords, start_speed, type, fixed);
+    world_.getAtomStorage().addAtom(start_coords, start_speed, type, fixed);
     invalidateMetricsCache();
-    sim_box_.grid.rebuild(atomStorage_.xDataSpan(), atomStorage_.yDataSpan(), atomStorage_.zDataSpan());
+    world_.getGrid().rebuild(world_.getAtomStorage().xDataSpan(), world_.getAtomStorage().yDataSpan(), world_.getAtomStorage().zDataSpan());
     return true;
 }
 
 bool Simulation::removeAtom(size_t atomIndex) {
-    if (atomIndex >= atomStorage_.size()) {
+    if (atomIndex >= world_.getAtomStorage().size()) {
         return false;
     }
 
-    const size_t lastIndex = atomStorage_.size() - 1;
+    const size_t lastIndex = world_.getAtomStorage().size() - 1;
 
-    for (auto it = bonds_.begin(); it != bonds_.end();) {
+    for (auto it = world_.getBonds().begin(); it != world_.getBonds().end();) {
         if (it->aIndex == atomIndex || it->bIndex == atomIndex) {
-            if (it->aIndex == atomIndex && it->bIndex != atomIndex && it->bIndex < atomStorage_.size()) {
-                ++atomStorage_.valenceCount(it->bIndex);
+            if (it->aIndex == atomIndex && it->bIndex != atomIndex && it->bIndex < world_.getAtomStorage().size()) {
+                ++world_.getAtomStorage().valenceCount(it->bIndex);
             }
-            if (it->bIndex == atomIndex && it->aIndex != atomIndex && it->aIndex < atomStorage_.size()) {
-                ++atomStorage_.valenceCount(it->aIndex);
+            if (it->bIndex == atomIndex && it->aIndex != atomIndex && it->aIndex < world_.getAtomStorage().size()) {
+                ++world_.getAtomStorage().valenceCount(it->aIndex);
             }
-            it = bonds_.erase(it);
+            it = world_.getBonds().erase(it);
             continue;
         }
 
@@ -94,28 +93,28 @@ bool Simulation::removeAtom(size_t atomIndex) {
         ++it;
     }
 
-    atomStorage_.removeAtom(atomIndex);
+    world_.getAtomStorage().removeAtom(atomIndex);
     invalidateMetricsCache();
-    sim_box_.grid.rebuild(atomStorage_.xDataSpan(), atomStorage_.yDataSpan(), atomStorage_.zDataSpan());
+    world_.getGrid().rebuild(world_.getAtomStorage().xDataSpan(), world_.getAtomStorage().yDataSpan(), world_.getAtomStorage().zDataSpan());
     return true;
 }
 
 void Simulation::addBond(size_t aIndex, size_t bIndex) {
-    if (aIndex >= atomStorage_.size() || bIndex >= atomStorage_.size()) {
+    if (aIndex >= world_.getAtomStorage().size() || bIndex >= world_.getAtomStorage().size()) {
         return;
     }
 
-    Bond::CreateBond(bonds_, aIndex, bIndex, atomStorage_);
+    Bond::CreateBond(world_.getBonds(), aIndex, bIndex, world_.getAtomStorage());
 }
 
 void Simulation::clear() {
-    atomStorage_.clear();
+    world_.getAtomStorage().clear();
     invalidateMetricsCache();
-    bonds_.clear();
-    sceneTitle_.clear();
-    sceneDescription_.clear();
-    sim_box_.grid.rebuild(atomStorage_.xDataSpan(), atomStorage_.yDataSpan(), atomStorage_.zDataSpan());
-    neighborList_.clear();
+    world_.getBonds().clear();
+    world_.worldTitle_.clear();
+    world_.worldDescription_.clear();
+    world_.getGrid().rebuild(world_.getAtomStorage().xDataSpan(), world_.getAtomStorage().yDataSpan(), world_.getAtomStorage().zDataSpan());
+    world_.getNeighborList().clear();
     sim_step = 0;
     sim_time_ns = 0.0f;
 }

@@ -18,12 +18,12 @@ void AddAtomTool::onLeftPressed(Vec2i mousePos) {
     }
 
     AtomStorage& atoms = ctx.simulation->atoms();
-    const SimBox& box = ctx.simulation->box();
+    const World& box = ctx.simulation->world();
     const AtomData::Type atomType = static_cast<AtomData::Type>(PeriodicPanel::decodeAtom(ctx.uiState->selectedAtom));
     const Vec3f spawnPos = screenToWorld(mousePos);
 
-    if (!(1 <= spawnPos.x && spawnPos.x <= box.size.x - 1 && 1 <= spawnPos.y && spawnPos.y <= box.size.y - 1 && 1 <= spawnPos.z &&
-          spawnPos.z <= box.size.z - 1)) {
+    if (!(1 <= spawnPos.x && spawnPos.x <= box.getWorldSize().x - 1 && 1 <= spawnPos.y && spawnPos.y <= box.getWorldSize().y - 1 &&
+          1 <= spawnPos.z && spawnPos.z <= box.getWorldSize().z - 1)) {
         return;
     }
 

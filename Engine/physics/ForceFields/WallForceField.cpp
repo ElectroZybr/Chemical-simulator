@@ -1,9 +1,9 @@
 #include "WallForceField.h"
 
-void WallForceField::syncWalls(const SimBox& box) {
-    wallMaxX_ = box.size.x - 1.0f;
-    wallMaxY_ = box.size.y - 1.0f;
-    wallMaxZ_ = box.size.z - 1.0f;
+void WallForceField::syncWalls(const World& world) {
+    wallMaxX_ = world.getWorldSize().x - 1.0f;
+    wallMaxY_ = world.getWorldSize().y - 1.0f;
+    wallMaxZ_ = world.getWorldSize().z - 1.0f;
 }
 
 void WallForceField::compute(AtomStorage& atoms, const Vec3f& gravity) const {

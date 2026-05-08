@@ -10,7 +10,7 @@
 #include "Engine/math/Vec3.h"
 #include "Rendering/BaseRenderer.h"
 
-class SimBox;
+class World;
 class SideToolsPanel;
 class Interface;
 struct UiState;

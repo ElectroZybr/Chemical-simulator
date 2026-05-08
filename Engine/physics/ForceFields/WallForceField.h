@@ -1,12 +1,12 @@
 #pragma once
 
-#include "Engine/SimBox.h"
+#include "Engine/World.h"
 #include "Engine/math/Vec3.h"
 #include "Engine/physics/AtomStorage.h"
 
 class WallForceField {
 public:
-    void syncWalls(const SimBox& box);
+    void syncWalls(const World& box);
     void compute(AtomStorage& atoms, const Vec3f& gravity) const;
 
 private:

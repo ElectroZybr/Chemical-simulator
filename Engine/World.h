@@ -1,0 +1,58 @@
+#pragma once
+
+#include <string>
+
+#include "Engine/NeighborSearch/NeighborList.h"
+#include "Engine/NeighborSearch/SpatialGrid.h"
+#include "Engine/math/Vec3.h"
+#include "Engine/physics/AtomStorage.h"
+#include "Engine/physics/Bond.h"
+
+class World {
+public:
+    World(Vec3f size);
+
+    void setWorldSize(const Vec3f& newSize) {
+        size = newSize;
+        grid.resize(size);
+    }
+    const Vec3f& getWorldSize() const noexcept { return size; }
+
+    void setGravity(const Vec3f& g) { gravity = g; }
+    const Vec3f& getGravity() const noexcept { return gravity; }
+
+    void setGridCellSize(float newSize) { grid.resize(size, newSize); }
+    float getGridCellSize() const noexcept { return grid.cellSize; }
+
+    bool isLJEnabled() const { return ljEnabled; }
+    void setLJEnabled(bool v) { ljEnabled = v; }
+    bool isCoulombEnabled() const { return coulombEnabled; }
+    void setCoulombEnabled(bool v) { coulombEnabled = v; }
+
+    AtomStorage& getAtomStorage() noexcept { return atomStorage_; }
+    const AtomStorage& getAtomStorage() const noexcept { return atomStorage_; }
+
+    Bond::List& getBonds() noexcept { return bonds_; }
+    const Bond::List& getBonds() const noexcept { return bonds_; }
+
+    SpatialGrid& getGrid() noexcept { return grid; }
+    const SpatialGrid& getGrid() const noexcept { return grid; }
+
+    NeighborList& getNeighborList() noexcept { return neighborList_; }
+    const NeighborList& getNeighborList() const noexcept { return neighborList_; }
+
+    std::string worldTitle_;
+    std::string worldDescription_;
+
+private:
+    Vec3f size;
+    Vec3f gravity;
+
+    bool ljEnabled = true;
+    bool coulombEnabled = true;
+
+    AtomStorage atomStorage_;
+    SpatialGrid grid;
+    NeighborList neighborList_;
+    Bond::List bonds_;
+};

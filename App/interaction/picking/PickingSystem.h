@@ -9,7 +9,7 @@
 #include "Engine/physics/AtomStorage.h"
 
 class IRenderer;
-class SimBox;
+class World;
 
 struct AtomHit {
     size_t index;
@@ -18,7 +18,7 @@ struct AtomHit {
 
 class PickingSystem {
 public:
-    PickingSystem(AtomStorage& atomStorage, SimBox& box, std::unique_ptr<IRenderer>& renderer);
+    PickingSystem(AtomStorage& atomStorage, World& box, std::unique_ptr<IRenderer>& renderer);
 
     void clearSelection();
 
@@ -36,7 +36,7 @@ public:
 
 private:
     AtomStorage& atomStorage;
-    SimBox& box;
+    World& box;
     std::unique_ptr<IRenderer>* renderer;
     OverlayState overlay;
     std::unordered_set<size_t> selectedIndices;

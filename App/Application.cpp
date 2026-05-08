@@ -38,10 +38,10 @@ int Application::run() {
     WGPUContext::instance().init(window, width, height);
 
     // инициализация систем
-    SimBox box({50, 50, 6});
+    World box({50, 50, 6});
     Simulation simulation(box);
     CaptureController captureController;
-    std::unique_ptr<IRenderer> renderer = std::make_unique<Renderer2DWGPU>(simulation.box(), WGPUContext::instance().surfaceFormat());
+    std::unique_ptr<IRenderer> renderer = std::make_unique<Renderer2DWGPU>(simulation.world(), WGPUContext::instance().surfaceFormat());
     Interface appInterface(window, simulation, renderer, captureController);
     AppActions::Handler appActions(window, captureController, simulation, renderer, appInterface.state());
     CaptureActions::Handler captureActions(captureController);
@@ -137,7 +137,7 @@ int Application::run() {
             // - идёт захват → возвращает view intermediate текстуры
             wgpu::raii::TextureView renderTarget = captureController.acquireRenderTarget(*surfaceTexture);
 
-            renderer->drawShot(*renderTarget, *ctx.depthView(), simulation.atoms(), simulation.bonds(), simulation.box());
+            renderer->drawShot(*renderTarget, *ctx.depthView(), simulation.atoms(), simulation.bonds(), simulation.world());
             ToolsManager::pickingSystem->getOverlay().draw();
             ImGui::Render();
             auto* wgpuRenderer = static_cast<RendererWGPU*>(renderer.get());

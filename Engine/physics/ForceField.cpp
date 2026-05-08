@@ -67,27 +67,27 @@ namespace {
 
 ForceField::ForceField() = default;
 
-void ForceField::syncWalls(const SimBox& box) { wallForceField_.syncWalls(box); }
+void ForceField::syncWalls(const World& box) { wallForceField_.syncWalls(box); }
 
-void ForceField::compute(AtomStorage& atoms, Bond::List& bonds, SimBox& box, NeighborList& neighborList, bool allowBondFormation,
+void ForceField::compute(AtomStorage& atoms, Bond::List& bonds, World& world, NeighborList& neighborList, bool allowBondFormation,
                          float dt) const {
     PROFILE_SCOPE("ForceField::compute");
 
-    wallForceField_.compute(atoms, static_force_);
-    computePairInteractions(atoms, neighborList);
+    wallForceField_.compute(atoms, world.getGravity());
+    computePairInteractions(world, atoms, neighborList);
     bondForceField_.compute(atoms, bonds, neighborList, allowBondFormation, dt);
 }
 
-void ForceField::computePairInteractions(AtomStorage& atoms, NeighborList& neighborList) const {
+void ForceField::computePairInteractions(World& world, AtomStorage& atoms, NeighborList& neighborList) const {
     PROFILE_SCOPE("ForceField::pairInteractions");
 
-    if (enableLJ_ && enableCoulomb_) {
+    if (world.isLJEnabled() && world.isCoulombEnabled()) {
         computePairInteractionsImpl<true, true>(atoms, neighborList, ljForceField_, coulombForceField_);
     }
-    else if (enableLJ_) {
+    else if (world.isLJEnabled()) {
         computePairInteractionsImpl<true, false>(atoms, neighborList, ljForceField_, coulombForceField_);
     }
-    else if (enableCoulomb_) {
+    else if (world.isCoulombEnabled()) {
         computePairInteractionsImpl<false, true>(atoms, neighborList, ljForceField_, coulombForceField_);
     }
 }

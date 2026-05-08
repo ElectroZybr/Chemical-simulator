@@ -4,7 +4,7 @@
 
 #include <webgpu/webgpu-raii.hpp>
 
-#include "Engine/SimBox.h"
+#include "Engine/World.h"
 #include "Engine/physics/AtomStorage.h"
 #include "Engine/physics/Bond.h"
 #include "Rendering/camera/Camera.h"
@@ -20,7 +20,7 @@ public:
     virtual ~IRenderer() = default;
 
     virtual void drawShot(wgpu::TextureView targetView, wgpu::TextureView depthView, const AtomStorage& atoms, const Bond::List& bonds,
-                          const SimBox& box) = 0;
+                          const World& box) = 0;
     virtual void endFrame() = 0;
 
     bool drawGrid = false;
@@ -32,5 +32,5 @@ public:
     Camera camera;
 
 protected:
-    IRenderer(SimBox& box) : camera(box) {}
+    IRenderer(World& box) : camera(box) {}
 };

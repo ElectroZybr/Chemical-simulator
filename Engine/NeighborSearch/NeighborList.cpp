@@ -6,7 +6,7 @@
 #include <vector>
 
 #include "Engine/NeighborSearch/SpatialGrid.h"
-#include "Engine/SimBox.h"
+#include "Engine/World.h"
 #include "Engine/metrics/Profiler.h"
 #include "Engine/physics/AtomStorage.h"
 #include "Engine/restrict.h"
@@ -48,20 +48,20 @@ void NeighborList::clear() {
     resetStats();
 }
 
-void NeighborList::rebuildPipeline(const AtomStorage& atoms, SimBox& box, int simStep) {
+void NeighborList::rebuildPipeline(const AtomStorage& atoms, World& world, int simStep) {
     // перестройка пространственной сетки
-    box.grid.rebuild(atoms.xDataSpan(), atoms.yDataSpan(), atoms.zDataSpan());
+    world.getGrid().rebuild(atoms.xDataSpan(), atoms.yDataSpan(), atoms.zDataSpan());
     // перестройка списка соседей
-    build(atoms, box);
+    build(atoms, world);
     // обновление метрик
     const float rebuildTimeMs = static_cast<float>(Profiler::instance().lastMs("NeighborList::build"));
     stats_.recordRebuild(simStep, rebuildTimeMs);
 }
 
-void NeighborList::build(const AtomStorage& atoms, SimBox& box) {
+void NeighborList::build(const AtomStorage& atoms, World& box) {
     PROFILE_SCOPE("NeighborList::build");
 
-    const SpatialGrid& grid = box.grid;
+    const SpatialGrid& grid = box.getGrid();
     const uint32_t atomCount = static_cast<uint32_t>(atoms.size());
     const float* RESTRICT x = atoms.xData();
     const float* RESTRICT y = atoms.yData();

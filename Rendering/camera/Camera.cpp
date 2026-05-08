@@ -5,26 +5,26 @@
 
 #include <glm/gtc/matrix_transform.hpp>
 
-#include "Engine/SimBox.h"
+#include "Engine/World.h"
 
-Camera::Camera(SimBox& simBox, float moveSpeed, float zoomSpeed)
-    : simBox(simBox), moveSpeed(moveSpeed), zoomSpeed(zoomSpeed), isDragging(false), lastMousePos(0, 0) {}
+Camera::Camera(World& simBox, float moveSpeed, float zoomSpeed)
+    : world(simBox), moveSpeed(moveSpeed), zoomSpeed(zoomSpeed), isDragging(false), lastMousePos(0, 0) {}
 
 void Camera::resetView() {
     azimuth = 0.f;
     elevation = 0.f;
 
-    const float max_side = std::max({simBox.size.x, simBox.size.y, simBox.size.z});
+    const float max_side = std::max({world.getWorldSize().x, world.getWorldSize().y, world.getWorldSize().z});
     const float distance = (max_side * 0.5f * 1.1f) / std::tan(glm::radians(Camera::FOV_ORBIT) * 0.5f);
-    freePosition = simBox.size * 0.5f;
+    freePosition = world.getWorldSize() * 0.5f;
     freePosition.z = -distance;
     position = freePosition.xy();
 
     if (mode == Camera::Mode::Mode2D) {
         constexpr float margin = 0.85f;
 
-        const float zoomX = (screenSize.x * margin) / simBox.size.x;
-        const float zoomY = (screenSize.y * margin) / simBox.size.y;
+        const float zoomX = (screenSize.x * margin) / world.getWorldSize().x;
+        const float zoomY = (screenSize.y * margin) / world.getWorldSize().y;
 
         setZoom(std::min(zoomX, zoomY));
     }
@@ -104,7 +104,7 @@ glm::vec3 Camera::getEyePosition() const {
         return glm::vec3(freePosition.x, freePosition.y, freePosition.z);
     }
 
-    const Vec3f center = simBox.size * 0.5f;
+    const Vec3f center = world.getWorldSize() * 0.5f;
     const glm::vec3 glmCenter(center.x, center.y, center.z);
     const float r = moveSpeed / zoom;
     return glmCenter + r * glm::vec3(std::cos(elevation) * std::sin(azimuth), std::sin(elevation), std::cos(elevation) * std::cos(azimuth));
@@ -118,7 +118,7 @@ glm::mat4 Camera::getViewMatrix() const {
     }
 
     // камера всегда смотрит в центр коробки
-    Vec3f center = simBox.size * 0.5f;
+    Vec3f center = world.getWorldSize() * 0.5f;
     glm::vec3 eye = getEyePosition();
     return glm::lookAt(eye, glm::vec3(center.x, center.y, center.z), glm::vec3(0.f, 1.f, 0.f));
 }

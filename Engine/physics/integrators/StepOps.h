@@ -2,7 +2,7 @@
 
 #include <cmath>
 
-#include "Engine/SimBox.h"
+#include "Engine/World.h"
 #include "Engine/metrics/Profiler.h"
 #include "Engine/physics/ForceField.h"
 #include "Engine/physics/Integrator.h"
@@ -16,9 +16,9 @@ namespace StepOps {
         { fn(storage, dt) } -> std::same_as<void>;
     };
 
-    inline void confineToBox(AtomStorage& atomStorage, SimBox& box) {
+    inline void confineToBox(AtomStorage& atomStorage, World& world) {
         constexpr float restitution = 0.8f;
-        const Vec3f max = box.size - Vec3f(1.0, 1.0, 1.0);
+        const Vec3f max = world.getWorldSize() - Vec3f(1.0, 1.0, 1.0);
 
         auto confineAxis = [&](float& coord, float& speed, float axisMax) {
             if (coord < 0.0f) {

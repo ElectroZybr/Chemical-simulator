@@ -279,8 +279,8 @@ void AppStateIO::saveBinary(CaptureController& captureController, const PreviewF
     simState.bondFormationEnabled = simulation.isBondFormationEnabled();
     simState.LJEnabled = simulation.isLJEnabled();
     simState.coulombEnabled = simulation.isCoulombEnabled();
-    simState.boxSize = simulation.box().size;
-    simState.gridCellSize = simulation.box().grid.cellSize;
+    simState.boxSize = simulation.world().getWorldSize();
+    simState.gridCellSize = simulation.world().getGridCellSize();
     simState.neighborListCutoff = simulation.getNeighborListCutoff();
     simState.neighborListSkin = simulation.getNeighborListSkin();
     simState.maxParticleSpeed = simulation.getMaxParticleSpeed();
@@ -309,12 +309,12 @@ void AppStateIO::saveBinary(CaptureController& captureController, const PreviewF
     appState.simulation = std::move(simState);
     appState.renderer = std::move(rendState);
 
-    std::string title = simulation.sceneTitle();
+    std::string title = simulation.worldTitle();
     if (title.empty() && !path.empty()) {
         title = std::filesystem::path(path).stem().string();
     }
     appState.header.title = title;
-    appState.header.description = simulation.sceneDescription();
+    appState.header.description = simulation.worldDescription();
 
     captureController.requestScreenshot([previewRect, filePath = std::string(path), appState = std::move(appState)](ImageData img) mutable {
         const uint32_t pitch = img.width * 4;
@@ -400,8 +400,8 @@ void AppStateIO::loadBinary(Simulation& simulation, IRenderer& renderer, std::st
 
     // Заголовок
     const auto& header = appState.header;
-    simulation.setSceneTitle(header.title);
-    simulation.setSceneDescription(header.description);
+    simulation.setWorldTitle(header.title);
+    simulation.setWorldDescription(header.description);
 
     // Симуляция
     const auto& simState = appState.simulation;

@@ -7,7 +7,7 @@
 
 #include "App/interaction/ToolsManager.h"
 #include "App/interaction/picking/PickingSystem.h"
-#include "Engine/SimBox.h"
+#include "Engine/World.h"
 #include "Engine/physics/AtomData.h"
 #include "Engine/physics/AtomStorage.h"
 #include "Engine/physics/Bond.h"
@@ -27,7 +27,7 @@ protected:
     std::unique_ptr<IRenderer> renderer_;
     AtomStorage atomStorage_;
     Bond::List bonds_;
-    SimBox box_{Vec3f(300, 300, 300)};
+    World box_{Vec3f(300, 300, 300)};
 
 private:
     static AtomStorage makeGridAtoms(int count);
@@ -84,7 +84,7 @@ protected:
     std::unique_ptr<IRenderer> renderer_;
     AtomStorage atomStorage_;
     Bond::List bonds_;
-    SimBox box_{Vec3f(300, 300, 300)};
+    World box_{Vec3f(300, 300, 300)};
 
 private:
     static AtomStorage makeGridAtoms(int count) {

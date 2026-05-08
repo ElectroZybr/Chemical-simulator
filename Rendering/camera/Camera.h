@@ -4,7 +4,7 @@
 
 #include "Engine/math/Ray.h"
 
-class SimBox;
+class World;
 class Renderer2D;
 class Renderer3DWGPU;
 class Renderer2DWGPU;
@@ -21,7 +21,7 @@ class Camera {
 public:
     enum class Mode : uint8_t { Mode2D, Orbit, Free };
 
-    Camera(SimBox& simBox, float moveSpeed = 500.f, float zoomSpeed = 0.1f);
+    Camera(World& simBox, float moveSpeed = 500.f, float zoomSpeed = 0.1f);
 
     void resetView();
 
@@ -69,7 +69,7 @@ private:
     Vec2f dragStartCameraPos;
 
     Mode mode = Mode::Mode2D;
-    SimBox& simBox;
+    World& world;
 
     // Orbit / Free
     float azimuth = 0.f;

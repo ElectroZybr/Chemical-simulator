@@ -2,11 +2,11 @@
 
 #include <limits>
 
-#include "Engine/SimBox.h"
+#include "Engine/World.h"
 #include "Engine/math/Ray.h"
 #include "Rendering/BaseRenderer.h"
 
-PickingSystem::PickingSystem(AtomStorage& atomStorage, SimBox& box, std::unique_ptr<IRenderer>& renderer)
+PickingSystem::PickingSystem(AtomStorage& atomStorage, World& box, std::unique_ptr<IRenderer>& renderer)
     : atomStorage(atomStorage), box(box), renderer(&renderer) {}
 
 void PickingSystem::clearSelection() {

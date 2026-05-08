@@ -60,12 +60,12 @@ namespace {
         file << "[meta]\n";
         file << kBlockIndent << "format lat\n";
         file << kBlockIndent << "version 1\n\n";
-        file << kBlockIndent << "title " << simulation.sceneTitle() << "\n";
-        file << kBlockIndent << "description " << simulation.sceneDescription() << "\n\n";
+        file << kBlockIndent << "title " << simulation.worldTitle() << "\n";
+        file << kBlockIndent << "description " << simulation.worldDescription() << "\n\n";
 
         file << "[scene]\n";
-        file << kBlockIndent << "box " << simulation.box().size.x << " " << simulation.box().size.y << " " << simulation.box().size.z
-             << "\n";
+        file << kBlockIndent << "box " << simulation.world().getWorldSize().x << " " << simulation.world().getWorldSize().y << " "
+             << simulation.world().getWorldSize().z << "\n";
         file << kBlockIndent << "step " << simulation.getSimStep() << "\n";
         file << kBlockIndent << "time_ns " << simulation.simTimeNs() << "\n";
         file << kBlockIndent << "dt " << simulation.getDt() << "\n";
@@ -75,7 +75,7 @@ namespace {
         file << kBlockIndent << "bond_formation " << static_cast<int>(simulation.isBondFormationEnabled()) << "\n";
         file << kBlockIndent << "lj_enabled " << static_cast<int>(simulation.isLJEnabled()) << "\n";
         file << kBlockIndent << "coulomb_enabled " << static_cast<int>(simulation.isCoulombEnabled()) << "\n";
-        file << kBlockIndent << "cell_size " << simulation.box().grid.cellSize << "\n";
+        file << kBlockIndent << "cell_size " << simulation.world().getGridCellSize() << "\n";
         file << kBlockIndent << "cutoff_nl " << simulation.getNeighborListCutoff() << "\n";
         file << kBlockIndent << "skin_nl " << simulation.getNeighborListSkin() << "\n";
         file << kBlockIndent << "max_speed " << simulation.getMaxParticleSpeed() << "\n";
@@ -110,8 +110,8 @@ namespace {
         simulation.clear();
 
         std::vector<LoadedAtomData> atoms;
-        Vec3f boxSize{simulation.box().size};
-        int cellSize = simulation.box().grid.cellSize;
+        Vec3f boxSize{simulation.world().getWorldSize()};
+        int cellSize = simulation.world().getGridCellSize();
         int loadedStep = 0;
         float loadedTimeNs = 0.0f;
         std::string loadedTitle;
@@ -201,8 +201,8 @@ namespace {
         simulation.setBondFormationEnabled(loadedBondFormationEnabled);
         simulation.setMaxParticleSpeed(loadedMaxSpeed);
         simulation.setAccelDamping(loadedAccelDamping);
-        simulation.setSceneTitle(loadedTitle);
-        simulation.setSceneDescription(loadedDescription);
+        simulation.setWorldTitle(loadedTitle);
+        simulation.setWorldDescription(loadedDescription);
 
         simulation.reserveAtoms(atoms.size());
         for (const LoadedAtomData& atom : atoms) {
@@ -220,8 +220,8 @@ namespace {
 
         simulation.clear();
 
-        Vec3f boxSize{simulation.box().size};
-        int cellSize = simulation.box().grid.cellSize;
+        Vec3f worldSize{simulation.world().getWorldSize()};
+        int cellSize = simulation.world().getGridCellSize();
         int loadedStep = 0;
         float loadedTimeNs = 0.0f;
         std::string loadedTitle;
@@ -256,7 +256,7 @@ namespace {
             stream >> tag;
 
             if (tag == "box") {
-                stream >> boxSize.x >> boxSize.y >> boxSize.z;
+                stream >> worldSize.x >> worldSize.y >> worldSize.z;
             }
             else if (tag == "title") {
                 std::string value;
@@ -339,7 +339,7 @@ namespace {
             }
         }
 
-        simulation.setSizeBox(boxSize, cellSize);
+        simulation.setSizeBox(worldSize, cellSize);
         simulation.setDt(loadedDt);
         simulation.setIntegrator(static_cast<Integrator::Scheme>(loadedIntegrator));
         simulation.setGravity(loadedGravity);
@@ -348,8 +348,8 @@ namespace {
         simulation.setCoulombEnabled(loadedCoulombEnabled);
         simulation.setMaxParticleSpeed(loadedMaxSpeed);
         simulation.setAccelDamping(loadedAccelDamping);
-        simulation.setSceneTitle(loadedTitle);
-        simulation.setSceneDescription(loadedDescription);
+        simulation.setWorldTitle(loadedTitle);
+        simulation.setWorldDescription(loadedDescription);
 
         simulation.reserveAtoms(atoms.size());
         for (const LoadedAtomData& atom : atoms) {

@@ -50,7 +50,7 @@ void ToolsManager::init(GLFWwindow* w, Simulation& sim, std::unique_ptr<IRendere
     sideToolsPanel = &appInterface.sideToolsPanel;
 
     delete pickingSystem;
-    pickingSystem = new PickingSystem(simulation->atoms(), simulation->box(), *renderer);
+    pickingSystem = new PickingSystem(simulation->atoms(), simulation->world(), *renderer);
 
     toolContext.window = w;
     toolContext.simulation = &sim;

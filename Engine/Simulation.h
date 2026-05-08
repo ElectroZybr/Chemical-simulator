@@ -3,7 +3,7 @@
 #include <string>
 
 #include "Engine/NeighborSearch/NeighborList.h"
-#include "Engine/SimBox.h"
+#include "Engine/World.h"
 #include "Engine/math/Vec3.h"
 #include "Engine/metrics/EnergyMetrics.h"
 #include "Engine/physics/AtomData.h"
@@ -14,7 +14,7 @@
 
 class Simulation {
 public:
-    Simulation(SimBox& sim_box);
+    Simulation(World& sim_box);
 
     void update();
     void setSizeBox(Vec3f newSize, int cellSize = -1);
@@ -38,10 +38,10 @@ public:
         sim_step = simStep;
         sim_time_ns = simTimeNs;
     }
-    void setSceneTitle(std::string_view title) { sceneTitle_ = title; }
-    const std::string& sceneTitle() const { return sceneTitle_; }
-    void setSceneDescription(std::string_view description) { sceneDescription_ = description; }
-    const std::string& sceneDescription() const { return sceneDescription_; }
+    void setWorldTitle(std::string_view title) { world_.worldTitle_ = title; }
+    const std::string& worldTitle() const { return world_.worldTitle_; }
+    void setWorldDescription(std::string_view description) { world_.worldDescription_ = description; }
+    const std::string& worldDescription() const { return world_.worldDescription_; }
 
     float averageKineticEnergyEv() const {
         refreshMetricsCache();
@@ -58,7 +58,7 @@ public:
         return metricsCache_.fullAverageEnergyEv();
     }
 
-    float fullEnegryPJ() const { return fullAverageEnergyEv() * atomStorage_.size() * Units::kEvToPJ; }
+    float fullEnegryPJ() const { return fullAverageEnergyEv() * world_.getAtomStorage().size() * Units::kEvToPJ; }
 
     float temperatureK() const {
         refreshMetricsCache();
@@ -77,41 +77,42 @@ public:
 
     void setBondFormationEnabled(bool enabled) { bondFormationEnabled_ = enabled; }
     bool isBondFormationEnabled() const { return bondFormationEnabled_; }
-    void setLJEnabled(bool enabled) { forceField_.setLJEnabled(enabled); }
-    bool isLJEnabled() const { return forceField_.isLJEnabled(); }
-    void setCoulombEnabled(bool enabled) { forceField_.setCoulombEnabled(enabled); }
-    bool isCoulombEnabled() const { return forceField_.isCoulombEnabled(); }
-    void setGravity(const Vec3f& gravity) { forceField_.setGravity(gravity); }
-    Vec3f getGravity() const { return forceField_.getGravity(); }
-    void setNeighborListCutoff(float cutoff) { neighborList_.setCutoff(cutoff); }
-    float getNeighborListCutoff() const { return neighborList_.cutoff(); }
-    void setNeighborListSkin(float skin) { neighborList_.setSkin(skin); }
-    float getNeighborListSkin() const { return neighborList_.skin(); }
-    float getNeighborListRadius() const { return neighborList_.listRadius(); }
+    void setLJEnabled(bool enabled) { world_.setLJEnabled(enabled); }
+    bool isLJEnabled() const { return world_.isLJEnabled(); }
+    void setCoulombEnabled(bool enabled) { world_.setCoulombEnabled(enabled); }
+    bool isCoulombEnabled() const { return world_.isCoulombEnabled(); }
+    void setGravity(const Vec3f& gravity) { world_.setGravity(gravity); }
+    Vec3f getGravity() const { return world_.getGravity(); }
+    void setNeighborListCutoff(float cutoff) { world_.getNeighborList().setCutoff(cutoff); }
+    float getNeighborListCutoff() const { return world_.getNeighborList().cutoff(); }
+    void setNeighborListSkin(float skin) { world_.getNeighborList().setSkin(skin); }
+    float getNeighborListSkin() const { return world_.getNeighborList().skin(); }
+    float getNeighborListRadius() const { return world_.getNeighborList().listRadius(); }
 
     AtomStorage& atoms() {
         invalidateMetricsCache();
-        return atomStorage_;
+        return world_.getAtomStorage();
     }
-    const AtomStorage& atoms() const { return atomStorage_; }
-    SimBox& box() { return sim_box_; }
-    const SimBox& box() const { return sim_box_; }
+    const AtomStorage& atoms() const { return world_.getAtomStorage(); }
+    World& world() { return world_; }
+    const World& world() const { return world_; }
     ForceField& forceField() { return forceField_; }
     const ForceField& forceField() const { return forceField_; }
-    NeighborList& neighborList() { return neighborList_; }
-    const NeighborList& neighborList() const { return neighborList_; }
-    Bond::List& bonds() { return bonds_; }
-    const Bond::List& bonds() const { return bonds_; }
+    NeighborList& neighborList() { return world_.getNeighborList(); }
+    const NeighborList& neighborList() const { return world_.getNeighborList(); }
+    Bond::List& bonds() { return world_.getBonds(); }
+    const Bond::List& bonds() const { return world_.getBonds(); }
 
     // методы для быстрого создания большого количества атомов
-    void reserveAtoms(size_t count) { atomStorage_.reserve(count); }
+    void reserveAtoms(size_t count) { world_.getAtomStorage().reserve(count); }
     void appendAtomFast(Vec3f startCoords, Vec3f startSpeed, AtomData::Type type, bool fixed = false) {
-        atomStorage_.addAtom(startCoords, startSpeed, type, fixed);
+        world_.getAtomStorage().addAtom(startCoords, startSpeed, type, fixed);
         invalidateMetricsCache();
     }
     void finalizeAtomBatch() {
-        sim_box_.grid.rebuild(atomStorage_.xDataSpan(), atomStorage_.yDataSpan(), atomStorage_.zDataSpan());
-        neighborList_.clear();
+        world_.getGrid().rebuild(world_.getAtomStorage().xDataSpan(), world_.getAtomStorage().yDataSpan(),
+                                 world_.getAtomStorage().zDataSpan());
+        world_.getNeighborList().clear();
     }
     void clear();
 
@@ -121,18 +122,13 @@ private:
     void invalidateMetricsCache() const { metricsCacheValid_ = false; }
     void refreshMetricsCache() const;
 
-    SimBox& sim_box_;
-    AtomStorage atomStorage_;
+    World& world_;
     Integrator integrator;
     ForceField forceField_;
-    NeighborList neighborList_;
-    Bond::List bonds_;
     float Dt = 0.01f;
     size_t sim_step = 0;
     float sim_time_ns = 0.0f;
     bool bondFormationEnabled_ = false;
-    std::string sceneTitle_;
-    std::string sceneDescription_;
     mutable bool metricsCacheValid_ = false;
     mutable EnergyMetrics::Snapshot metricsCache_{};
 };

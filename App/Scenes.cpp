@@ -57,13 +57,13 @@ namespace Scenes {
         }
 
         bool hasNeighborInStorage(const Simulation& sim, const Vec3f& coords, float delta) {
-            const SimBox& box = sim.box();
+            const World& box = sim.world();
             const AtomStorage& atoms = sim.atoms();
-            const int cx = box.grid.worldToCellX(coords.x);
-            const int cy = box.grid.worldToCellY(coords.y);
-            const int cz = box.grid.worldToCellZ(coords.z);
+            const int cx = box.getGrid().worldToCellX(coords.x);
+            const int cy = box.getGrid().worldToCellY(coords.y);
+            const int cz = box.getGrid().worldToCellZ(coords.z);
             const float deltaSqr = delta * delta;
-            const int radiusCells = std::max(1, static_cast<int>(std::ceil(delta / static_cast<float>(box.grid.cellSize))));
+            const int radiusCells = std::max(1, static_cast<int>(std::ceil(delta / static_cast<float>(box.getGrid().cellSize))));
 
             for (int dz = -radiusCells; dz <= radiusCells; ++dz) {
                 for (int dy = -radiusCells; dy <= radiusCells; ++dy) {
@@ -71,11 +71,12 @@ namespace Scenes {
                         const int nx = cx + dx;
                         const int ny = cy + dy;
                         const int nz = cz + dz;
-                        if (nx < 0 || ny < 0 || nz < 0 || nx >= box.grid.size.x || ny >= box.grid.size.y || nz >= box.grid.size.z) {
+                        if (nx < 0 || ny < 0 || nz < 0 || nx >= box.getGrid().size.x || ny >= box.getGrid().size.y ||
+                            nz >= box.getGrid().size.z) {
                             continue;
                         }
 
-                        std::span<const uint32_t> cell = box.grid.atomsInCell(nx, ny, nz);
+                        std::span<const uint32_t> cell = box.getGrid().atomsInCell(nx, ny, nz);
                         for (size_t atomIndex : cell) {
                             if (atomIndex >= atoms.size()) {
                                 continue;
@@ -154,20 +155,20 @@ namespace Scenes {
 
         std::srand(static_cast<unsigned>(detail::resolveSeed(seed)));
 
-        const SimBox& box = sim.box();
+        const World& world = sim.world();
         const float minDistanceSqr = minDistance * minDistance;
 
         const size_t oldSize = sim.atoms().size();
         std::vector<Vec3f> acceptedPositions;
         acceptedPositions.reserve(static_cast<size_t>(atomCount));
 
-        std::vector<std::vector<Vec3f>> pendingByCell(static_cast<size_t>(box.grid.countCells));
-        const int pendingRadiusCells = std::max(1, static_cast<int>(std::ceil(minDistance / static_cast<float>(box.grid.cellSize))));
+        std::vector<std::vector<Vec3f>> pendingByCell(static_cast<size_t>(world.getGrid().countCells));
+        const int pendingRadiusCells = std::max(1, static_cast<int>(std::ceil(minDistance / static_cast<float>(world.getGrid().cellSize))));
 
         const auto isTooCloseToPending = [&](const Vec3f& coords) {
-            const int cx = box.grid.worldToCellX(coords.x);
-            const int cy = box.grid.worldToCellY(coords.y);
-            const int cz = box.grid.worldToCellZ(coords.z);
+            const int cx = world.getGrid().worldToCellX(coords.x);
+            const int cy = world.getGrid().worldToCellY(coords.y);
+            const int cz = world.getGrid().worldToCellZ(coords.z);
 
             for (int dz = -pendingRadiusCells; dz <= pendingRadiusCells; ++dz) {
                 for (int dy = -pendingRadiusCells; dy <= pendingRadiusCells; ++dy) {
@@ -175,11 +176,12 @@ namespace Scenes {
                         const int nx = cx + dx;
                         const int ny = cy + dy;
                         const int nz = cz + dz;
-                        if (nx < 0 || ny < 0 || nz < 0 || nx >= box.grid.size.x || ny >= box.grid.size.y || nz >= box.grid.size.z) {
+                        if (nx < 0 || ny < 0 || nz < 0 || nx >= world.getGrid().size.x || ny >= world.getGrid().size.y ||
+                            nz >= world.getGrid().size.z) {
                             continue;
                         }
 
-                        const int cellIndex = box.grid.index(nx, ny, nz);
+                        const int cellIndex = world.getGrid().index(nx, ny, nz);
                         const auto& bucket = pendingByCell[static_cast<size_t>(cellIndex)];
                         for (const Vec3f& other : bucket) {
                             if ((coords - other).sqrAbs() < minDistanceSqr) {
@@ -192,20 +194,20 @@ namespace Scenes {
             return false;
         };
 
-        const double zMid = box.size.z * 0.5;
-        const double zSpan = box.size.z - 4.0;
+        const double zMid = world.getWorldSize().z * 0.5;
+        const double zSpan = world.getWorldSize().z - 4.0;
         const int maxZ = std::max(0, static_cast<int>(zSpan));
         for (int i = 0; i < atomCount; ++i) {
             for (int attempt = 0; attempt < maxAttemptsPerAtom; ++attempt) {
-                const double rx = std::rand() % int(box.size.x - 4.0);
-                const double ry = std::rand() % int(box.size.y - 4.0);
+                const double rx = std::rand() % int(world.getWorldSize().x - 4.0);
+                const double ry = std::rand() % int(world.getWorldSize().y - 4.0);
                 const double rz = is3d ? (std::rand() % (maxZ + 1)) : zMid;
                 const Vec3f coords(rx + 2.0, ry + 2.0, is3d ? (rz + 2.0) : zMid);
 
                 if (!detail::hasNeighborInStorage(sim, coords, minDistance) && !isTooCloseToPending(coords)) {
                     acceptedPositions.emplace_back(coords);
-                    const int cell =
-                        box.grid.index(box.grid.worldToCellX(coords.x), box.grid.worldToCellY(coords.y), box.grid.worldToCellZ(coords.z));
+                    const int cell = world.getGrid().index(world.getGrid().worldToCellX(coords.x), world.getGrid().worldToCellY(coords.y),
+                                                           world.getGrid().worldToCellZ(coords.z));
                     pendingByCell[static_cast<size_t>(cell)].emplace_back(coords);
                     break;
                 }

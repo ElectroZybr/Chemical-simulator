@@ -76,7 +76,7 @@ void IOPanel::draw(float scale, Vec2i windowSize, Simulation& simulation, FileDi
 
     fileDialog.setSimulationDirectory(scenesDirectory_.string());
     ensureSceneCatalogLoaded();
-    boxSize_ = simulation.box().size;
+    boxSize_ = simulation.world().getWorldSize();
 
     const float panelWidth = 300.f * scale;
     const float topOffset = 65.f * scale;

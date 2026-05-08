@@ -26,7 +26,7 @@ namespace {
     }
 
     void applyResizeBox(Simulation& simulation, std::unique_ptr<IRenderer>& renderer, const Vec3f& newSize) {
-        const Vec3f oldSize = simulation.box().size;
+        const Vec3f oldSize = simulation.world().getWorldSize();
         const Vec3f delta = (newSize - oldSize) * 0.5f;
 
         shiftAtoms(simulation.atoms(), delta);
@@ -67,10 +67,10 @@ namespace AppActions {
             std::unique_ptr<IRenderer> newRenderer;
             switch (type) {
             case RendererType::Renderer2D:
-                newRenderer = std::make_unique<Renderer2DWGPU>(simulation.box(), WGPUContext::instance().surfaceFormat());
+                newRenderer = std::make_unique<Renderer2DWGPU>(simulation.world(), WGPUContext::instance().surfaceFormat());
                 break;
             case RendererType::Renderer3D:
-                newRenderer = std::make_unique<Renderer3DWGPU>(simulation.box(), WGPUContext::instance().surfaceFormat());
+                newRenderer = std::make_unique<Renderer3DWGPU>(simulation.world(), WGPUContext::instance().surfaceFormat());
                 break;
             }
 
