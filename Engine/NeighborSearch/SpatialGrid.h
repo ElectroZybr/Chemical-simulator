@@ -7,20 +7,19 @@
 #include <span>
 #include <vector>
 
+#include "Engine/math/Vec3.h"
 #include "Engine/metrics/SpatialGridStats.h"
 
 class SpatialGrid {
 public:
-    int sizeX;
-    int sizeY;
-    int sizeZ;
-    int cellSize;
-    int countCells;
+    Vec3u size;
+    float cellSize;
+    size_t countCells;
 
-    SpatialGrid(int sizeX, int sizeY, int sizeZ, int cellSize = 6);
+    SpatialGrid(const Vec3f& worldSize, float cellSize = 6.f);
 
     void rebuild(std::span<const float> posX, std::span<const float> posY, std::span<const float> posZ);
-    void resize(int newSizeX, int newSizeY, int newSizeZ, int newCellSize = -1);
+    void resize(const Vec3f& newWorldSize, float newCellSize = -1);
 
     // метрики SG
     [[nodiscard]] const SpatialGridStats& stats() const noexcept { return stats_; }
@@ -35,9 +34,9 @@ public:
         return std::span<const uint32_t>(atomsInCells.data() + begin, offsets[linearIndex + 1] - begin);
     }
 
-    int worldToCellX(float x) const { return toCell(x, sizeX); }
-    int worldToCellY(float y) const { return toCell(y, sizeY); }
-    int worldToCellZ(float z) const { return toCell(z, sizeZ); }
+    int worldToCellX(float x) const { return toCell(x, size.x); }
+    int worldToCellY(float y) const { return toCell(y, size.y); }
+    int worldToCellZ(float z) const { return toCell(z, size.z); }
 
     [[nodiscard]] int countAtomsInCell(int cx, int cy, int cz) const {
         const size_t idx = static_cast<size_t>(index(cx, cy, cz));
@@ -47,10 +46,10 @@ public:
     [[nodiscard]] int linearCellOfAtom(uint32_t atomIndex) const noexcept { return static_cast<int>(cellIndices_[atomIndex]); }
     [[nodiscard]] const std::array<int, 27>& neighborOffsets27() const noexcept { return neighborOffsets27_; }
 
-    [[nodiscard]] int index(int x, int y, int z) const noexcept { return (z * sizeY + y) * sizeX + x; }
+    [[nodiscard]] int index(int x, int y, int z) const noexcept { return (z * size.y + y) * size.x + x; }
 
 private:
-    static constexpr int kGhostLayers = 1;
+    static constexpr uint32_t kGhostLayers = 1;
 
     // CSR хранение данных
     std::vector<uint32_t> offsets;      // массив оффсетов (каждый оффсет - начало новой ячейки)
@@ -66,7 +65,7 @@ private:
     void rebuildNeighborOffsets() noexcept;
 
     [[nodiscard]] bool inBounds(int x, int y, int z) const noexcept {
-        return x >= 0 && x < sizeX && y >= 0 && y < sizeY && z >= 0 && z < sizeZ;
+        return x >= 0 && x < size.x && y >= 0 && y < size.y && z >= 0 && z < size.z;
     }
 
     [[nodiscard]] int toCell(float coord, int size) const {

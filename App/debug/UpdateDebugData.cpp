@@ -8,7 +8,6 @@
 #include "App/interaction/ToolsManager.h"
 #include "Engine/Consts.h"
 #include "Engine/Simulation.h"
-#include "Engine/metrics/EnergyMetrics.h"
 #include "Engine/metrics/MemoryMetrics.h"
 #include "Engine/metrics/Profiler.h"
 #include "GUI/interface/panels/debug/view/DebugView.h"
@@ -33,7 +32,8 @@ void updateAtomSelectionDebug(const DebugViews& debugViews, const Simulation& si
             debugViews.atomSingle->add_data("Радиус", AtomData::getProps(atomType).radius);
             debugViews.atomSingle->add_data("Тип", static_cast<int>(atomType));
         }
-    } else {
+    }
+    else {
         debugViews.atomBatch->visible = true;
         debugViews.atomSingle->visible = false;
         debugViews.atomBatch->add_data("Выбрано атомов", ToolsManager::pickingSystem->getSelectedIndices().size());
@@ -83,8 +83,8 @@ void updateSimulationDebug(const DebugViews& debugViews, const Simulation& simul
     debugViews.sim->add_data("Время симуляции (ns)", simulation.simTimeNs());
     debugViews.sim->add_data("Тип интегратора", integratorName);
 
-    const std::string gridSize = std::to_string(std::max(0, box.grid.sizeX - 2)) + " x " + std::to_string(std::max(0, box.grid.sizeY - 2)) +
-                                 " x " + std::to_string(std::max(0, box.grid.sizeZ - 2));
+    const std::string gridSize = std::format("{} x {} x {}", std::max<long long>(0, box.grid.size.x - 2),
+                                             std::max<long long>(0, box.grid.size.y - 2), std::max<long long>(0, box.grid.size.z - 2));
     debugViews.neighbor->add_data("Размер сетки", gridSize);
     const std::string boxSizeNm = std::format("{:.2f} x {:.2f} x {:.2f}", box.size.x * Units::AngstromToNm,
                                               box.size.y * Units::AngstromToNm, box.size.z * Units::AngstromToNm);

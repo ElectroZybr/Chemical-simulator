@@ -71,7 +71,7 @@ namespace Scenes {
                         const int nx = cx + dx;
                         const int ny = cy + dy;
                         const int nz = cz + dz;
-                        if (nx < 0 || ny < 0 || nz < 0 || nx >= box.grid.sizeX || ny >= box.grid.sizeY || nz >= box.grid.sizeZ) {
+                        if (nx < 0 || ny < 0 || nz < 0 || nx >= box.grid.size.x || ny >= box.grid.size.y || nz >= box.grid.size.z) {
                             continue;
                         }
 
@@ -175,7 +175,7 @@ namespace Scenes {
                         const int nx = cx + dx;
                         const int ny = cy + dy;
                         const int nz = cz + dz;
-                        if (nx < 0 || ny < 0 || nz < 0 || nx >= box.grid.sizeX || ny >= box.grid.sizeY || nz >= box.grid.sizeZ) {
+                        if (nx < 0 || ny < 0 || nz < 0 || nx >= box.grid.size.x || ny >= box.grid.size.y || nz >= box.grid.size.z) {
                             continue;
                         }
 

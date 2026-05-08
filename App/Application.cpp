@@ -38,7 +38,7 @@ int Application::run() {
     WGPUContext::instance().init(window, width, height);
 
     // инициализация систем
-    SimBox box(Vec3f(50, 50, 6));
+    SimBox box({50, 50, 6});
     Simulation simulation(box);
     CaptureController captureController;
     std::unique_ptr<IRenderer> renderer = std::make_unique<Renderer2DWGPU>(simulation.box(), WGPUContext::instance().surfaceFormat());
@@ -69,9 +69,9 @@ int Application::run() {
     appInterface.state().pause = true;
 
     // создание сцены
-    // Scenes::crystal(simulation, 400, AtomData::Type::Z, false);
+    Scenes::crystal(simulation, 40, AtomData::Type::Z, false);
     // Scenes::crystal(simulation, 400, AtomData::Type::Z, false, Scenes::CrystalPlane::XZ);
-    Scenes::hexLattice(simulation, Vec3f(25, 25, 25), AtomData::Type::Z);
+    // Scenes::hexLattice(simulation, Vec3f(250, 250, 1), AtomData::Type::Z, 0.1f, 0.0f);
     // std::vector<Scenes::AtomTypeSpec> gasSpecs = {
     //     // {AtomData::Type::O, 0, 80.0f},    // 80% водорода
     //     {AtomData::Type::Na, 0, 50.0f},   // 10% натрия

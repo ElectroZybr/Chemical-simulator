@@ -523,9 +523,9 @@ void RendererWGPU::drawGridImpl(const SpatialGrid& grid) {
     gridData.clear();
     int maxCount = 1;
 
-    for (int z = 1; z < grid.sizeZ - 1; ++z) {
-        for (int y = 1; y < grid.sizeY - 1; ++y) {
-            for (int x = 1; x < grid.sizeX - 1; ++x) {
+    for (unsigned int z = 1; z < grid.size.z - 1; ++z) {
+        for (unsigned int y = 1; y < grid.size.y - 1; ++y) {
+            for (unsigned int x = 1; x < grid.size.x - 1; ++x) {
                 const int cnt = grid.countAtomsInCell(x, y, z);
                 if (cnt > 0) {
                     gridData.emplace_back(glm::vec4((x - 1) * grid.cellSize, (y - 1) * grid.cellSize, (z - 1) * grid.cellSize, 0.f),
