@@ -22,7 +22,7 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install -y libx11-dev libxrandr-dev libudev-dev libgl1-mesa-dev \
-          libxcursor-dev libxi-dev libfreetype6-dev libxinerama-dev
+          libxcursor-dev libxi-dev libfreetype6-dev libxinerama-dev libwayland-dev
 
     - name: Configure and Build (Windows MinGW)
       if: runner.os == 'Windows'
