@@ -3,6 +3,7 @@
 #include <concepts>
 #include <numbers>
 #include <type_traits>
+#include <stdlib.h>
 
 #include "Engine/Consts.h"
 

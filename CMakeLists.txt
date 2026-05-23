@@ -83,6 +83,28 @@ target_include_directories(latticelab_lib PUBLIC
     ${webgpu_cpp_SOURCE_DIR}/wgpu-native
 )
 
+
+
+if(APPLE)
+    find_library(COCOA_FRAMEWORK Cocoa)
+    find_library(METAL_FRAMEWORK Metal)
+    find_library(QUARTZCORE_FRAMEWORK QuartzCore)
+
+    target_sources(latticelab_lib PRIVATE
+            Rendering/MetalBackend.mm
+    )
+
+    target_link_libraries(latticelab_lib PUBLIC
+        "-framework Cocoa"
+        "-framework QuartzCore"
+        "-framework Metal"
+        ${COCOA_FRAMEWORK}
+        ${METAL_FRAMEWORK}
+        ${QUARTZCORE_FRAMEWORK}
+    )
+endif ()
+
+
 target_link_libraries(latticelab_lib PUBLIC
     glfw
     imgui ImGuiFileDialog_lib

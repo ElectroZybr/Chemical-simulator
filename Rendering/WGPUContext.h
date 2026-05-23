@@ -11,7 +11,7 @@
 #elif defined(_WIN32)
 #define GLFW_EXPOSE_NATIVE_WIN32
 #elif defined(__APPLE__)
-#define GLFW_EXPOSE_NATIVE_COCOA
+#include "MetalBackend.h"
 #endif
 #include <GLFW/glfw3.h>
 #include <GLFW/glfw3native.h>
@@ -234,9 +234,8 @@ private:
         return instance_.createSurface(desc);
 
 #elif defined(__APPLE__)
-        wgpu::SurfaceSourceMetalLayer metalSrc{};
-        metalSrc.layer = glfwGetCocoaWindow(window);
-
+        wgpu::SurfaceSourceMetalLayer metalSrc = wgpu::Default;
+        metalSrc.layer = getMetalBackend(window);
         wgpu::SurfaceDescriptor desc{};
         desc.label = wgpu::StringView("Surface");
         desc.nextInChain = &metalSrc.chain;
