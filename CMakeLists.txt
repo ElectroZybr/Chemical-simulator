@@ -11,6 +11,7 @@ set(APP_VERSION_STRING "${PROJECT_VERSION}")
 option(OPTIMIZE_FOR_NATIVE "Enable native CPU optimizations outside Debug builds" OFF)
 option(BUILD_BENCHMARKS "Build benchmarks" OFF)
 option(ENABLE_IPO "Enable link-time optimization for non-Debug builds when supported" ON)
+option(ENABLE_OPENMP "Enable OpenMP multithreading for physics simulation" ON)
 
 set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -64,6 +65,16 @@ add_dependencies(latticelab_lib embedded_resources)
 
 include(shaders)
 add_dependencies(latticelab_lib wgsl_shaders)
+
+if(ENABLE_OPENMP)
+    find_package(OpenMP)
+    if(OpenMP_CXX_FOUND)
+        target_link_libraries(latticelab_lib PUBLIC OpenMP::OpenMP_CXX)
+        message(STATUS "OpenMP: enabled (${OpenMP_CXX_VERSION})")
+    else()
+        message(WARNING "OpenMP not found — building without multithreading")
+    endif()
+endif()
 
 target_compile_options(latticelab_lib PRIVATE
     $<$<AND:$<BOOL:${OPTIMIZE_FOR_NATIVE}>,$<NOT:$<CONFIG:Debug>>,$<CXX_COMPILER_ID:GNU,Clang,AppleClang>>:-march=native>

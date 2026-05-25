@@ -69,14 +69,24 @@ void NeighborList::build(const AtomStorage& atoms, SimBox& box) {
 
     reserveListBuffers(atoms);
 
+    // Фаза 1: каждый поток строит список соседей своих атомов независимо
+    std::vector<std::vector<uint32_t>> perAtom(atomCount);
+#pragma omp parallel for schedule(dynamic, 64)
+    for (uint32_t i = 0; i < atomCount; ++i) {
+        writeAtomNeighbors(grid, x, y, z, i, x[i], y[i], z[i], perAtom[i]);
+    }
+
+    // Фаза 2: вычисляем смещения (prefix sum) — последовательно
     offsets_[0] = 0;
     for (uint32_t i = 0; i < atomCount; ++i) {
-        const float xi = x[i];
-        const float yi = y[i];
-        const float zi = z[i];
-        // запись всех соседей атома в массив
-        writeAtomNeighbors(grid, x, y, z, i, xi, yi, zi, neighbors_);
-        offsets_[i + 1] = neighbors_.size();
+        offsets_[i + 1] = offsets_[i] + static_cast<uint32_t>(perAtom[i].size());
+    }
+    neighbors_.resize(offsets_[atomCount]);
+
+    // Фаза 3: копируем в плоский массив — снова параллельно
+#pragma omp parallel for schedule(static)
+    for (uint32_t i = 0; i < atomCount; ++i) {
+        std::copy(perAtom[i].begin(), perAtom[i].end(), neighbors_.begin() + offsets_[i]);
     }
 
     std::copy(x, x + atoms.mobileCount(), refPosX_.data());
