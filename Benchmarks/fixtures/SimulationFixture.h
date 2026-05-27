@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <cstdlib>
 #include <memory>
 #include <string>
@@ -65,6 +66,9 @@ protected:
             .world = simulation_->world(),
             .forceField = simulation_->forceField(),
             .neighborList = simulation_->neighborList(),
+            // Исправление бага: передаём simStep, чтобы stats rebuild NeighborList
+            // оставались meaningful после force-entry refresh.
+            .simStep = simulation_->getSimStep(),
             .allowBondFormation = simulation_->isBondFormationEnabled(),
             .accelDamping = accelDamping,
             .dt = static_cast<float>(Benchmarks::kDt),
@@ -82,10 +86,23 @@ protected:
 
     void prepareNeighborList() { simulation_->neighborList().build(simulation_->atoms(), simulation_->world()); }
 
+    void clearForcesAndEnergy() {
+        // Исправление бага: force benchmarks раньше накапливали force/energy
+        // между iterations, измеряя corrupted state вместо одного clean force pass.
+        AtomStorage& atoms = simulation_->atoms();
+        std::fill_n(atoms.fxData(), atoms.size(), 0.0f);
+        std::fill_n(atoms.fyData(), atoms.size(), 0.0f);
+        std::fill_n(atoms.fzData(), atoms.size(), 0.0f);
+        std::fill_n(atoms.energyData(), atoms.size(), 0.0f);
+    }
+
     void prepareForCorrect() {
         prepareForPredict();
         StepData stepData = makeStepData();
         StepOps::predictAndSync(stepData, &VerletScheme::predict);
+        // Исправление бага: benchmark fixtures готовятся с тем же post-predict
+        // refresh NeighborList, который ожидают реальные force paths integrator.
+        StepOps::refreshNeighborListIfNeeded(stepData);
         StepOps::computeForces(stepData);
     }
 

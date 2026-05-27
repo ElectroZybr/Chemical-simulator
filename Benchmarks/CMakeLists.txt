@@ -23,3 +23,9 @@ target_link_libraries(benchmarks PRIVATE
     benchmark::benchmark_main
     latticelab_lib
 )
+
+# Исправление бага: benchmarks нужен тот же WebGPU runtime DLL рядом с executable,
+# что и приложению; иначе renderer benchmark smoke может упасть вне корня исходников.
+if(COMMAND target_copy_webgpu_binaries)
+    target_copy_webgpu_binaries(benchmarks)
+endif()

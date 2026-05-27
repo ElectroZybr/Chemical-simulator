@@ -17,6 +17,7 @@ struct StepData {
     World& world;
     ForceField& forceField;
     NeighborList& neighborList;
+    size_t simStep;
     bool allowBondFormation;
     float accelDamping;
     float dt;
@@ -45,6 +46,9 @@ public:
 private:
     using SchemeVariant = std::variant<VerletScheme, KDKScheme, RK4Scheme, LangevinScheme>;
 
+    // Исправление бага: RK4/Langevin сейчас fall back to Verlet, поэтому public
+    // scheme state canonicalized, пока нет настоящих implementations.
+    static Scheme canonicalizeScheme(Scheme scheme);
     static SchemeVariant makeSchemeImpl(Scheme scheme);
 
     Scheme integrator_type = Scheme::Verlet;

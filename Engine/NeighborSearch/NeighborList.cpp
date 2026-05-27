@@ -13,6 +13,9 @@
 
 void NeighborList::setCutoff(float cutoff) {
     cutoff_ = cutoff;
+    // Исправление бага: ForceField нужен реальный physical cutoff отдельно от
+    // cutoff + skin, чтобы skin shell влиял на performance, а не на physics.
+    cutoffSqr_ = cutoff_ * cutoff_;
     listRadius_ = cutoff_ + skin_;
     listRadiusSqr_ = listRadius_ * listRadius_;
     valid_ = false;
@@ -27,6 +30,7 @@ void NeighborList::setSkin(float skin) {
 
 void NeighborList::setParams(float cutoff, float skin) {
     cutoff_ = cutoff;
+    cutoffSqr_ = cutoff_ * cutoff_;
     skin_ = skin;
     listRadius_ = cutoff_ + skin_;
     listRadiusSqr_ = listRadius_ * listRadius_;
@@ -63,6 +67,8 @@ void NeighborList::build(const AtomStorage& atoms, World& box) {
 
     const SpatialGrid& grid = box.getGrid();
     const uint32_t atomCount = static_cast<uint32_t>(atoms.size());
+    const uint32_t mobileCount = static_cast<uint32_t>(atoms.mobileCount());
+    const bool hasFixedAtoms = mobileCount < atomCount;
     const float* RESTRICT x = atoms.xData();
     const float* RESTRICT y = atoms.yData();
     const float* RESTRICT z = atoms.zData();
@@ -75,7 +81,14 @@ void NeighborList::build(const AtomStorage& atoms, World& box) {
         const float yi = y[i];
         const float zi = z[i];
         // запись всех соседей атома в массив
-        writeAtomNeighbors(grid, x, y, z, i, xi, yi, zi, neighbors_);
+        // Исправление бага: fixed atoms находятся после mobile atoms, но ForceField
+        // обходит только mobile rows. Mixed mobile-fixed pairs хранятся здесь.
+        if (!hasFixedAtoms) {
+            writeAtomNeighbors(grid, x, y, z, i, xi, yi, zi, neighbors_);
+        }
+        else if (i < mobileCount) {
+            writeMixedMobileAtomNeighbors(grid, x, y, z, i, mobileCount, xi, yi, zi, neighbors_);
+        }
         offsets_[i + 1] = neighbors_.size();
     }
 
@@ -89,7 +102,9 @@ void NeighborList::build(const AtomStorage& atoms, World& box) {
 bool NeighborList::needsRebuild(const AtomStorage& atoms) const {
     const size_t n = atoms.mobileCount();
 
-    if (!valid_ || n != refPosX_.size()) {
+    // Исправление бага: atom add/remove меняет row offsets, даже если mobile ref
+    // arrays выглядят valid, поэтому total atom count входит в rebuild gate.
+    if (!valid_ || n != refPosX_.size() || atoms.size() != atomCount()) {
         return true;
     }
 
@@ -105,7 +120,7 @@ bool NeighborList::needsRebuild(const AtomStorage& atoms) const {
     const float* RESTRICT refZ = refPosZ_.data();
 
     int rebuild = false;
-#pragma GCC ivdep
+    LATTICELAB_IVDEP
     for (uint32_t i = 0; i < n; ++i) {
         const float dx = x[i] - refX[i];
         const float dy = y[i] - refY[i];
@@ -133,6 +148,36 @@ uint32_t NeighborList::memoryBytes() const {
 }
 
 void NeighborList::resetStats() { stats_.reset(); }
+
+void NeighborList::writeMixedMobileAtomNeighbors(const SpatialGrid& grid, const float* x, const float* y, const float* z,
+                                                 const uint32_t atomIndex, const uint32_t mobileCount, const float xi, const float yi,
+                                                 const float zi, std::vector<uint32_t>& outNeighbors) const {
+    const auto& offsets27 = grid.neighborOffsets27();
+    const int center = grid.linearCellOfAtom(atomIndex);
+
+    for (int k = 0; k < 27; ++k) {
+        for (uint32_t neighborIndex : grid.atomsInCell(center + offsets27[k])) {
+            if (neighborIndex == atomIndex) {
+                continue;
+            }
+
+            // Исправление бага: mobile-mobile pairs сохраняют half-list ownership;
+            // каждая mobile-fixed pair принадлежит row мобильного атома.
+            const bool ownsMobilePair = neighborIndex < atomIndex;
+            const bool ownsFixedPair = neighborIndex >= mobileCount;
+            if (!ownsMobilePair && !ownsFixedPair) {
+                continue;
+            }
+
+            const float dx = x[neighborIndex] - xi;
+            const float dy = y[neighborIndex] - yi;
+            const float dz = z[neighborIndex] - zi;
+            if (dx * dx + dy * dy + dz * dz <= listRadiusSqr_) {
+                outNeighbors.emplace_back(neighborIndex);
+            }
+        }
+    }
+}
 
 void NeighborList::reserveListBuffers(const AtomStorage& atoms) {
     const size_t prevCapacity = neighbors_.capacity();

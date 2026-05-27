@@ -17,8 +17,10 @@ namespace Benchmarks {
 
         switch (benchmarkCase.scene) {
         case SceneKind::IdealCrystal3D:
-            buildCrystal2D(simulation, benchmarkCase);
-            break;            
+            // Исправление бага: этот case раньше вызывал 2D builder, поэтому
+            // имя benchmark не соответствовало измеряемой сцене.
+            buildIdealCrystal3D(simulation, benchmarkCase);
+            break;
         case SceneKind::Crystal2D:
             buildCrystal2D(simulation, benchmarkCase);
             break;

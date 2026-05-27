@@ -49,6 +49,15 @@ namespace {
         return std::string(value.substr(begin, end - begin));
     }
 
+    bool hasConsistentAtomArrays(const SimulationSaveState& state) {
+        const size_t atomCount = state.x.size();
+        // Исправление бага: binary loads раньше доверяли atom arrays до
+        // AtomStorage::init. Inconsistent saves отклоняются до mutation state.
+        return state.atomMobileCount <= atomCount && state.y.size() == atomCount && state.z.size() == atomCount &&
+               state.vx.size() == atomCount && state.vy.size() == atomCount && state.vz.size() == atomCount &&
+               state.atomType.size() == atomCount && state.atomCharge.size() == atomCount;
+    }
+
     std::string encodeBase64(std::span<const std::byte> data) {
         static constexpr char kAlphabet[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
@@ -408,15 +417,19 @@ void AppStateIO::loadBinary(Simulation& simulation, IRenderer& renderer, std::st
         return;
     }
 
-    // Заголовок
     const auto& header = appState.header;
-    simulation.setWorldTitle(header.title);
-    simulation.setWorldDescription(header.description);
 
-    // Симуляция
     const auto& simState = appState.simulation;
+    if (!hasConsistentAtomArrays(simState)) {
+        std::cerr << "Invalid atom arrays in save file" << std::endl;
+        return;
+    }
 
     simulation.clear();
+    // Исправление бага: title/description раньше задавались до clear(), который
+    // сразу их стирал. Metadata назначается после очистки старой scene.
+    simulation.setWorldTitle(header.title);
+    simulation.setWorldDescription(header.description);
 
     simulation.setSizeBox(simState.boxSize, simState.gridCellSize);
     simulation.setNeighborListCutoff(simState.neighborListCutoff);
@@ -435,7 +448,7 @@ void AppStateIO::loadBinary(Simulation& simulation, IRenderer& renderer, std::st
     const uint64_t atomCount = simState.x.size();
 
     AtomStorage& atoms = simulation.atoms();
-    simulation.reserveAtoms(atoms.size());
+    simulation.reserveAtoms(atomCount);
     atoms.init(atomCount, atomMobileCount, simState.x, simState.y, simState.z, simState.vx, simState.vy, simState.vz, simState.atomType,
                simState.atomCharge);
     simulation.finalizeAtomBatch();

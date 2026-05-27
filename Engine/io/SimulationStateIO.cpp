@@ -19,6 +19,9 @@ namespace {
         int type = 0;
         bool fixed = false;
         float charge = 0.0f;
+        // Исправление бага: отсутствующий text charge должен сохранять AtomData defaults;
+        // explicit zero charge представлен как hasCharge=true и charge=0.
+        bool hasCharge = false;
     };
 
     std::string trim(std::string_view value) {
@@ -186,6 +189,7 @@ namespace {
                 }
                 atom.fixed = (fixed != 0);
                 atom.charge = 0.0f;
+                atom.hasCharge = false;
                 atoms.emplace_back(atom);
             }
             else {
@@ -325,8 +329,12 @@ namespace {
                     continue;
                 }
                 atom.fixed = (fixed != 0);
-                if (!(stream >> atom.charge)) {
+                if (stream >> atom.charge) {
+                    atom.hasCharge = true;
+                }
+                else {
                     atom.charge = 0.0f;
+                    atom.hasCharge = false;
                 }
                 atoms.emplace_back(atom);
             }
@@ -357,7 +365,11 @@ namespace {
         }
         simulation.finalizeAtomBatch();
         for (size_t i = 0; i < atoms.size(); ++i) {
-            simulation.atoms().charge(i) = atoms[i].charge;
+            // Исправление бага: только explicit saved charge переопределяет
+            // default, назначенный appendAtomFast.
+            if (atoms[i].hasCharge) {
+                simulation.atoms().charge(i) = atoms[i].charge;
+            }
         }
         for (const auto& [aIndex, bIndex] : bonds) {
             simulation.addBond(aIndex, bIndex);

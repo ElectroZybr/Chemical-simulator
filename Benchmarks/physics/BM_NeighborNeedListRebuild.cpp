@@ -6,10 +6,13 @@
 // соседи"}
 BENCHMARK_DEFINE_F(SimulationFixture, NeighborListNeedRebuild)(benchmark::State& state) {
     rebuildScene();
+    // Исправление бага: этот benchmark раньше измерял invalid fast path. Сначала
+    // строим valid list, чтобы timed loop измерял scan displacement.
+    prepareNeighborList();
 
     for (auto _ : state) {
-        simulation_->neighborList().needsRebuild(simulation_->atoms());
-        benchmark::DoNotOptimize(simulation_->neighborList().pairStorageSize());
+        const bool needsRebuild = simulation_->neighborList().needsRebuild(simulation_->atoms());
+        benchmark::DoNotOptimize(needsRebuild);
         benchmark::ClobberMemory();
     }
 

@@ -7,6 +7,8 @@ void VerletScheme::pipeline(StepData& stepData) const {
     PROFILE_SCOPE("VerletScheme::pipeline");
     // Расчет новых позиций
     StepOps::predictAndSync(stepData, &predict);
+    // Исправление бага: computeForces обновляет NeighborList после движения,
+    // поэтому быстрые атомы не используют устаревшие pairs из состояния до predict.
     // Расчет сил
     StepOps::computeForces(stepData);
     // Корректировка скоростей
@@ -30,7 +32,7 @@ void VerletScheme::predict(AtomStorage& atomStorage, float dt) {
 
     const float* RESTRICT invMass = atomStorage.invMassData();
 
-#pragma GCC ivdep
+    LATTICELAB_IVDEP
     for (size_t i = 0; i < n; ++i) {
         x[i] += (vx[i] + fx[i] * invMass[i] * 0.5f * dt) * dt;
         y[i] += (vy[i] + fy[i] * invMass[i] * 0.5f * dt) * dt;
@@ -56,7 +58,7 @@ void VerletScheme::correct(AtomStorage& atomStorage, float accelDamping, float d
 
     const float* RESTRICT invMass = atomStorage.invMassData();
 
-#pragma GCC ivdep
+    LATTICELAB_IVDEP
     for (size_t i = 0; i < n; ++i) {
         const float halfDtInvMass = 0.5f * accelDamping * dt * invMass[i];
 

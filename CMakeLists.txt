@@ -12,12 +12,17 @@ option(OPTIMIZE_FOR_NATIVE "Enable native CPU optimizations outside Debug builds
 option(BUILD_BENCHMARKS "Build benchmarks" OFF)
 option(ENABLE_IPO "Enable link-time optimization for non-Debug builds when supported" ON)
 
+include(CTest)
+
 set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")
+# Исправление бага: runtime-exe раньше записывались в корень исходников.
+# Теперь они остаются внутри дерева сборки, чтобы артефакты debug/release/bench
+# не перезаписывали друг друга и не загрязняли checkout.
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
 set(FETCHCONTENT_BASE_DIR "${CMAKE_BINARY_DIR}/_deps" CACHE PATH "FetchContent base directory" FORCE)
 
 # CMake 4.x: allow legacy dependencies that declare very old minimum policies.
@@ -149,10 +154,23 @@ target_copy_webgpu_binaries(${APP_NAME})
 
 include(windows_resources)
 
-install(TARGETS ${APP_NAME} RUNTIME DESTINATION .)
-install(DIRECTORY "${CMAKE_SOURCE_DIR}/assets" DESTINATION .)
+# Исправление бага: упаковка release раньше вручную копировала файлы и могла
+# пропустить wgpu_native.dll. Компонент Runtime теперь является единым источником
+# для exe, WebGPU runtime DLL, assets и demo scenes.
+install(TARGETS ${APP_NAME} RUNTIME DESTINATION . COMPONENT Runtime)
+if(WEBGPU_RUNTIME_LIB)
+    install(FILES "${WEBGPU_RUNTIME_LIB}" DESTINATION . COMPONENT Runtime)
+endif()
+install(DIRECTORY "${CMAKE_SOURCE_DIR}/assets" DESTINATION . COMPONENT Runtime)
 if(EXISTS "${CMAKE_SOURCE_DIR}/demo/scenes")
-    install(DIRECTORY "${CMAKE_SOURCE_DIR}/demo/scenes" DESTINATION demo)
+    install(DIRECTORY "${CMAKE_SOURCE_DIR}/demo/scenes" DESTINATION demo COMPONENT Runtime)
+endif()
+
+if(BUILD_TESTING)
+    # Исправление бага: раньше CTest регистрировал ноль тестов. Regression-
+    # проверки остаются в обычных сборках, чтобы CI/local presets ловили
+    # возврат уже исправленных багов.
+    add_subdirectory(Tests)
 endif()
 
 if(BUILD_BENCHMARKS)

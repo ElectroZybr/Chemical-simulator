@@ -31,6 +31,7 @@ jobs:
         export PATH=$(echo $PATH | tr ':' '\n' | grep -v "Git/bin" | tr '\n' ':')
         cmake -S . -B build -G "MinGW Makefiles" \
           -DCMAKE_BUILD_TYPE=Release \
+          -DBUILD_BENCHMARKS=ON \
           -DCMAKE_POLICY_VERSION_MINIMUM=3.5
         cmake --build build -j 4
 
@@ -38,5 +39,32 @@ jobs:
       if: runner.os != 'Windows'
       run: |
         cmake -S . -B build -DCMAKE_BUILD_TYPE=Release \
+          -DBUILD_BENCHMARKS=ON \
           -DCMAKE_POLICY_VERSION_MINIMUM=3.5
         cmake --build build -j 4
+
+    - name: Run CTest
+      shell: bash
+      run: |
+        # Исправление бага: раньше CI только собирал проект. Inventory guard
+        # явно падает, если regression-target отсутствует, вместо тихого pass.
+        ctest --test-dir build -N | tee ctest_inventory.txt
+        if grep -q "Total Tests: 0" ctest_inventory.txt; then
+          echo "CTest registered zero tests"
+          exit 1
+        fi
+        ctest --test-dir build --output-on-failure
+
+    - name: Benchmark Smoke
+      shell: bash
+      run: |
+        # Исправление бага: benchmark-регрессии теперь ловятся inventory-check
+        # и одним коротким smoke-case вместо полного медленного набора.
+        if [ "$RUNNER_OS" = "Windows" ]; then
+          BENCHMARK_EXE="build/benchmarks.exe"
+        else
+          BENCHMARK_EXE="build/benchmarks"
+        fi
+        "$BENCHMARK_EXE" --benchmark_list_tests=true | tee benchmark_inventory.txt
+        grep -q "^SimulationFixture/Correct/125$" benchmark_inventory.txt
+        "$BENCHMARK_EXE" --benchmark_filter="^SimulationFixture/Correct/125$" --benchmark_min_time=0.001s --benchmark_repetitions=1

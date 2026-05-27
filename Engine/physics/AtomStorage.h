@@ -186,13 +186,9 @@ public:
 
         const auto& props = AtomData::getProps(type);
         invMass_[count_] = 1.f / props.mass;
-        charge_[count_] = 0.f;
-        if (type == AtomData::Type::Cl) {
-            charge_[count_] = -1.f;
-        }
-        else if (type == AtomData::Type::Na) {
-            charge_[count_] = 1.f;
-        }
+        // Исправление бага: charge defaults раньше были hardcoded по type здесь.
+        // Теперь storage доверяет AtomData, чтобы все пути load/create совпадали.
+        charge_[count_] = props.defaultCharge;
 
         atomType_.emplace_back(type);
         valence_.emplace_back(props.maxValence);

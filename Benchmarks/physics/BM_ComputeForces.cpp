@@ -9,6 +9,9 @@ BENCHMARK_DEFINE_F(SimulationFixture, ComputeForcesWithNeighborList)(benchmark::
     StepData stepData = makeStepData();
 
     for (auto _ : state) {
+        // Исправление бага: каждая итерация начинается с чистых accumulators,
+        // чтобы benchmark измерял один force pass вместо накопленного state.
+        clearForcesAndEnergy();
         StepOps::computeForces(stepData);
         benchmark::DoNotOptimize(simulation_->atoms().size());
         benchmark::ClobberMemory();
@@ -22,6 +25,9 @@ BENCHMARK_DEFINE_F(SimulationFixture, ComputePairInteractionsWithNeighborList)(b
     prepareNeighborList();
 
     for (auto _ : state) {
+        // Исправление бага: pair-interaction-only timing нужны такие же чистые
+        // buffers force и energy, как full force benchmark.
+        clearForcesAndEnergy();
         simulation_->forceField().computePairInteractions(simulation_->world());
         benchmark::DoNotOptimize(simulation_->atoms().size());
         benchmark::ClobberMemory();

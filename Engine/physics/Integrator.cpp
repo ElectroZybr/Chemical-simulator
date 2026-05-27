@@ -7,8 +7,8 @@
 Integrator::Integrator() : integrator_type(Scheme::Verlet), scheme_impl(makeSchemeImpl(Scheme::Verlet)) {}
 
 void Integrator::setScheme(Scheme scheme) {
-    integrator_type = scheme;
-    scheme_impl = makeSchemeImpl(scheme);
+    integrator_type = canonicalizeScheme(scheme);
+    scheme_impl = makeSchemeImpl(integrator_type);
 }
 
 void Integrator::setMaxParticleSpeed(float maxSpeed) { maxParticleSpeed_ = std::max(0.0f, maxSpeed); }
@@ -31,10 +31,25 @@ Integrator::SchemeVariant Integrator::makeSchemeImpl(Scheme scheme) {
     case Scheme::KDK:
         return KDKScheme{};
     case Scheme::RK4:
-        return RK4Scheme{};
     case Scheme::Langevin:
-        return LangevinScheme{};
+        // Исправление бага: эти schemes ещё не implemented и раньше выглядели
+        // selectable, хотя внутри выполнялся Verlet.
+        return VerletScheme{};
     default:
         return VerletScheme{};
+    }
+}
+
+Integrator::Scheme Integrator::canonicalizeScheme(Scheme scheme) {
+    switch (scheme) {
+    case Scheme::Verlet:
+    case Scheme::KDK:
+        return scheme;
+    case Scheme::RK4:
+    case Scheme::Langevin:
+    default:
+        // Исправление бага: сохраняем actual runtime scheme вместо misleading
+        // unsupported enum value.
+        return Scheme::Verlet;
     }
 }

@@ -58,8 +58,10 @@
     {
       "name": "bench",
       "configurePreset": "bench",
+      "description": "Исправление бага: preset bench собирает benchmarks и latticelab_tests, чтобы smoke-проверка бенчмарков не проходила при отсутствующих regression-тестах.",
       "targets": [
-        "benchmarks"
+        "benchmarks",
+        "latticelab_tests"
       ],
       "jobs": 8
     }

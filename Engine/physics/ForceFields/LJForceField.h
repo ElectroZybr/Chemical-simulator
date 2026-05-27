@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -33,7 +34,10 @@ public:
 
         const LJParams& params = ljPairRow[static_cast<size_t>(atoms.type(bIndex))];
 
-        const float invD2 = 1.0f / d2;
+        // Исправление бага: near-overlap LJ pairs могли численно взрываться.
+        // Clamp применяется только к kernel distance, не меняя normal-distance interactions.
+        const float safeD2 = std::max(d2, Consts::MinPairDistanceSqr);
+        const float invD2 = 1.0f / safeD2;
         const float invD6 = invD2 * invD2 * invD2;
         const float invD12 = invD6 * invD6;
 
