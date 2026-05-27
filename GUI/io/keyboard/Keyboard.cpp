@@ -74,21 +74,20 @@ void Keyboard::onFrame(float deltaTime) {
     if (rend->camera.mode == Camera::Mode::Orbit) {
         float rotSpeed = 1.5f * deltaTime;
         if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
-            rend->camera.elevation = std::clamp(rend->camera.elevation + rotSpeed, -1.5f, 1.5f);
+            rend->camera.orbitRotate(0.0f, rotSpeed);
         }
         if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
-            rend->camera.elevation = std::clamp(rend->camera.elevation - rotSpeed, -1.5f, 1.5f);
+            rend->camera.orbitRotate(0.0f, -rotSpeed);
         }
         if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
-            rend->camera.azimuth -= rotSpeed;
+            rend->camera.orbitRotate(-rotSpeed, 0.0f);
         }
         if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
-            rend->camera.azimuth += rotSpeed;
+            rend->camera.orbitRotate(rotSpeed, 0.0f);
         }
     }
     else if (rend->camera.mode == Camera::Mode::Free) {
-        const glm::vec3 forward(std::cos(rend->camera.elevation) * std::sin(rend->camera.azimuth), std::sin(rend->camera.elevation),
-                                std::cos(rend->camera.elevation) * std::cos(rend->camera.azimuth));
+        const glm::vec3 forward = rend->camera.getForwardVector();
         const glm::vec3 right = glm::normalize(glm::cross(forward, glm::vec3(0.f, 1.f, 0.f)));
         const float s = rend->camera.speed * deltaTime * kFreeMoveSpeedScale;
 

@@ -26,7 +26,7 @@ public:
     using ScreenshotCallback = std::function<void(ImageData)>;
     void requestScreenshot(ScreenshotCallback callback);
 
-    wgpu::TextureView acquireRenderTarget(wgpu::Texture surfaceTexture);
+    wgpu::TextureView acquireRenderTarget(wgpu::Texture surfaceTexture, wgpu::TextureView surfaceView);
     void onFrameRendered(wgpu::Texture texture, float renderDeltaTime);
     void blitToSurface(wgpu::Texture surfaceTexture);
 
@@ -70,6 +70,6 @@ private:
 
     void ensureIntermediateTexture(uint32_t width, uint32_t height, wgpu::TextureFormat format);
 
-    wgpu::Texture intermediate_;
-    wgpu::TextureView intermediateView_;
+    wgpu::raii::Texture intermediate_;
+    wgpu::raii::TextureView intermediateView_;
 };

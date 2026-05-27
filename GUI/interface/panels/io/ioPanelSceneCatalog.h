@@ -4,7 +4,7 @@
 #include <string_view>
 #include <vector>
 
-#include <webgpu/webgpu.hpp>
+#include <webgpu/webgpu-raii.hpp>
 
 #include "Engine/math/Vec2.h"
 
@@ -12,10 +12,10 @@ struct IOPanelSceneTile {
     std::string path;
     std::string title;
     std::string description;
-    wgpu::Texture previewTexture = nullptr;
-    wgpu::TextureView previewTextureView = nullptr;
+    wgpu::raii::Texture previewTexture;
+    wgpu::raii::TextureView previewTextureView;
     Vec2u previewSize;
     bool hasPreview = false;
 };
 
-std::vector<IOPanelSceneTile> loadIOPanelSceneTiles(std::string_view scenesDirectory, wgpu::Device device);
+std::vector<IOPanelSceneTile> loadIOPanelSceneTiles(std::string_view scenesDirectory);

@@ -65,6 +65,9 @@ add_dependencies(latticelab_lib embedded_resources)
 include(shaders)
 add_dependencies(latticelab_lib wgsl_shaders)
 
+include(embedded_translate)
+add_dependencies(latticelab_lib embedded_translate)
+
 target_compile_options(latticelab_lib PRIVATE
     $<$<AND:$<BOOL:${OPTIMIZE_FOR_NATIVE}>,$<NOT:$<CONFIG:Debug>>,$<CXX_COMPILER_ID:GNU,Clang,AppleClang>>:-march=native>
 )

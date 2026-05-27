@@ -1,5 +1,6 @@
 ﻿#include "Application.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdlib>
 
@@ -15,7 +16,7 @@
 #include "GUI/interface/interface.h"
 #include "GUI/io/keyboard/Keyboard.h"
 #include "GUI/io/manager/EventManager.h"
-#include "Rendering/2d/Renderer2DWGPU.h"
+#include "Rendering/3d/Renderer3DWGPU.h"
 #include "Rendering/WGPUContext.h"
 #include "capture/CaptureActions.h"
 #include "capture/CaptureController.h"
@@ -38,12 +39,14 @@ int Application::run() {
     WGPUContext::instance().init(window, width, height);
 
     // инициализация систем
-    SimBox box(Vec3f(50, 50, 6));
-    Simulation simulation(box);
+    Simulation simulation;
+
+    simulation.createWorld({120, 120, 120});
+
     CaptureController captureController;
-    std::unique_ptr<IRenderer> renderer =
-        std::make_unique<Renderer2DWGPU>(simulation.box(), WGPUContext::instance().device(), WGPUContext::instance().surfaceFormat());
+    std::unique_ptr<IRenderer> renderer = std::make_unique<Renderer3DWGPU>(simulation.world(), WGPUContext::instance().surfaceFormat());
     Interface appInterface(window, simulation, renderer, captureController);
+    appInterface.toolsPanel.setRendererType(renderer->camera.getMode() == Camera::Mode::Mode2D ? RendererType::Renderer2D : RendererType::Renderer3D);
     AppActions::Handler appActions(window, captureController, simulation, renderer, appInterface.state());
     CaptureActions::Handler captureActions(captureController);
     if (appInterface.init() != EXIT_SUCCESS) {
@@ -60,6 +63,7 @@ int Application::run() {
     appInterface.setScenesDirectory(userSettings.scenesDirectory);
     renderer->drawGrid = userSettings.rendererDrawGrid;
     renderer->drawBonds = userSettings.rendererDrawBonds;
+    renderer->drawBox = userSettings.rendererDrawBox;
     renderer->speedColorMode = userSettings.rendererSpeedColorMode;
     renderer->speedGradientMax = userSettings.rendererSpeedGradientMax;
     simulation.setIntegrator(userSettings.simulationIntegrator);
@@ -70,9 +74,9 @@ int Application::run() {
     appInterface.state().pause = true;
 
     // создание сцены
-    // Scenes::crystal(simulation, 400, AtomData::Type::Z, false);
-    // Scenes::crystal(simulation, 400, AtomData::Type::Z, false, Scenes::CrystalPlane::XZ);
-    Scenes::hexLattice(simulation, Vec3f(25, 25, 25), AtomData::Type::Z);
+    Scenes::triangularBipyramidCrystal(simulation, 8, AtomData::Type::Z);
+    Scenes::AngularVelocity(simulation, Vec3f(0.0f, 0.25f, 0.0f));
+
     // std::vector<Scenes::AtomTypeSpec> gasSpecs = {
     //     // {AtomData::Type::O, 0, 80.0f},    // 80% водорода
     //     {AtomData::Type::Na, 0, 50.0f},   // 10% натрия
@@ -90,7 +94,9 @@ int Application::run() {
     constexpr double renderInterval = 1.0 / FPS;
     constexpr double logInterval = 1.0 / LPS;
 
+    renderer->camera.setScreenSize({static_cast<float>(width), static_cast<float>(height)});
     renderer->camera.resetView();
+
     while (!glfwWindowShouldClose(window)) {
         Profiler::instance().beginFrame();
 
@@ -113,7 +119,7 @@ int Application::run() {
         const double physicsInterval = 1.0 / uiState.simulationSpeed;
         if (physicsAccum >= physicsInterval) {
             if (!uiState.pause) {
-                simulation.update();
+                simulation.updateAll();
             }
             physicsAccum = 0.0;
         }
@@ -131,22 +137,23 @@ int Application::run() {
 
             // получаем surface текстуру один раз на кадр
             wgpu::SurfaceTexture surfaceTex;
-            ctx.surface().getCurrentTexture(&surfaceTex);
-            wgpu::Texture surfaceTexture(surfaceTex.texture);
+            ctx.surface()->getCurrentTexture(&surfaceTex);
+            wgpu::raii::Texture surfaceTexture(surfaceTex.texture);
+            wgpu::raii::TextureView surfaceView = surfaceTexture->createView();
 
-            // - нет захвата → возвращает view от surface напрямую
-            // - идёт захват → возвращает view intermediate текстуры
-            wgpu::TextureView renderTarget = captureController.acquireRenderTarget(surfaceTexture);
+            // - нет захвата -> возвращает view от surface напрямую
+            // - идёт захват -> возвращает view intermediate текстуры
+            wgpu::TextureView renderTarget = captureController.acquireRenderTarget(*surfaceTexture, *surfaceView);
 
-            renderer->drawShot(renderTarget, ctx.depthView(), simulation.atoms(), simulation.bonds(), simulation.box());
+            renderer->drawShot(renderTarget, *ctx.depthView(), simulation);
             ToolsManager::overlay.draw();
             ImGui::Render();
             auto* wgpuRenderer = static_cast<RendererWGPU*>(renderer.get());
-            ImGui_ImplWGPU_RenderDrawData(ImGui::GetDrawData(), wgpuRenderer->getCurrentPass());
+            ImGui_ImplWGPU_RenderDrawData(ImGui::GetDrawData(), *wgpuRenderer->getCurrentPass());
             renderer->endFrame();
 
             // захват кадра для видео
-            captureController.onFrameRendered(surfaceTexture);
+            captureController.onFrameRendered(*surfaceTexture);
 
             ctx.present();
             ctx.processEvents();
@@ -168,6 +175,7 @@ int Application::run() {
         .captureSettings = captureController.settings(),
         .rendererDrawGrid = renderer->drawGrid,
         .rendererDrawBonds = renderer->drawBonds,
+        .rendererDrawBox = renderer->drawBox,
         .rendererSpeedColorMode = renderer->speedColorMode,
         .rendererSpeedGradientMax = renderer->speedGradientMax,
         .simulationIntegrator = simulation.getIntegrator(),

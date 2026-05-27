@@ -10,7 +10,7 @@ void VerletScheme::pipeline(StepData& stepData) const {
     // Расчет сил
     StepOps::computeForces(stepData);
     // Корректировка скоростей
-    correct(stepData.atomStorage, stepData.accelDamping, stepData.dt);
+    correct(stepData.world.getAtomStorage(), stepData.accelDamping, stepData.dt);
 }
 
 void VerletScheme::predict(AtomStorage& atomStorage, float dt) {

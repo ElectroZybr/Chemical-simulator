@@ -3,21 +3,23 @@
 </p>
 
 <p align="center">
-  Интерактивная симуляция материи на движке <b>LATTICE</b>.
+  Interactive matter simulation using <b>LATTICE</b>.
 </p>
 
-## О проекте
 
-LatticeLab — это desktop-приложение, где можно экспериментировать с атомами в реальном времени.
+## About
 
-Идея простая:
+LatticeLab - is a desktop app where you can experimente with atoms in
+real time.
 
-> задать базовые правила взаимодействия частиц и посмотреть, что из этого получится
+The idea is simple:
 
-Без заранее прописанных эффектов.  
-Только частицы и силы между ними.
+> you choose how particles should interact with each other, and observe
 
-Но этого уже достаточно, чтобы система сама начала вести себя как настоящая материя.
+Without any animations made in advance.  
+Only particles and forces between them.
+
+But it's already enough to make the system behave like real matter.
 
 <p align="center">
   <img src="demo/кристалл.gif" alt="LatticeLab demo" width="720">
@@ -25,45 +27,45 @@ LatticeLab — это desktop-приложение, где можно экспе
 
 ---
 
-## Что можно наблюдать
+## What You Can Observe
 
-- самообразование кристаллов
-- диффузию частиц
-- колебания решётки, волны и фононоподобные режимы
-- появление зёрен и границ между доменами
-- дефекты упаковки и локальные искажения решётки
-- зарождение неоднородностей
-- Волны, фононы, интерференция
-- локальное упорядочивание и разрушение структуры
-- поведение, похожее на твёрдые тела, жидкости и переходные состояния
-- релаксацию после столкновений, сжатия или изменения параметров
-
----
-
-## Планы
-
-- молекулы и химические реакции  
-- заряженные частицы и кулоновские силы  
-- металлы и сплавы  
-- проводимость и токи  
-- более сложные физические модели  
+- self-formation of crystals
+- particle diffusion
+- grid's oscillation, waves and phonon-like vibration
+- emergence of grains and domain boundaries
+- packing defects and local lattice distortions
+- nucleation of inhomogeneities
+- waves, phonons, and interference
+- local ordering and structural breakdown
+- behavior resembling solids, liquids, and transitional states
+- relaxation after collisions, compression, or parameter changes
 
 ---
 
-## Зачем это
+## What Is Planned
 
-Обычно физика — это формулы.
-
-Здесь можно увидеть, как из простых взаимодействий рождается сложное поведение
-
-- для обучения  
-- для экспериментов  
-- для понимания материи  
+- molecules and chemical reactions
+- charged particles and Coulomb forces
+- metals and alloys
+- electricity and conductivity
+- more advanced physical models
 
 ---
 
-## Ссылки
+## Why?
 
-#### [Официальный сайт](https://latticelab.dev)
-#### [Канал на YouTube](https://www.youtube.com/@ElectroChajnik)
-#### [Поддержать проект](https://latticelab.dev/donate.html)
+Normally, physics is all about complex formulas
+
+But here, you can observe how composite behavior is born out of simple rules
+
+- for educational purposes
+- for experimenting
+- to understand how the world around us works
+
+---
+
+## Links
+
+#### [Official site](https://latticelab.dev)
+#### [YouTube channel](https://www.youtube.com/@ElectroChajnik) (russian)
+#### [Support the project!](https://latticelab.dev/donate.html)

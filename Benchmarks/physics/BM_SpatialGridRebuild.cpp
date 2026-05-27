@@ -7,7 +7,7 @@ BENCHMARK_DEFINE_F(SimulationFixture, SpatialGridRebuild)(benchmark::State& stat
     rebuildScene();
 
     auto& atoms = simulation_->atoms();
-    auto& grid = simulation_->box().grid;
+    auto& grid = simulation_->world().getGrid();
 
     for (auto _ : state) {
         grid.rebuild(atoms.xDataSpan(), atoms.yDataSpan(), atoms.zDataSpan());

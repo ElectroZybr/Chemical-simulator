@@ -9,7 +9,7 @@
 #include "Engine/physics/AtomStorage.h"
 
 class IRenderer;
-class SimBox;
+class World;
 
 struct AtomHit {
     size_t index;
@@ -18,8 +18,9 @@ struct AtomHit {
 
 class PickingSystem {
 public:
-    PickingSystem(AtomStorage& atomStorage, SimBox& box, std::unique_ptr<IRenderer>& renderer);
+    PickingSystem(AtomStorage& atomStorage, World& box, std::unique_ptr<IRenderer>& renderer);
 
+    void setWorld(AtomStorage& atomStorage, World& box);
     void clearSelection();
 
     bool pickAtom(Vec2i screenPos, float tolerance, AtomHit& hit) const;
@@ -35,8 +36,8 @@ public:
     OverlayState& getOverlay() { return overlay; }
 
 private:
-    AtomStorage& atomStorage;
-    SimBox& box;
+    AtomStorage* atomStorage;
+    World* box;
     std::unique_ptr<IRenderer>* renderer;
     OverlayState overlay;
     std::unordered_set<size_t> selectedIndices;
@@ -45,6 +46,7 @@ private:
     bool pickAtom2D(Vec2i screenPos, float tolerance, AtomHit& hit) const;
     // 3D пикинг одного атома — ray cast
     bool pickAtom3D(Vec2i screenPos, AtomHit& hit) const;
+    Vec3f displayAtomPos(size_t atomIndex) const;
 
     // Проверка точки внутри фигуры
     template <typename T> static bool pointInPolygon(Vec2<T> point, std::span<Vec2<T>> polygon);

@@ -1,5 +1,9 @@
 #include "ToolsManager.h"
 
+#include <algorithm>
+#include <cmath>
+#include <limits>
+
 #include "App/interaction/tools/AddAtomTool.h"
 #include "App/interaction/tools/CursorTool.h"
 #include "App/interaction/tools/FrameTool.h"
@@ -10,6 +14,35 @@
 #include "GUI/interface/panels/tools/SideToolsPanel.h"
 
 namespace {
+    bool rayBoxIntersect(const Ray& ray, const Vec3f& min, const Vec3f& max, float& hitT) {
+        float tMin = 0.0f;
+        float tMax = std::numeric_limits<float>::max();
+
+        const auto testAxis = [&](double origin, double dir, double axisMin, double axisMax) {
+            if (std::abs(dir) < 1e-6) {
+                return origin >= axisMin && origin <= axisMax;
+            }
+
+            float t1 = static_cast<float>((axisMin - origin) / dir);
+            float t2 = static_cast<float>((axisMax - origin) / dir);
+            if (t1 > t2) {
+                std::swap(t1, t2);
+            }
+
+            tMin = std::max(tMin, t1);
+            tMax = std::min(tMax, t2);
+            return tMin <= tMax;
+        };
+
+        if (!testAxis(ray.origin.x, ray.dir.x, min.x, max.x) || !testAxis(ray.origin.y, ray.dir.y, min.y, max.y) ||
+            !testAxis(ray.origin.z, ray.dir.z, min.z, max.z)) {
+            return false;
+        }
+
+        hitT = tMin;
+        return true;
+    }
+
     ToolsManager::Mode mapPanelTool(SideToolsPanel::Tool tool) {
         switch (tool) {
         case SideToolsPanel::Tool::Cursor:
@@ -39,6 +72,7 @@ SideToolsPanel* ToolsManager::sideToolsPanel = nullptr;
 ToolContext ToolsManager::toolContext = {};
 std::array<std::unique_ptr<ITool>, ToolsManager::kModeCount> ToolsManager::toolInstances = {};
 ToolsManager::Mode ToolsManager::syncedMode = ToolsManager::Mode::Cursor;
+Simulation::WorldId ToolsManager::pickingWorldId = 0;
 Vec2i ToolsManager::startMousePos = {};
 Vec2i ToolsManager::lastSceneMousePos = {};
 bool ToolsManager::isInteracting = false;
@@ -51,7 +85,8 @@ void ToolsManager::init(GLFWwindow* w, Simulation& sim, std::unique_ptr<IRendere
     sideToolsPanel = &appInterface.sideToolsPanel;
 
     delete pickingSystem;
-    pickingSystem = new PickingSystem(simulation->atoms(), simulation->box(), *renderer);
+    pickingSystem = new PickingSystem(simulation->atoms(), simulation->world(), *renderer);
+    pickingWorldId = simulation->activeWorldId();
 
     toolContext.window = w;
     toolContext.simulation = &sim;
@@ -95,11 +130,15 @@ void ToolsManager::resetInteractionState() {
 
 bool ToolsManager::isInteractingNow() noexcept { return isInteracting; }
 
+bool ToolsManager::blocksCameraControls() noexcept { return isInteracting && currentMode() != Mode::Ruler; }
+
 void ToolsManager::onLeftPressed(Vec2i mousePos) {
     if ((uiState != nullptr && uiState->cursorHovered) || !renderer || !renderer->get() || !pickingSystem) {
         return;
     }
 
+    syncPickingWorldToActive(true);
+    selectWorldAt(mousePos);
     syncToolMode();
     startMousePos = mousePos;
     lastSceneMousePos = mousePos;
@@ -129,6 +168,7 @@ bool ToolsManager::onRightPressed(Vec2i mousePos) {
     if (uiState != nullptr && uiState->cursorHovered) {
         return false;
     }
+    syncPickingWorldToActive(true);
     syncToolMode();
 
     if (ITool* tool = activeTool(); tool != nullptr) {
@@ -142,6 +182,7 @@ void ToolsManager::onFrame(Vec2i mousePos, float deltaTime) {
         return;
     }
 
+    syncPickingWorldToActive(true);
     syncToolMode();
     if (uiState != nullptr && uiState->cursorHovered) {
         return;
@@ -203,6 +244,70 @@ void ToolsManager::syncToolMode() noexcept {
     }
     isInteracting = false;
     syncedMode = mode;
+}
+
+void ToolsManager::syncPickingWorldToActive(bool clearSelection) {
+    if (simulation == nullptr || pickingSystem == nullptr || simulation->worldCount() == 0) {
+        return;
+    }
+
+    const Simulation::WorldId activeWorldId = simulation->activeWorldId();
+    if (pickingWorldId == activeWorldId) {
+        return;
+    }
+
+    pickingSystem->setWorld(simulation->world().getAtomStorage(), simulation->world());
+    pickingWorldId = activeWorldId;
+
+    if (clearSelection) {
+        pickingSystem->clearSelection();
+        if (uiState != nullptr) {
+            uiState->selectedAtomCount = 0;
+        }
+    }
+}
+
+void ToolsManager::selectWorldAt(Vec2i mousePos) {
+    if (simulation == nullptr || renderer == nullptr || !renderer->get() || pickingSystem == nullptr || simulation->worldCount() == 0) {
+        return;
+    }
+
+    IRenderer& rend = **renderer;
+    Simulation::WorldId bestWorldId = simulation->activeWorldId();
+    bool found = false;
+    float bestT = std::numeric_limits<float>::max();
+
+    if (rend.camera.getMode() == Camera::Mode::Mode2D) {
+        const Vec3f worldPos = rend.camera.screenToWorld(mousePos);
+        for (Simulation::WorldId worldId = 0; worldId < simulation->worldCount(); ++worldId) {
+            const World& world = simulation->worldAt(worldId);
+            const Vec3f min = world.getRenderOffset();
+            const Vec3f max = min + world.getWorldSize();
+            if (worldPos.x >= min.x && worldPos.x <= max.x && worldPos.y >= min.y && worldPos.y <= max.y) {
+                bestWorldId = worldId;
+                found = true;
+            }
+        }
+    }
+    else {
+        const Ray ray = rend.camera.screenToRay(static_cast<float>(mousePos.x), static_cast<float>(mousePos.y));
+        for (Simulation::WorldId worldId = 0; worldId < simulation->worldCount(); ++worldId) {
+            const World& world = simulation->worldAt(worldId);
+            const Vec3f min = world.getRenderOffset();
+            const Vec3f max = min + world.getWorldSize();
+            float hitT = 0.0f;
+            if (rayBoxIntersect(ray, min, max, hitT) && hitT < bestT) {
+                bestT = hitT;
+                bestWorldId = worldId;
+                found = true;
+            }
+        }
+    }
+
+    if (found && bestWorldId != simulation->activeWorldId()) {
+        simulation->setActiveWorld(bestWorldId);
+        syncPickingWorldToActive(true);
+    }
 }
 
 size_t ToolsManager::toIndex(Mode mode) noexcept { return static_cast<size_t>(mode); }

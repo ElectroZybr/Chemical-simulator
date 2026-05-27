@@ -6,7 +6,8 @@
 #include "Engine/NeighborSearch/NeighborList.h"
 #include "Engine/metrics/Profiler.h"
 
-void BondForceField::compute(AtomStorage& atoms, Bond::List& bonds, NeighborList& neighborList, bool allowBondFormation, float dt) const {
+void BondForceField::compute(AtomStorage& atoms, Bond::List& bonds, const NeighborList& neighborList, bool allowBondFormation,
+                             float dt) const {
     PROFILE_SCOPE("ForceField::Bonded");
     if (bonds.empty() && !allowBondFormation) {
         return;
@@ -32,7 +33,7 @@ void BondForceField::compute(AtomStorage& atoms, Bond::List& bonds, NeighborList
     applyAngleForces(atoms, bonds);
 }
 
-void BondForceField::formBonds(AtomStorage& atoms, Bond::List& bonds, NeighborList& neighborList) const {
+void BondForceField::formBonds(AtomStorage& atoms, Bond::List& bonds, const NeighborList& neighborList) const {
     PROFILE_SCOPE("ForceField::FormBonds(NL)");
     const uint32_t atomCount = static_cast<uint32_t>(atoms.size());
     if (atomCount < 2) {

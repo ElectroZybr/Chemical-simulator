@@ -3,7 +3,7 @@
 #include <cstddef>
 #include <deque>
 
-#include <webgpu/webgpu.hpp>
+#include <webgpu/webgpu-raii.hpp>
 
 // Все методы вызываются строго из render thread — синхронизация не нужна.
 class BufferPool {

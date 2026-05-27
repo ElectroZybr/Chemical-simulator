@@ -68,8 +68,7 @@ void RulerTool::onLeftReleased(Vec2i mousePos) {
 
 bool RulerTool::onRightPressed(Vec2i mousePos) {
     (void)mousePos;
-    clearMeasurement();
-    return true;
+    return false;
 }
 
 void RulerTool::onFrame(Vec2i mousePos, float deltaTime) {

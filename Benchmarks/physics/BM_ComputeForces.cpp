@@ -22,7 +22,7 @@ BENCHMARK_DEFINE_F(SimulationFixture, ComputePairInteractionsWithNeighborList)(b
     prepareNeighborList();
 
     for (auto _ : state) {
-        simulation_->forceField().computePairInteractions(simulation_->atoms(), simulation_->neighborList());
+        simulation_->forceField().computePairInteractions(simulation_->world());
         benchmark::DoNotOptimize(simulation_->atoms().size());
         benchmark::ClobberMemory();
     }

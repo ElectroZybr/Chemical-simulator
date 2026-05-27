@@ -9,14 +9,13 @@
 
 class RendererWGPU : public IRenderer {
 public:
-    RendererWGPU(SimBox& simbox, wgpu::Device device, wgpu::TextureFormat surfaceFormat);
+    RendererWGPU(World& world, wgpu::TextureFormat surfaceFormat);
     ~RendererWGPU() override = default;
 
-    void drawShot(wgpu::TextureView targetView, wgpu::TextureView depthView, const AtomStorage& atoms, const Bond::List& bonds,
-                  const SimBox& box) override;
+    void drawShot(wgpu::TextureView targetView, wgpu::TextureView depthView, const Simulation& simulation) override;
     void endFrame() override;
 
-    wgpu::RenderPassEncoder getCurrentPass() { return currentPass; }
+    wgpu::raii::RenderPassEncoder& getCurrentPass() { return currentPass; }
 
 protected:
     virtual void updateMatrices() = 0;
@@ -26,12 +25,10 @@ protected:
     glm::mat4 projection{1.f};
     glm::mat4 view{1.f};
 
-    wgpu::Device device = nullptr;
-
-    void initAtomPipeline(const char* atomWGSL);
-    void initGridPipeline(const char* gridWGSL);
-    void initBoxPipeline(const char* boxWGSL);
-    void initBondPipeline(const char* bondWGSL);
+    void initAtomPipeline(std::string_view atomWGSL);
+    void initGridPipeline(std::string_view gridWGSL);
+    void initBoxPipeline(std::string_view boxWGSL);
+    void initBondPipeline(std::string_view bondWGSL);
 
 private:
     struct SceneUniforms {
@@ -41,47 +38,46 @@ private:
         glm::vec4 colorMode;   // x = SpeedColorMode
         glm::vec4 maxSpeedSqr; // x = value
         glm::vec4 maxCount;    // x = value
+        glm::vec4 renderOffset;
+        glm::vec4 lineColor;
         glm::vec4 typeColors[119];
     };
-    wgpu::Buffer uniformBuffer = nullptr;
+    wgpu::raii::Buffer uniformBuffer;
 
     // Pipelines (аналог bgfx::ProgramHandle)
-    wgpu::RenderPipeline atomPipeline = nullptr;
-    wgpu::RenderPipeline bondPipeline = nullptr;
-    wgpu::RenderPipeline boxPipeline = nullptr;
-    wgpu::RenderPipeline gridPipeline = nullptr;
+    wgpu::raii::RenderPipeline atomPipeline;
+    wgpu::raii::RenderPipeline bondPipeline;
+    wgpu::raii::RenderPipeline boxPipeline;
+    wgpu::raii::RenderPipeline gridPipeline;
 
     // Bind group layouts
-    wgpu::BindGroupLayout atomBindGroupLayout = nullptr;
-    wgpu::BindGroupLayout lineBindGroupLayout = nullptr;
-    wgpu::BindGroupLayout gridBindGroupLayout = nullptr;
-    wgpu::BindGroup lineBindGroup = nullptr;
-    wgpu::BindGroup gridBindGroup = nullptr;
+    wgpu::raii::BindGroupLayout atomBindGroupLayout;
+    wgpu::raii::BindGroupLayout lineBindGroupLayout;
+    wgpu::raii::BindGroupLayout gridBindGroupLayout;
+    wgpu::raii::BindGroup lineBindGroup;
+    wgpu::raii::BindGroup gridBindGroup;
 
     // Vertex buffers
-    wgpu::Buffer atomQuadVb = nullptr;
-    wgpu::Buffer bondVb = nullptr;
-    wgpu::Buffer boxVb = nullptr;
-    wgpu::Buffer gridLineVb = nullptr;
-    wgpu::Buffer gridInstVb = nullptr;
+    wgpu::raii::Buffer atomQuadVb;
+    wgpu::raii::Buffer bondVb;
+    wgpu::raii::Buffer boxVb;
+    wgpu::raii::Buffer gridLineVb;
+    wgpu::raii::Buffer gridInstVb;
 
     // Storage buffers
-    wgpu::Buffer sbPos = nullptr;    // array<vec4<f32>> — x,y,z,pad
-    wgpu::Buffer sbVel = nullptr;    // array<vec4<f32>> — vx,vy,vz,pad
-    wgpu::Buffer sbType = nullptr;   // array<f32>
-    wgpu::Buffer sbRadius = nullptr; // array<f32>
-    wgpu::Buffer sbSel = nullptr;    // array<f32>
+    wgpu::raii::Buffer sbPos;    // array<vec4<f32>> — x,y,z,pad
+    wgpu::raii::Buffer sbVel;    // array<vec4<f32>> — vx,vy,vz,pad
+    wgpu::raii::Buffer sbType;   // array<f32>
+    wgpu::raii::Buffer sbRadius; // array<f32>
+    wgpu::raii::Buffer sbSel;    // array<f32>
 
     size_t sbCapacity_ = 0;
     size_t bondVbCapacity_ = 0;
     size_t gridInstVbCapacity_ = 0;
 
-    wgpu::BindGroup atomBindGroup = nullptr;
+    wgpu::raii::BindGroup atomBindGroup;
 
-    // Текущий render pass (живёт в течение drawShot)
-    wgpu::RenderPassEncoder currentPass = nullptr;
-    wgpu::TextureView currentTargetView = nullptr;
-    wgpu::TextureView currentDepthView = nullptr;
+    wgpu::raii::RenderPassEncoder currentPass;
 
     wgpu::TextureFormat surfaceFormat;
 
@@ -90,18 +86,21 @@ private:
     void initBoxBuffer();
     void initBondBuffer();
     void initGridLineBuffer();
-    void initLinePipeline(wgpu::RenderPipeline& outPipeline, const char* wgsl);
+    void initLinePipeline(wgpu::RenderPipeline& outPipeline, std::string_view wgsl);
 
     // Helpers
-    wgpu::Buffer createBuffer(uint64_t size, wgpu::BufferUsage usage, wgpu::StringView label = wgpu::StringView());
     void ensureStorageBuffers(size_t count);
     template <typename T> void uploadStorageBuffer(wgpu::Buffer& buf, const T* data, size_t count);
 
     // Draw
-    void drawAtomsImpl(const AtomStorage& atoms);
+    void drawWorldPass(wgpu::TextureView targetView, wgpu::TextureView depthView, const World& world, wgpu::LoadOp targetLoadOp,
+                       bool applySelection);
+    void beginPass(wgpu::TextureView targetView, wgpu::TextureView depthView, wgpu::LoadOp targetLoadOp);
+    void drawAtomsImpl(const AtomStorage& atoms, bool applySelection);
     void drawBondsImpl(const AtomStorage& atoms, const Bond::List& bonds);
-    void drawBoxImpl(const SimBox& box);
+    void drawBoxImpl(const Vec3f& worldSize);
     void drawGridImpl(const SpatialGrid& grid);
+    void setLineColor(const glm::vec4& color);
 
     // Data
     struct GridInstance {
@@ -125,5 +124,5 @@ private:
     std::array<float, 24 * 3> boxVertices_{};
     Vec3f cachedBoxSize_{-1.0, -1.0, -1.0};
 
-    wgpu::CommandEncoder currentEncoder = nullptr;
+    wgpu::raii::CommandEncoder currentEncoder;
 };

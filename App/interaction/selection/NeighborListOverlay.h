@@ -21,8 +21,8 @@ private:
     size_t skinRebuildCount_ = static_cast<size_t>(-1);
     Vec3f skinCenter_{};
 
-    static void drawSelectedNeighbors(const AtomStorage& atoms, const SpatialGrid& grid, const NeighborList& neighborList, size_t selectedIndex,
-                                      const IRenderer& renderer);
+    static void drawSelectedNeighbors(const AtomStorage& atoms, const SpatialGrid& grid, const NeighborList& neighborList,
+                                      const Vec3f& renderOffset, size_t selectedIndex, const IRenderer& renderer);
     void updateSkinCenter(size_t selectedIndex, size_t rebuildCount, Vec3f atomPos);
     static void drawWorldCircle(const IRenderer& renderer, Vec3f center, float radius, ImU32 color, float thickness);
 };

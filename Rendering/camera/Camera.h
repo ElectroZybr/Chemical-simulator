@@ -4,7 +4,7 @@
 
 #include "Engine/math/Ray.h"
 
-class SimBox;
+class World;
 class Renderer2D;
 class Renderer3DWGPU;
 class Renderer2DWGPU;
@@ -21,7 +21,7 @@ class Camera {
 public:
     enum class Mode : uint8_t { Mode2D, Orbit, Free };
 
-    Camera(SimBox& simBox, float moveSpeed = 500.f, float zoomSpeed = 0.1f);
+    Camera(World& simBox, float moveSpeed = 500.f, float zoomSpeed = 0.1f);
 
     void resetView();
 
@@ -34,10 +34,11 @@ public:
     void setPosition(Vec2f pos) { position = pos; };
     Vec2f getPosition() const { return position; };
 
-    void setMode(Mode newMode) { mode = newMode; }
+    void setMode(Mode newMode);
     Mode getMode() const { return mode; }
 
     void orbitDrag(Vec2i delta);
+    void orbitRotate(float azimuthDelta, float elevationDelta);
     void freeDrag(Vec2i delta); // для Free mode
 
     Vec3f screenToWorld(Vec2i screenPos) const;
@@ -48,6 +49,7 @@ public:
     void setZoom(float new_zoom);
 
     glm::vec3 getEyePosition() const;
+    glm::vec3 getForwardVector() const;
     glm::mat4 getViewMatrix() const;
     glm::mat4 getProjectionMatrix() const;
 
@@ -57,6 +59,8 @@ private:
     Vec2f screenSize;
     Vec2f position;
     Vec3f freePosition{0.f, 0.f, -100.f};
+    Vec3f orbitCenter{0.f, 0.f, 0.f};
+    glm::vec3 orbitUp{0.f, 1.f, 0.f};
     float zoom;
     float speed;
     float moveSpeed;
@@ -69,7 +73,7 @@ private:
     Vec2f dragStartCameraPos;
 
     Mode mode = Mode::Mode2D;
-    SimBox& simBox;
+    World& world;
 
     // Orbit / Free
     float azimuth = 0.f;

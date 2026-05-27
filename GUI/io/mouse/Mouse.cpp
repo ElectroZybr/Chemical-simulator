@@ -39,7 +39,7 @@ void Mouse::onMouseButton(GLFWwindow*, int button, int action, int mods) {
             ToolsManager::onLeftPressed(mouse_pos);
         }
         if (button == GLFW_MOUSE_BUTTON_RIGHT && appInterface != nullptr && !appInterface->state().cursorHovered &&
-            !ToolsManager::isInteractingNow()) {
+            !ToolsManager::blocksCameraControls()) {
             if (!ToolsManager::onRightPressed(mouse_pos)) {
                 rend->camera.isDragging = true;
                 rend->camera.dragStartPixelPos = mouse_pos;
@@ -93,13 +93,12 @@ void Mouse::onScroll(GLFWwindow*, double xoffset, double yoffset) {
     std::unique_ptr<IRenderer>& rend = *renderer;
     constexpr float kFreeWheelMoveScale = 0.008f;
 
-    if (appInterface != nullptr && !appInterface->state().cursorHovered && !ToolsManager::isInteractingNow()) {
+    if (appInterface != nullptr && !appInterface->state().cursorHovered && !ToolsManager::blocksCameraControls()) {
         if (rend->camera.getMode() == Camera::Mode::Free) {
             const float wheelStep = rend->camera.moveSpeed * kFreeWheelMoveScale;
             const float distance = static_cast<float>(yoffset) * wheelStep;
 
-            const Vec3f forward(std::cos(rend->camera.elevation) * std::sin(rend->camera.azimuth), std::sin(rend->camera.elevation),
-                                std::cos(rend->camera.elevation) * std::cos(rend->camera.azimuth));
+            const Vec3f forward(rend->camera.getForwardVector());
             rend->camera.move3D(forward * distance);
         }
         else {

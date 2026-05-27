@@ -1,4 +1,4 @@
-#include <webgpu/webgpu.hpp>
+#include <webgpu/webgpu-raii.hpp>
 #include <zpp_bits.h>
 
 #include "Engine/math/Vec3.h"
@@ -66,13 +66,14 @@ struct SimulationSaveState {
 };
 
 struct RendererSaveState {
-    uint32_t version = 1;
+    uint32_t version = 2;
 
-    bool drawGrid;
-    bool drawBonds;
-    IRenderer::SpeedColorMode speedColorMode;
-    float speedGradientMax;
-    float alpha;
+    bool drawGrid = false;
+    bool drawBonds = false;
+    bool drawBox = true;
+    IRenderer::SpeedColorMode speedColorMode = IRenderer::SpeedColorMode::AtomColor;
+    float speedGradientMax = 5.0f;
+    float alpha = 0.05f;
 
     constexpr static zpp::bits::errc serialize(auto& archive, auto& self) {
         if (auto err = archive(self.version); zpp::bits::failure(err.code)) {
@@ -80,12 +81,22 @@ struct RendererSaveState {
         }
 
         // v1
-        if (auto err = archive(self.drawGrid, self.drawBonds, self.speedColorMode, self.speedGradientMax, self.alpha);
-            zpp::bits::failure(err.code)) {
-            return err;
+        if (self.version == 1) {
+            if (auto err = archive(self.drawGrid, self.drawBonds, self.speedColorMode, self.speedGradientMax, self.alpha);
+                zpp::bits::failure(err.code)) {
+                return err;
+            }
+            self.drawBox = true;
+            return zpp::bits::errc{};
         }
 
-        // v2: if (self.version >= 2) { ... }
+        // v2
+        if (self.version >= 2) {
+            if (auto err = archive(self.drawGrid, self.drawBonds, self.drawBox, self.speedColorMode, self.speedGradientMax, self.alpha);
+                zpp::bits::failure(err.code)) {
+                return err;
+            }
+        }
 
         return zpp::bits::errc{};
     }

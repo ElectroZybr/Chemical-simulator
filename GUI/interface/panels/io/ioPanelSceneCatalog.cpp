@@ -10,10 +10,11 @@
 #include <string_view>
 #include <vector>
 
-#include <webgpu/webgpu.hpp>
+#include <webgpu/webgpu-raii.hpp>
 #include <zstd.h>
 
 #include "App/save_system/AppSaveState.h"
+#include "Rendering/WGPUContext.h"
 
 namespace {
     struct ParsedSceneInfo {
@@ -226,7 +227,7 @@ namespace {
     }
 }
 
-std::vector<IOPanelSceneTile> loadIOPanelSceneTiles(std::string_view scenesDirectory, wgpu::Device device) {
+std::vector<IOPanelSceneTile> loadIOPanelSceneTiles(std::string_view scenesDirectory) {
     std::vector<IOPanelSceneTile> sceneTiles;
 
     const std::filesystem::path scenesDir = scenesDirectory.empty() ? std::filesystem::path(".") : std::filesystem::path(scenesDirectory);
@@ -261,7 +262,7 @@ std::vector<IOPanelSceneTile> loadIOPanelSceneTiles(std::string_view scenesDirec
         tile.description = std::move(parsed.description);
 
         if (parsed.hasEmbeddedPreview && parsed.imageWidth > 0 && parsed.imageHeight > 0) {
-            if (!device) {
+            if (!WGPUContext::instance().device()) {
                 sceneTiles.emplace_back(std::move(tile));
                 continue;
             }
@@ -272,10 +273,10 @@ std::vector<IOPanelSceneTile> loadIOPanelSceneTiles(std::string_view scenesDirec
             texDesc.mipLevelCount = 1;
             texDesc.sampleCount = 1;
             texDesc.dimension = wgpu::TextureDimension::_2D;
-            auto texture = device.createTexture(texDesc);
+            wgpu::raii::Texture texture = WGPUContext::instance().device()->createTexture(texDesc);
 
             wgpu::TexelCopyTextureInfo dst{};
-            dst.texture = texture;
+            dst.texture = *texture;
             dst.mipLevel = 0;
             dst.aspect = wgpu::TextureAspect::All;
 
@@ -284,10 +285,11 @@ std::vector<IOPanelSceneTile> loadIOPanelSceneTiles(std::string_view scenesDirec
             layout.rowsPerImage = parsed.imageHeight;
 
             wgpu::Extent3D extent{parsed.imageWidth, parsed.imageHeight, 1};
-            device.getQueue().writeTexture(dst, parsed.imageBytes.data(), parsed.imageBytes.size(), layout, extent);
+            WGPUContext::instance().device()->getQueue().writeTexture(dst, parsed.imageBytes.data(), parsed.imageBytes.size(), layout,
+                                                                      extent);
 
             tile.previewTexture = texture;
-            tile.previewTextureView = texture.createView();
+            tile.previewTextureView = texture->createView();
             tile.previewSize = Vec2u(parsed.imageWidth, parsed.imageHeight);
             tile.hasPreview = true;
         }

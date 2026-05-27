@@ -28,6 +28,7 @@ void NeighborListOverlay::draw(const Simulation& simulation, const PickingSystem
     }
 
     const AtomStorage& atoms = simulation.atoms();
+    const World& world = simulation.world();
     const NeighborList& neighborList = simulation.neighborList();
 
     const auto& selectedIndices = pickingSystem.getSelectedIndices();
@@ -40,11 +41,11 @@ void NeighborListOverlay::draw(const Simulation& simulation, const PickingSystem
         return;
     }
 
-    const Vec3f atomPos = atoms.pos(selectedIndex);
+    const Vec3f atomPos = atoms.pos(selectedIndex) + world.getRenderOffset();
     updateSkinCenter(selectedIndex, neighborList.stats().rebuildCount(), atomPos);
 
     if (neighborList.isValid()) {
-        drawSelectedNeighbors(atoms, simulation.box().grid, neighborList, selectedIndex, renderer);
+        drawSelectedNeighbors(atoms, world.getGrid(), neighborList, world.getRenderOffset(), selectedIndex, renderer);
     }
 
     drawWorldCircle(renderer, atomPos, neighborList.cutoff(), kCutoffColor, kRadiusThickness);
@@ -52,13 +53,14 @@ void NeighborListOverlay::draw(const Simulation& simulation, const PickingSystem
 }
 
 void NeighborListOverlay::drawSelectedNeighbors(const AtomStorage& atoms, const SpatialGrid& grid, const NeighborList& neighborList,
-                                                size_t selectedIndex, const IRenderer& renderer) {
+                                                const Vec3f& renderOffset, size_t selectedIndex, const IRenderer& renderer) {
     if (selectedIndex >= atoms.size()) {
         return;
     }
 
     const Vec3f selectedPos = atoms.pos(selectedIndex);
-    const ImVec2 selectedScreen = toImVec2(renderer.camera.worldToScreen(selectedPos));
+    const Vec3f selectedDisplayPos = selectedPos + renderOffset;
+    const ImVec2 selectedScreen = toImVec2(renderer.camera.worldToScreen(selectedDisplayPos));
     const float listRadiusSqr = neighborList.listRadius() * neighborList.listRadius();
     const int centerCell = grid.linearCellOfAtom(static_cast<uint32_t>(selectedIndex));
     ImDrawList* dl = ImGui::GetForegroundDrawList();
@@ -71,7 +73,7 @@ void NeighborListOverlay::drawSelectedNeighbors(const AtomStorage& atoms, const 
 
             const Vec3f delta = atoms.pos(neighborIndex) - selectedPos;
             if (delta.sqrAbs() <= listRadiusSqr) {
-                const ImVec2 neighborScreen = toImVec2(renderer.camera.worldToScreen(atoms.pos(neighborIndex)));
+                const ImVec2 neighborScreen = toImVec2(renderer.camera.worldToScreen(atoms.pos(neighborIndex) + renderOffset));
                 dl->AddLine(selectedScreen, neighborScreen, kLinkColor, kLinkThickness);
             }
         }

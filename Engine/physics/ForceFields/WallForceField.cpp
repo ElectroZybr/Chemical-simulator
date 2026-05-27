@@ -1,19 +1,20 @@
 #include "WallForceField.h"
 
-void WallForceField::syncWalls(const SimBox& box) {
-    wallMaxX_ = box.size.x - 1.0f;
-    wallMaxY_ = box.size.y - 1.0f;
-    wallMaxZ_ = box.size.z - 1.0f;
-}
+#include "Engine/math/Vec3.h"
+#include "Engine/physics/AtomStorage.h"
 
-void WallForceField::compute(AtomStorage& atoms, const Vec3f& gravity) const {
+void WallForceField::compute(World& world) const {
+    AtomStorage& atoms = world.getAtomStorage();
+    const Vec3f& gravity = world.getGravity();
+    const Vec3f wallMax = world.getWorldSize() - Vec3f(1.0, 1.0, 1.0);
+
     for (size_t atomIndex = 0; atomIndex < atoms.mobileCount(); ++atomIndex) {
         float forceX = atoms.forceX(atomIndex);
         float forceY = atoms.forceY(atomIndex);
         float forceZ = atoms.forceZ(atomIndex);
 
         // мягкие стены
-        softWalls(atoms.posX(atomIndex), atoms.posY(atomIndex), atoms.posZ(atomIndex), forceX, forceY, forceZ);
+        softWalls(atoms.posX(atomIndex), atoms.posY(atomIndex), atoms.posZ(atomIndex), forceX, forceY, forceZ, wallMax);
         // постоянная сила
         applyGravityForce(forceX, forceY, forceZ, gravity);
 
@@ -36,10 +37,11 @@ void WallForceField::applyWall(float coord, float& force, float max) {
     force += fLow - fHigh;
 }
 
-void WallForceField::softWalls(float coordX, float coordY, float coordZ, float& forceX, float& forceY, float& forceZ) const {
-    applyWall(coordX, forceX, wallMaxX_);
-    applyWall(coordY, forceY, wallMaxY_);
-    applyWall(coordZ, forceZ, wallMaxZ_);
+void WallForceField::softWalls(float coordX, float coordY, float coordZ, float& forceX, float& forceY, float& forceZ,
+                               const Vec3f& wallMax) const {
+    applyWall(coordX, forceX, wallMax.x);
+    applyWall(coordY, forceY, wallMax.y);
+    applyWall(coordZ, forceZ, wallMax.z);
 }
 
 void WallForceField::applyGravityForce(float& forceX, float& forceY, float& forceZ, const Vec3f& gravity) {

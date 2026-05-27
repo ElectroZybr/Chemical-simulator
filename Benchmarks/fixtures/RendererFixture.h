@@ -7,7 +7,7 @@
 
 #include "App/interaction/ToolsManager.h"
 #include "App/interaction/picking/PickingSystem.h"
-#include "Engine/SimBox.h"
+#include "Engine/Simulation.h"
 #include "Engine/physics/AtomData.h"
 #include "Engine/physics/AtomStorage.h"
 #include "Engine/physics/Bond.h"
@@ -25,17 +25,15 @@ protected:
     void setCounters(benchmark::State& state) const;
 
     std::unique_ptr<IRenderer> renderer_;
-    AtomStorage atomStorage_;
-    Bond::List bonds_;
-    SimBox box_{Vec3f(300, 300, 300)};
+    Simulation simulation_;
 
 private:
     static AtomStorage makeGridAtoms(int count);
 
-    wgpu::Texture targetTexture_ = nullptr;
-    wgpu::TextureView targetTextureView_ = nullptr;
-    wgpu::Texture depthTexture_ = nullptr;
-    wgpu::TextureView depthTextureView_ = nullptr;
+    wgpu::raii::Texture targetTexture_;
+    wgpu::raii::TextureView targetTextureView_;
+    wgpu::raii::Texture depthTexture_;
+    wgpu::raii::TextureView depthTextureView_;
 };
 
 wgpu::Device benchmarkDevice();
@@ -55,38 +53,32 @@ public:
         colorDesc.mipLevelCount = 1;
         colorDesc.sampleCount = 1;
         colorDesc.dimension = wgpu::TextureDimension::_2D;
-        colorTexture_ = ctx.device().createTexture(colorDesc);
-        colorTextureView_ = colorTexture_.createView();
+        colorTexture_ = ctx.device()->createTexture(colorDesc);
+        colorTextureView_ = colorTexture_->createView();
 
-        atomStorage_ = makeGridAtoms(static_cast<int>(state.range(0)));
-        renderer_ = std::make_unique<TRenderer>(box_, ctx.device(), ctx.surfaceFormat());
+        simulation_.createWorld(Vec3f(300, 300, 300));
+        simulation_.world().getAtomStorage() = makeGridAtoms(static_cast<int>(state.range(0)));
+        renderer_ = std::make_unique<TRenderer>(simulation_.world(), ctx.surfaceFormat());
         renderer_->camera.setScreenSize({800.0f, 600.0f});
         renderer_->camera.resetView();
-        createRenderTargets(ctx.device(), ctx.surfaceFormat());
+        createRenderTargets(*ctx.device(), ctx.surfaceFormat());
 
-        ToolsManager::pickingSystem = new PickingSystem(atomStorage_, box_, renderer_);
+        ToolsManager::pickingSystem = new PickingSystem(simulation_.world().getAtomStorage(), simulation_.world(), renderer_);
     }
 
     void TearDown(benchmark::State&) override {
         // Дожидаемся завершения GPU работы
-        WGPUContext::instance().device().poll(true, nullptr);
-        colorTextureView_ = nullptr;
-        colorTexture_ = nullptr;
+        WGPUContext::instance().device()->poll(true, nullptr);
         renderer_.reset();
     }
 
 protected:
     void setCounters(benchmark::State& state) const {
-        state.SetItemsProcessed(state.iterations() * static_cast<int64_t>(atomStorage_.size()));
+        state.SetItemsProcessed(state.iterations() * static_cast<int64_t>(simulation_.world().getAtomStorage().size()));
     }
 
-    wgpu::Texture colorTexture_;
-    wgpu::TextureView colorTextureView_;
-
-    std::unique_ptr<IRenderer> renderer_;
-    AtomStorage atomStorage_;
-    Bond::List bonds_;
-    SimBox box_{Vec3f(300, 300, 300)};
+    wgpu::raii::Texture colorTexture_;
+    wgpu::raii::TextureView colorTextureView_;
 
 private:
     static AtomStorage makeGridAtoms(int count) {

@@ -43,6 +43,7 @@ protected:
     [[nodiscard]] const ToolContext& context() const noexcept { return context_; }
 
     [[nodiscard]] Vec3f screenToWorld(Vec2i mousePos) const;
+    [[nodiscard]] Vec3f screenToLocalWorld(Vec2i mousePos) const;
     [[nodiscard]] Vec2i worldToScreen(Vec3f worldPos) const;
 
 private:

@@ -6,20 +6,20 @@
 
 #include "Engine/metrics/Profiler.h"
 
-SpatialGrid::SpatialGrid(int sizeX, int sizeY, int sizeZ, int cellSize) : sizeX(0), sizeY(0), sizeZ(0), cellSize(cellSize) {
-    if (sizeX < 0 || sizeY < 0 || sizeZ < 0) {
+SpatialGrid::SpatialGrid(const Vec3f& worldSize, float cellSize) : cellSize(cellSize) {
+    if (worldSize.x < 0 || worldSize.y < 0 || worldSize.z < 0) {
         throw std::invalid_argument("SpatialGrid::SpatialGrid: size must be > 0");
     }
     if (this->cellSize <= 0) {
         throw std::invalid_argument("SpatialGrid::SpatialGrid: cellSize must be > 0");
     }
-    const int cellsX = std::max(1 + 2 * kGhostLayers, (sizeX + this->cellSize - 1) / this->cellSize + 2 * kGhostLayers);
-    const int cellsY = std::max(1 + 2 * kGhostLayers, (sizeY + this->cellSize - 1) / this->cellSize + 2 * kGhostLayers);
-    const int cellsZ = std::max(1 + 2 * kGhostLayers, (sizeZ + this->cellSize - 1) / this->cellSize + 2 * kGhostLayers);
-    this->sizeX = cellsX;
-    this->sizeY = cellsY;
-    this->sizeZ = cellsZ;
-    countCells = this->sizeX * this->sizeY * this->sizeZ;
+
+    const float cellsX = std::max<float>(1.f + 2.f * kGhostLayers, (worldSize.x + this->cellSize - 1.f) / this->cellSize + 2.f * kGhostLayers);
+    const float cellsY = std::max<float>(1.f + 2.f * kGhostLayers, (worldSize.y + this->cellSize - 1.f) / this->cellSize + 2.f * kGhostLayers);
+    const float cellsZ = std::max<float>(1.f + 2.f * kGhostLayers, (worldSize.z + this->cellSize - 1.f) / this->cellSize + 2.f * kGhostLayers);
+    this->size = Vec3u(cellsX, cellsY, cellsZ);
+    countCells = this->size.x * this->size.y * this->size.z;
+
     offsets.assign(countCells + 1, 0);
     rebuildNeighborOffsets();
     counts_.assign(countCells, 0);
@@ -71,19 +71,27 @@ void SpatialGrid::rebuild(std::span<const float> posX, std::span<const float> po
     stats_.recordRebuild(nonEmptyCellCount, maxAtomsPerCell, averageAtomsPerNonEmptyCell);
 }
 
-void SpatialGrid::resize(int newSizeX, int newSizeY, int newSizeZ, int newCellSize) {
+void SpatialGrid::resize(const Vec3f& newWorldSize, float newCellSize) {
     if (newCellSize > 0) {
         cellSize = newCellSize;
     }
-    else if (newCellSize != -1) {
+    else if (newCellSize <= 0 && newCellSize != -1) {
         throw std::invalid_argument("SpatialGrid::resize: newCellSize must be > 0");
     }
 
-    sizeX = std::max(1 + 2 * kGhostLayers, (newSizeX + cellSize - 1) / cellSize + 2 * kGhostLayers);
-    sizeY = std::max(1 + 2 * kGhostLayers, (newSizeY + cellSize - 1) / cellSize + 2 * kGhostLayers);
-    sizeZ = std::max(1 + 2 * kGhostLayers, (newSizeZ + cellSize - 1) / cellSize + 2 * kGhostLayers);
+    auto calculateCells = [this](float worldDim) -> uint32_t {
+        float num = std::ceil(worldDim / this->cellSize);
+        return static_cast<uint32_t>(std::max(1.0f, num));
+    };
 
-    countCells = sizeX * sizeY * sizeZ;
+    uint32_t ghostPadding = static_cast<uint32_t>(kGhostLayers) * 2;
+
+    this->size.x = calculateCells(newWorldSize.x) + ghostPadding;
+    this->size.y = calculateCells(newWorldSize.y) + ghostPadding;
+    this->size.z = calculateCells(newWorldSize.z) + ghostPadding;
+
+    countCells = static_cast<size_t>(this->size.x) * this->size.y * this->size.z;
+
     offsets.assign(countCells + 1, 0);
     atomsInCells.clear();
     rebuildNeighborOffsets();
@@ -96,7 +104,7 @@ void SpatialGrid::rebuildNeighborOffsets() noexcept {
     for (int dz = -1; dz <= 1; ++dz) {
         for (int dy = -1; dy <= 1; ++dy) {
             for (int dx = -1; dx <= 1; ++dx) {
-                neighborOffsets27_[k++] = dx + (dy + dz * sizeY) * sizeX;
+                neighborOffsets27_[k++] = dx + (dy + dz * size.y) * size.x;
             }
         }
     }
