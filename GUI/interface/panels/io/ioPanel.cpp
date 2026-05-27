@@ -104,7 +104,10 @@ void IOPanel::draw(float scale, Vec2i windowSize, Simulation& simulation, FileDi
 
     if (uiState.captureAvailable) {
         const char* captureLabel = uiState.captureRecording ? "Стоп" : "Запись";
-        if (ImGui::Button(captureLabel, ImVec2(saveButtonWidth * scale, 0.f))) {
+        // Исправление бага: этот visible text меняется во время recording;
+        // stable hidden ID не даёт ImGui считать его другим control.
+        const std::string captureButtonLabel = std::string(captureLabel) + "##capture_toggle";
+        if (ImGui::Button(captureButtonLabel.c_str(), ImVec2(saveButtonWidth * scale, 0.f))) {
             AppSignals::Capture::ToggleRecording.emit();
         }
         drawIOPanelCaptureStatus(uiState);

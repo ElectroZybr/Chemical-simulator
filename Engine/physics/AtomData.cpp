@@ -17,13 +17,15 @@ const std::array<StaticAtomicData, static_cast<size_t>(AtomData::Type::COUNT)> A
     {18.998f, 0.5f, 1, 0.0f, IM_COL32(144, 224, 80, 255), 3.00f, 0.08f},  // F  - Fluorine
     {20.180f, 0.5f, 0, 0.0f, IM_COL32(179, 227, 245, 255), 2.80f, 0.03f}, // Ne - Neon
 
-    {22.990f, 0.5f, 1, 0.0f, IM_COL32(171, 92, 242, 255), 4.00f, 0.12f},  // Na - Sodium
+    // Исправление бага: Na/Cl ionic charge defaults должны быть здесь, чтобы
+    // создание и text-load fallback использовали один source of truth.
+    {22.990f, 0.5f, 1, 1.0f, IM_COL32(171, 92, 242, 255), 4.00f, 0.12f},   // Na - Sodium
     {24.305f, 0.5f, 2, 0.0f, IM_COL32(138, 255, 0, 255), 3.60f, 0.13f},   // Mg - Magnesium
     {26.982f, 0.5f, 3, 0.0f, IM_COL32(191, 166, 166, 255), 3.40f, 0.14f}, // Al - Aluminum
     {28.085f, 0.5f, 4, 0.0f, IM_COL32(240, 200, 160, 255), 3.30f, 0.15f}, // Si - Silicon
     {30.974f, 0.5f, 5, 0.0f, IM_COL32(255, 128, 0, 255), 3.20f, 0.16f},   // P  - Phosphorus
     {32.060f, 0.5f, 6, 0.0f, IM_COL32(255, 255, 48, 255), 3.20f, 0.18f},  // S  - Sulfur
-    {35.450f, 0.5f, 7, 0.0f, IM_COL32(31, 240, 31, 255), 3.10f, 0.15f},   // Cl - Chlorine
+    {35.450f, 0.5f, 7, -1.0f, IM_COL32(31, 240, 31, 255), 3.10f, 0.15f},  // Cl - Chlorine
     {39.948f, 0.5f, 0, 0.0f, IM_COL32(128, 209, 227, 255), 3.00f, 0.07f}, // Ar - Argon
 
     {39.098f, 0.5f, 1, 0.0f, IM_COL32(143, 64, 212, 255), 4.80f, 0.18f},  // K  - Potassium

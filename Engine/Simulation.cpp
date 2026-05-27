@@ -8,6 +8,33 @@
 #include "Engine/metrics/Profiler.h"
 #include "Engine/physics/Bond.h"
 
+namespace {
+constexpr float kDefaultDt = 0.01f;
+constexpr float kMinDt = 0.0001f;
+constexpr float kMaxDt = 0.05f;
+
+// Исправление бага: сохранённые файлы и UI-пути могут передать некорректный dt.
+// Централизованный clamp здесь не пропускает invalid dt в integrator.
+float sanitizeDt(float dt) {
+    if (!std::isfinite(dt) || dt <= 0.0f) {
+        return kDefaultDt;
+    }
+    return std::clamp(dt, kMinDt, kMaxDt);
+}
+
+// Исправление бага: grid neighbor search сканирует только текущую cell и 26
+// соседних cells. Cell size должен покрывать cutoff + skin, иначе пары теряются.
+void ensureGridCoversNeighborList(World& world) {
+    const float requiredCellSize = world.getNeighborList().listRadius();
+    if (requiredCellSize <= 0.0f || world.getGridCellSize() >= requiredCellSize) {
+        return;
+    }
+
+    world.setGridCellSize(requiredCellSize);
+    world.getGrid().rebuild(world.getAtomStorage().xDataSpan(), world.getAtomStorage().yDataSpan(), world.getAtomStorage().zDataSpan());
+}
+} // namespace
+
 Simulation::Simulation() = default;
 
 Simulation::WorldState& Simulation::activeState() {
@@ -89,6 +116,7 @@ StepData Simulation::makeStepData(WorldState& state) {
         .world = state.world,
         .forceField = state.forceField_,
         .neighborList = state.world.getNeighborList(),
+        .simStep = state.sim_step,
         .allowBondFormation = state.bondFormationEnabled_,
         .accelDamping = state.integrator.accelDamping(),
         .dt = state.Dt,
@@ -116,10 +144,6 @@ void Simulation::updateAll() {
 }
 
 void Simulation::updateState(WorldState& state) {
-    if (state.world.getNeighborList().needsRebuild(state.world.getAtomStorage())) {
-        state.world.getNeighborList().rebuildPipeline(state.world.getAtomStorage(), state.world, state.sim_step);
-    }
-
     StepData stepData = makeStepData(state);
     state.integrator.step(stepData);
     state.metricsCacheValid_ = false;
@@ -127,10 +151,31 @@ void Simulation::updateState(WorldState& state) {
     state.sim_time_ns += state.Dt * Units::kTimeUnitToNs;
 }
 
+void Simulation::setDt(float dt) {
+    activeState().Dt = sanitizeDt(dt);
+}
+
+void Simulation::setNeighborListCutoff(float cutoff) {
+    World& activeWorld = world();
+    activeWorld.getNeighborList().setCutoff(cutoff);
+    ensureGridCoversNeighborList(activeWorld);
+}
+
+void Simulation::setNeighborListSkin(float skin) {
+    World& activeWorld = world();
+    activeWorld.getNeighborList().setSkin(skin);
+    ensureGridCoversNeighborList(activeWorld);
+}
+
 void Simulation::setSizeBox(Vec3f newSize, int cellSize) {
     World& activeWorld = world();
     activeWorld.setWorldSize(newSize);
-    activeWorld.setGridCellSize(cellSize);
+    // Исправление бага: сохраняем корректность обхода 27 cells, даже если
+    // callers запрашивают cell size меньше active NeighborList radius.
+    const float requestedCellSize = cellSize > 0 ? static_cast<float>(cellSize) : activeWorld.getGridCellSize();
+    const float effectiveCellSize = std::max(requestedCellSize, activeWorld.getNeighborList().listRadius());
+    activeWorld.setGridCellSize(effectiveCellSize);
+    activeWorld.getNeighborList().clear();
     activeWorld.getGrid().rebuild(activeWorld.getAtomStorage().xDataSpan(), activeWorld.getAtomStorage().yDataSpan(),
                                   activeWorld.getAtomStorage().zDataSpan());
 }

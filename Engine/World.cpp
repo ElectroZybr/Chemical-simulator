@@ -11,6 +11,9 @@ void World::clear() {
 
 void World::addAtom(const Vec3f& start_coords, const Vec3f& start_speed, AtomData::Type type, bool fixed) {
     atomStorage_.addAtom(start_coords, start_speed, type, fixed);
+    // Исправление бага: изменение числа/позиции атомов делает кэшированные
+    // rows NeighborList устаревшими, поэтому список очищается перед rebuild grid.
+    neighborList_.clear();
     grid.rebuild(atomStorage_.xDataSpan(), atomStorage_.yDataSpan(), atomStorage_.zDataSpan());
 }
 
@@ -46,5 +49,8 @@ void World::removeAtom(size_t atomIndex) {
     }
 
     atomStorage_.removeAtom(atomIndex);
+    // Исправление бага: удаление меняет местами rows в storage и устаревает
+    // offsets NeighborList; очищаем кэшированный список перед следующим force query.
+    neighborList_.clear();
     grid.rebuild(atomStorage_.xDataSpan(), atomStorage_.yDataSpan(), atomStorage_.zDataSpan());
 }

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <cmath>
 
 #include "Engine/Consts.h"
@@ -24,9 +25,12 @@ public:
             return;
         }
 
+        // Исправление бага: overlapping charged atoms раньше создавали force
+        // spikes из invR / d2; общий floor сохраняет finite math.
+        const float safeD2 = std::max(d2, Consts::MinPairDistanceSqr);
         const float qqScale = kCoulombEvAngstrom * chargeA * chargeB;
-        const float invR = 1.0f / std::sqrt(d2);
-        const float forceScale = qqScale * invR / d2;
+        const float invR = 1.0f / std::sqrt(safeD2);
+        const float forceScale = qqScale * invR / safeD2;
         const float potential = qqScale * invR;
 
         const float pairForceX = dx * forceScale;

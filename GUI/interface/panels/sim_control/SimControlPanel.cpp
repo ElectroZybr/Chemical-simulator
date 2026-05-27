@@ -5,15 +5,17 @@
 
 #include "App/AppSignals.h"
 
-#define ICON_FA_PAUSE "\uf04c"
-#define ICON_FA_PLAY "\uf04b"
-#define ICON_FA_STEP_FORWARD "\uf051"
+#define ICON_FA_PAUSE "\xEF\x81\x8C"
+#define ICON_FA_PLAY "\xEF\x81\x8B"
+#define ICON_FA_STEP_FORWARD "\xEF\x81\x91"
 
 static const ImVec4 ACTIVE_COLOR = ImVec4(0.06f, 0.53f, 0.98f, 1.00f);
 static const ImVec4 DISABLED_BUTTON_COLOR = ImVec4(0.26f, 0.28f, 0.31f, 1.00f);
 static const ImVec4 DISABLED_BUTTON_HOVERED_COLOR = ImVec4(0.26f, 0.28f, 0.31f, 1.00f);
 static const ImVec4 DISABLED_BUTTON_ACTIVE_COLOR = ImVec4(0.26f, 0.28f, 0.31f, 1.00f);
 
+// Исправление бага: play/pause/step являются icon-only controls, поэтому их labels
+// содержат ##hidden IDs для стабильного ImGui state без видимых изменений.
 static void pushActiveColor() {
     ImGui::PushStyleColor(ImGuiCol_Button, ACTIVE_COLOR);
     ImGui::PushStyleColor(ImGuiCol_ButtonActive, ACTIVE_COLOR);
@@ -57,7 +59,7 @@ void SimControlPanel::draw(float scale, Vec2i windowSize, bool& pause, float& si
         ImGui::PushStyleColor(ImGuiCol_ButtonActive, DISABLED_BUTTON_ACTIVE_COLOR);
     }
     ImGui::BeginDisabled(!pause);
-    if (ImGui::Button(ICON_FA_STEP_FORWARD, ImVec2(50 * scale, 50 * scale))) {
+    if (ImGui::Button(ICON_FA_STEP_FORWARD "##step_physics", ImVec2(50 * scale, 50 * scale))) {
         AppSignals::UI::StepPhysics.emit();
     }
     ImGui::EndDisabled();
@@ -71,7 +73,7 @@ void SimControlPanel::draw(float scale, Vec2i windowSize, bool& pause, float& si
     if (playButtonHighlighted) {
         pushActiveColor();
     }
-    if (ImGui::Button(pause ? ICON_FA_PLAY : ICON_FA_PAUSE, ImVec2(50 * scale, 50 * scale))) {
+    if (ImGui::Button(pause ? ICON_FA_PLAY "##toggle_pause" : ICON_FA_PAUSE "##toggle_pause", ImVec2(50 * scale, 50 * scale))) {
         pause = !pause;
     }
     if (playButtonHighlighted) {

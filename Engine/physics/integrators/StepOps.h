@@ -52,7 +52,7 @@ namespace StepOps {
         float* RESTRICT vz = atomStorage.vzData();
 
         const size_t mobileCount = atomStorage.mobileCount();
-#pragma GCC ivdep
+        LATTICELAB_IVDEP
         for (size_t atomIndex = 0; atomIndex < mobileCount; ++atomIndex) {
             float vxValue = vx[atomIndex];
             float vyValue = vy[atomIndex];
@@ -74,7 +74,20 @@ namespace StepOps {
 
     inline void computeForces(StepData& stepData) {
         PROFILE_SCOPE("StepOps::computeForces");
-        stepData.forceField.compute(stepData.world, stepData.allowBondFormation, stepData.dt);
+        // Исправление бага: ForceField обновляет NeighborList здесь после predict,
+        // исправляя быстрые атомы, которые проходили old skin gate внутри step.
+        stepData.forceField.compute(stepData.world, stepData.allowBondFormation, stepData.dt, static_cast<int>(stepData.simStep));
+    }
+
+    inline void refreshNeighborListIfNeeded(StepData& stepData) {
+        PROFILE_SCOPE("StepOps::refreshNeighborListIfNeeded");
+        // Исправление бага: оставлено для benchmark/test setup; обычные force
+        // paths избегают duplicate scans через refresh внутри ForceField.
+        AtomStorage& atomStorage = stepData.world.getAtomStorage();
+
+        if (stepData.neighborList.needsRebuild(atomStorage)) {
+            stepData.neighborList.rebuildPipeline(atomStorage, stepData.world, static_cast<int>(stepData.simStep));
+        }
     }
 
     template <typename StepFn>

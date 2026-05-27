@@ -33,22 +33,23 @@ jobs:
           -DCMAKE_EXE_LINKER_FLAGS="-static -static-libgcc -static-libstdc++"
         
         cmake --build build --config Release -j 4
+        # Исправление бага: упаковка release раньше вручную копировала выбранные
+        # файлы и могла пропустить wgpu_native.dll. Теперь ставим Runtime component.
+        cmake --install build --prefix release_dist --component Runtime
 
     - name: Check Dependencies (Verification)
       shell: bash
       run: |
-        objdump -p LatticeLab.exe | grep "DLL Name"
+        # Исправление бага: проверяем именно те runtime-файлы, которые нужны zip.
+        test -f release_dist/LatticeLab.exe
+        test -f release_dist/wgpu_native.dll
+        objdump -p release_dist/LatticeLab.exe | grep "DLL Name"
 
     - name: Prepare Release Artifacts
       shell: bash
       run: |
-        mkdir -p release_dist/assets
-        mkdir -p release_dist/demo
-        cp LatticeLab.exe release_dist/
-        cp -r assets/* release_dist/assets/
-        echo "Contents of demo:"
-        ls -R demo || true
-        cp -r demo/scenes release_dist/demo/
+        test -d release_dist/assets
+        test -d release_dist/demo/scenes
         cd release_dist
         7z a ../LatticeLab-${{ github.event.inputs.version }}-win64.zip *
 

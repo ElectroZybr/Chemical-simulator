@@ -9,6 +9,8 @@ void KDKScheme::pipeline(StepData& stepData) const {
     halfKick(stepData.world.getAtomStorage(), stepData.accelDamping, stepData.dt);
     // Расчет новых позиций
     StepOps::predictAndSync(stepData, &drift);
+    // Исправление бага: computeForces обновляет NeighborList после drift, поэтому
+    // KDK получает то же исправление fast-atom stale-list, что и Verlet.
     // Расчет сил
     StepOps::computeForces(stepData);
     // Kick: вторая половина шага

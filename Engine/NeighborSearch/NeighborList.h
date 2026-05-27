@@ -24,6 +24,9 @@ public:
     [[nodiscard]] uint32_t pairStorageSize() const;
     [[nodiscard]] uint32_t memoryBytes() const;
     [[nodiscard]] float cutoff() const { return cutoff_; }
+    // Исправление бага: значение открыто, чтобы ForceField пропускал skin-only
+    // pairs и skin не менял LJ/Coulomb physics.
+    [[nodiscard]] float cutoffSqr() const { return cutoffSqr_; }
     [[nodiscard]] float skin() const { return skin_; }
     [[nodiscard]] float listRadius() const { return listRadius_; }
     [[nodiscard]] bool isValid() const { return valid_; }
@@ -57,6 +60,10 @@ public:
 
 private:
     void reserveListBuffers(const AtomStorage& atoms);
+    // Исправление бага: fixed atoms хранятся после mobile atoms, поэтому mixed
+    // pairs должны писаться в mobile rows, которые ForceField реально обходит.
+    void writeMixedMobileAtomNeighbors(const SpatialGrid& grid, const float* x, const float* y, const float* z, uint32_t atomIndex,
+                                       uint32_t mobileCount, float xi, float yi, float zi, std::vector<uint32_t>& outNeighbors) const;
 
     // uint32_t - 4 байта, максимальное количество пар в NL ~ 4 млрд
     std::vector<uint32_t> neighbors_;
@@ -67,6 +74,7 @@ private:
     std::vector<float> refPosZ_;
 
     float cutoff_ = 0.0f;
+    float cutoffSqr_ = 0.0f;
     float skin_ = 0.0f;
     float listRadius_ = 0.0f;
     float listRadiusSqr_ = 0.0f;

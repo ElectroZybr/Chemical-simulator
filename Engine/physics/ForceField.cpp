@@ -5,6 +5,18 @@
 #include "Engine/physics/AtomStorage.h"
 
 namespace {
+    // Исправление бага: rebuild до integration пропускал быстрые атомы после
+    // движения. Force-entry refresh ловит predicted positions и external
+    // AtomStorage mutations до использования neighbors в pair/bond force.
+    void refreshNeighborListIfNeeded(World& world, int simStep) {
+        AtomStorage& atoms = world.getAtomStorage();
+        NeighborList& neighborList = world.getNeighborList();
+
+        if (neighborList.needsRebuild(atoms)) {
+            neighborList.rebuildPipeline(atoms, world, simStep);
+        }
+    }
+
     template <bool UseLJ, bool UseCoulomb>
     void computePairInteractionsImpl(AtomStorage& atoms, const NeighborList& neighborList, const LJForceField& ljForceField,
                                      const CoulombForceField& coulombForceField) {
@@ -47,6 +59,11 @@ namespace {
                 const float dy = atoms.posY(bIndex) - posY;
                 const float dz = atoms.posZ(bIndex) - posZ;
                 const float d2 = dx * dx + dy * dy + dz * dz;
+                // Исправление бага: NeighborList включает cutoff + skin для
+                // rebuild amortization, но LJ/Coulomb physics использует real cutoff.
+                if (d2 > neighborList.cutoffSqr()) {
+                    continue;
+                }
 
                 if constexpr (UseLJ) {
                     ljForceField.pairInteraction(atoms, bIndex, dx, dy, dz, d2, *ljPairRow, forceX, forceY, forceZ, potentialEnergy);
@@ -68,20 +85,31 @@ namespace {
 
 ForceField::ForceField() = default;
 
-void ForceField::compute(World& world, bool allowBondFormation, float dt) const {
+void ForceField::compute(World& world, bool allowBondFormation, float dt, int simStep) const {
     PROFILE_SCOPE("ForceField::compute");
 
     AtomStorage& atoms = world.getAtomStorage();
     Bond::List& bonds = world.getBonds();
     NeighborList& neighborList = world.getNeighborList();
+    refreshNeighborListIfNeeded(world, simStep);
 
     wallForceField_.compute(world);
-    computePairInteractions(world);
+    if (world.isLJEnabled() && world.isCoulombEnabled()) {
+        computePairInteractionsImpl<true, true>(atoms, neighborList, ljForceField_, coulombForceField_);
+    }
+    else if (world.isLJEnabled()) {
+        computePairInteractionsImpl<true, false>(atoms, neighborList, ljForceField_, coulombForceField_);
+    }
+    else if (world.isCoulombEnabled()) {
+        computePairInteractionsImpl<false, true>(atoms, neighborList, ljForceField_, coulombForceField_);
+    }
     bondForceField_.compute(atoms, bonds, neighborList, allowBondFormation, dt);
 }
 
 void ForceField::computePairInteractions(World& world) const {
     PROFILE_SCOPE("ForceField::pairInteractions");
+
+    refreshNeighborListIfNeeded(world, 0);
 
     AtomStorage& atoms = world.getAtomStorage();
     const NeighborList& neighborList = world.getNeighborList();

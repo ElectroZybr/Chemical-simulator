@@ -37,7 +37,9 @@ public:
     void removeAtom(size_t atomIndex);
     void addBond(size_t aIndex, size_t bIndex);
 
-    void setDt(float dt) { activeState().Dt = dt; }
+    // Исправление бага: этот setter валидирует dt для UI и путей загрузки; нельзя
+    // назначать WorldState::Dt напрямую из сериализованных данных.
+    void setDt(float dt);
     float getDt() const { return activeState().Dt; }
     void setIntegrator(Integrator::Scheme scheme) { activeState().integrator.setScheme(scheme); }
     Integrator::Scheme getIntegrator() const { return activeState().integrator.getScheme(); }
@@ -97,9 +99,11 @@ public:
     bool isCoulombEnabled() const { return world().isCoulombEnabled(); }
     void setGravity(const Vec3f& gravity) { world().setGravity(gravity); }
     Vec3f getGravity() const { return world().getGravity(); }
-    void setNeighborListCutoff(float cutoff) { world().getNeighborList().setCutoff(cutoff); }
+    // Исправление бага: изменения cutoff/skin также сохраняют invariant
+    // размера ячейки grid, который нужен обходу 27 ячеек в NeighborList.
+    void setNeighborListCutoff(float cutoff);
     float getNeighborListCutoff() const { return world().getNeighborList().cutoff(); }
-    void setNeighborListSkin(float skin) { world().getNeighborList().setSkin(skin); }
+    void setNeighborListSkin(float skin);
     float getNeighborListSkin() const { return world().getNeighborList().skin(); }
     float getNeighborListRadius() const { return world().getNeighborList().listRadius(); }
 
@@ -134,7 +138,9 @@ private:
     friend class SimulationStateIO;
 
     struct WorldState {
-        explicit WorldState(Vec3f size, Vec3f renderOffset) : world(size, renderOffset) { world.getNeighborList().setParams(5.f, 1.f); }
+        // Исправление бага: более широкий default skin снижает частоту rebuild
+        // после переноса validation NeighborList на момент расчёта force.
+        explicit WorldState(Vec3f size, Vec3f renderOffset) : world(size, renderOffset) { world.getNeighborList().setParams(5.f, 2.f); }
 
         World world;
         Integrator integrator;

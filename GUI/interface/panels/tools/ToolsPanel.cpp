@@ -8,12 +8,14 @@
 #include "GUI/interface/panels/settings/SettingsPanel.h"
 #include "Rendering/camera/Camera.h"
 
-#define ICON_FA_FLASK "\uf0c3"
-#define ICON_FA_COG "\uf013"
-#define ICON_FA_BUG "\uf188"
-#define ICON_FA_SYNC_ALT "\uf2f1"
-#define ICON_FA_STREET_VIEW "\uf21d"
+#define ICON_FA_FLASK "\xEF\x83\x83"
+#define ICON_FA_COG "\xEF\x80\x93"
+#define ICON_FA_BUG "\xEF\x86\x88"
+#define ICON_FA_SYNC_ALT "\xEF\x8B\xB1"
+#define ICON_FA_STREET_VIEW "\xEF\x88\x9D"
 
+// Исправление бага: toolbar controls являются icon-only или dynamic-label ImGui widgets.
+// Каждый visible label теперь содержит ##hidden ID, чтобы UI state не конфликтовал.
 void ToolsPanel::setRendererType(RendererType type) {
     is3D = type == RendererType::Renderer3D;
     if (!is3D) {
@@ -40,13 +42,13 @@ void ToolsPanel::draw(float scale, DebugPanel& debug, SettingsPanel& settings, I
     const float x = std::round(baseLeftOffset * scale);
     const float y = std::round(baseTopOffset * scale);
 
-    auto drawActiveButton = [&](const char* icon, bool visible) {
+    auto drawActiveButton = [&](const char* label, bool visible) {
         if (visible) {
             ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.06f, 0.53f, 0.98f, 1.00f));
             ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.06f, 0.53f, 0.98f, 1.00f));
             ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.06f, 0.53f, 0.98f, 1.00f));
         }
-        const bool clicked = ImGui::Button(icon, ImVec2(buttonSize, buttonSize));
+        const bool clicked = ImGui::Button(label, ImVec2(buttonSize, buttonSize));
         if (visible) {
             ImGui::PopStyleColor(3);
         }
@@ -60,7 +62,7 @@ void ToolsPanel::draw(float scale, DebugPanel& debug, SettingsPanel& settings, I
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(spacingX, 0.0f));
     ImGui::Begin("Tools", nullptr, PANEL_FLAGS);
 
-    if (drawActiveButton(ICON_FA_COG, settings.isVisible())) {
+    if (drawActiveButton(ICON_FA_COG "##settings_panel", settings.isVisible())) {
         if (settings.isVisible()) {
             settings.close();
         }
@@ -72,7 +74,7 @@ void ToolsPanel::draw(float scale, DebugPanel& debug, SettingsPanel& settings, I
     }
 
     ImGui::SameLine();
-    if (drawActiveButton(ICON_FA_FLASK, ioPanel.isVisible())) {
+    if (drawActiveButton(ICON_FA_FLASK "##io_panel", ioPanel.isVisible())) {
         if (ioPanel.isVisible()) {
             ioPanel.close();
         }
@@ -84,7 +86,7 @@ void ToolsPanel::draw(float scale, DebugPanel& debug, SettingsPanel& settings, I
     }
     ImGui::SameLine();
 
-    if (drawActiveButton(ICON_FA_BUG, debug.isVisible())) {
+    if (drawActiveButton(ICON_FA_BUG "##debug_panel", debug.isVisible())) {
         if (debug.isVisible()) {
             debug.close();
         }
@@ -96,7 +98,7 @@ void ToolsPanel::draw(float scale, DebugPanel& debug, SettingsPanel& settings, I
     }
     ImGui::SameLine();
 
-    if (ImGui::Button(is3D ? "3D" : "2D", ImVec2(buttonSize, buttonSize))) {
+    if (ImGui::Button(is3D ? "3D##renderer_mode" : "2D##renderer_mode", ImVec2(buttonSize, buttonSize))) {
         is3D = !is3D;
         if (!is3D) {
             isFree = false;
@@ -105,7 +107,8 @@ void ToolsPanel::draw(float scale, DebugPanel& debug, SettingsPanel& settings, I
     }
     if (is3D) {
         ImGui::SameLine();
-        if (ImGui::Button(isFree ? ICON_FA_STREET_VIEW : ICON_FA_SYNC_ALT, ImVec2(buttonSize, buttonSize))) {
+        if (ImGui::Button(isFree ? ICON_FA_STREET_VIEW "##camera_mode" : ICON_FA_SYNC_ALT "##camera_mode",
+                          ImVec2(buttonSize, buttonSize))) {
             isFree = !isFree;
             AppSignals::UI::SetCameraMode.emit(isFree ? Camera::Mode::Free : Camera::Mode::Orbit);
         }

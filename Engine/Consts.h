@@ -2,6 +2,9 @@
 
 namespace Consts {
     inline constexpr float Epsilon = 1e-6f;
+    // Исправление бага: LJ/Coulomb kernels clamp tiny pair distances до этого
+    // floor, чтобы near-overlap saves не создавали non-finite force spikes.
+    inline constexpr float MinPairDistanceSqr = 0.25f;
 }
 
 namespace Units {
