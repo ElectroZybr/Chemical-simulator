@@ -316,8 +316,16 @@ void RendererWGPU::ensureStorageBuffers(size_t count) {
         return;
     }
 
-    const uint64_t vec4Bytes = count * sizeof(AtomVec4);
-    const uint64_t f32Bytes = count * sizeof(float);
+    // Геометрический рост 1.5x с round-up до count: при типичном линейном
+    // приросте населения атомов аллокаций становится O(log N), а не O(N), и
+    // bind group не пересоздаётся на каждый "+1 атом" из UI.
+    size_t newCapacity = sbCapacity_ * 3 / 2 + 1;
+    if (newCapacity < count) {
+        newCapacity = count;
+    }
+
+    const uint64_t vec4Bytes = newCapacity * sizeof(AtomVec4);
+    const uint64_t f32Bytes = newCapacity * sizeof(float);
     const wgpu::BufferUsage usage = wgpu::BufferUsage::Storage | wgpu::BufferUsage::CopyDst;
 
     sbPos = WGPUContext::instance().createBuffer(vec4Bytes, usage, "Atoms_Pos");
@@ -325,7 +333,7 @@ void RendererWGPU::ensureStorageBuffers(size_t count) {
     sbType = WGPUContext::instance().createBuffer(f32Bytes, usage, "Atoms_Type");
     sbRadius = WGPUContext::instance().createBuffer(f32Bytes, usage, "Atoms_Radius");
     sbSel = WGPUContext::instance().createBuffer(f32Bytes, usage, "Atoms_Selection");
-    sbCapacity_ = count;
+    sbCapacity_ = newCapacity;
 
     std::array<wgpu::BindGroupEntry, 6> entries{};
     entries[0].binding = 0;
