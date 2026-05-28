@@ -141,11 +141,98 @@ NL получил режимы Half / Full и auto-mode (выбор по `mobile
 - `213b08f` C4: physics-accumulator работает как fixed-timestep с catch-up
 - `eb9dddd` C5: `addAtom(fixed=true)` документировано как декоративный
 
-## Что не сделано
+## D6 GPU compute — de-risking findings
 
-- **D6 GPU compute**: порт LJ-ядра на WGSL compute shader. Потенциал
-  10-50× на N>50k, но multi-hour работа и архитектурное изменение —
-  отдельный трек.
+GPU LJ compute backend начат на ветке `gpu-compute` (Phase 1+2). Перед тем
+как вкладывать ~2 недели в kernel-оптимизации (Morton reorder, shared-mem
+tiling), был построен de-risking микробенч `BM_GpuLJReorder` (3 порядка
+атомов: Identity / Random / Morton), измеряющий ЧИСТОЕ kernel-время через
+batched dispatch (50 dispatch на submit + один poll, без per-call readback).
+
+Результат (clang, i7-14700K, RTX 4070 SUPER, N=103823, repetitions=5, median,
+per-dispatch = wall/50):
+
+| Ordering | per-dispatch kernel | vs CPU pair (925 μs) |
+|---|---|---|
+| Identity (natural lattice) | ~83 μs | 11× быстрее CPU |
+| Morton | ~108 μs | хуже Identity |
+| Random | ~214 μs | 4× быстрее CPU |
+
+Выводы, переворачивающие первоначальный roadmap:
+
+1. **Kernel НЕ bottleneck.** Чистое kernel-время ~83 μs, не ~2 ms. Прежний
+   замер `GpuPairForceFixture/Compute` = 3557 μs был доминирован
+   readback+poll (~3400 μs), а не вычислением.
+2. **Morton reorder не помогает** на регулярной решётке — natural insertion
+   order уже spatially coherent; Morton (108 μs) медленнее Identity (83 μs).
+3. **Kernel при любом порядке (83-214 μs) в 4-11× быстрее CPU pair (925 μs).**
+   Locality значима (Random/Identity = 2.6×), но natural order её ловит, и
+   даже worst-case Random остаётся быстрее CPU.
+
+Следствие: kernel-оптимизации (reorder/tiling/tuning) гоняются за
+не-bottleneck'ом. Весь выигрыш GPU-пути — в устранении per-step readback
+(резидентный integrator на GPU), не в kernel'е. Roadmap сокращён с 4 стадий
+до одной (resident integrator).
+
+Воспроизведение:
+```sh
+./build/bench/benchmarks.exe --benchmark_filter=GpuLJReorder \
+    --benchmark_min_time=0.3s --benchmark_repetitions=5 \
+    --benchmark_report_aggregates_only=true
+```
+
+### Resident GPU full-step — доказательство win
+
+`BM_GpuFullStep` гоняет резидентный GPU-шаг (predict + confine + zero_forces +
+LJ + correct, все на GPU через integrate_verlet.wgsl + physics_lj.wgsl) БЕЗ
+per-step readback: 20 шагов в одном submit + один poll, per-step = wall/20.
+
+Результат (RTX 4070 SUPER, repetitions=5, median):
+
+| N | resident GPU step | CPU steady-state step (≈force+correct) | speedup |
+|---|---|---|---|
+| 15625 | ~25 μs | ~210 μs (200 force + 10 correct) | ~8× |
+| 103823 | ~140 μs | ~1015 μs (955 force + 60 correct) | ~7.5× |
+
+Это подтверждает вывод микробенча: убрав readback (бывшие ~3400 μs), получаем
+~140 μs/шаг — kernel (~83 μs) + integrator-проходы. Kernel-оптимизации не
+понадобились.
+
+**Оговорки замера** (честность по measurement-validity из анализа):
+- Steady-state БЕЗ NL rebuild и БЕЗ render sync. Реальная per-frame стоимость
+  добавит периодический NL rebuild (positions нужны на CPU → download) и 60 Гц
+  render (positions на CPU, пока нет zero-copy). Эти sync НЕ входят в 140 μs.
+- Бенч измеряет только COST шага (5 dispatch); корректность prev/cur force swap
+  не wired (для тайминга это не важно — kernel'ы те же).
+- cv высокий (24-67%): мелкая нагрузка, launch overhead доминирует variance.
+  Вывод (140 μs << 1 ms) робастен к шуму.
+
+Воспроизведение:
+```sh
+./build/bench/benchmarks.exe --benchmark_filter=GpuFullStep \
+    --benchmark_min_time=0.3s --benchmark_repetitions=5 \
+    --benchmark_report_aggregates_only=true
+```
+
+### Что осталось для production GPU-режима
+
+Замер доказал steady-state win; для реального приложения нужна инженерная
+интеграция (отдельный трек), с корректностью по блокерам из анализа:
+- `GpuPhysicsState` owner резидентных буферов + `Simulation::setGpuMode`.
+- Корректный prev/cur force swap (ping-pong bind groups, не copy) +
+  correctness-гейт vs CPU Verlet (tolerance band).
+- NL rebuild cadence: GPU max-displacement флаг (atomicMax-over-float
+  невозможен в WGSL → integer/atomicOr threshold) или fixed cadence; download
+  positions только на rebuild.
+- Renderer zero-copy (positions+velocities из GpuPhysicsState; type/radius/
+  selection остаются renderer-owned) либо явный per-frame sync.
+- LJ-only ограничение (wall/bond/Coulomb off в GPU mode) — bond/wall на GPU
+  это дальнейший трек.
+
+### Kernel-оптимизации — отклонены
+
+reorder/tiling/tuning отклонены de-risking замером (`BM_GpuLJReorder`): kernel
+не bottleneck (83-214 μs при любом порядке, в 4-11× быстрее CPU pair).
 
 ## Воспроизведение
 
