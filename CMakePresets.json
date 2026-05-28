@@ -42,6 +42,15 @@
         "CMAKE_BUILD_TYPE": "Release",
         "BUILD_BENCHMARKS": "ON"
       }
+    },
+    {
+      "name": "tests",
+      "inherits": "base",
+      "displayName": "Tests",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "BUILD_TESTS": "ON"
+      }
     }
   ],
   "buildPresets": [
@@ -60,6 +69,14 @@
       "configurePreset": "bench",
       "targets": [
         "benchmarks"
+      ],
+      "jobs": 8
+    },
+    {
+      "name": "tests",
+      "configurePreset": "tests",
+      "targets": [
+        "latticelab_tests"
       ],
       "jobs": 8
     }
