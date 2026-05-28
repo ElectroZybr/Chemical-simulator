@@ -120,6 +120,14 @@ target_link_libraries(latticelab_lib PUBLIC
 
 if (WIN32)
     add_executable(${APP_NAME} WIN32 main.cpp)
+    # WIN32 ставит /subsystem:windows, чей дефолтный entry — WinMainCRTStartup
+    # (ждёт WinMain). У нас обычный int main(), поэтому под clang+lld-link
+    # явно указываем mainCRTStartup — CRT-entry, который инициализирует
+    # рантайм и зовёт main(), сохраняя windows-subsystem (без консоли).
+    # MSVC-линкер сам разрешает это, clang+lld-link — нет.
+    if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        target_link_options(${APP_NAME} PRIVATE -Xlinker /entry:mainCRTStartup)
+    endif()
 else()
     add_executable(${APP_NAME} main.cpp)
 endif()
@@ -167,6 +175,7 @@ if(BUILD_BENCHMARKS)
     set(BENCHMARK_INSTALL_DOCS       OFF CACHE BOOL "" FORCE)
     set(BENCHMARK_ENABLE_GTEST_TESTS OFF CACHE BOOL "" FORCE)
     set(BENCHMARK_ENABLE_INSTALL     OFF CACHE BOOL "" FORCE)
+    set(BENCHMARK_ENABLE_WERROR      OFF CACHE BOOL "" FORCE)
  
     FetchContent_MakeAvailable(googlebenchmark)
  

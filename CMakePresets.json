@@ -49,7 +49,8 @@
       "displayName": "Tests",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
-        "BUILD_TESTS": "ON"
+        "BUILD_TESTS": "ON",
+        "OPTIMIZE_FOR_NATIVE": "OFF"
       }
     }
   ],

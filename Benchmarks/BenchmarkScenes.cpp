@@ -17,7 +17,7 @@ namespace Benchmarks {
 
         switch (benchmarkCase.scene) {
         case SceneKind::IdealCrystal3D:
-            buildCrystal2D(simulation, benchmarkCase);
+            buildIdealCrystal3D(simulation, benchmarkCase);
             break;            
         case SceneKind::Crystal2D:
             buildCrystal2D(simulation, benchmarkCase);
@@ -33,7 +33,7 @@ namespace Benchmarks {
 
     void BenchmarkScenes::buildIdealCrystal3D(Simulation& simulation, const BenchmarkCase& benchmarkCase) {
         const int side = cubeSideFromCount(benchmarkCase.atomCount);
-        Scenes::hexLattice(simulation, side, AtomData::Type::Z, true);
+        Scenes::hexLattice(simulation, Vec3f(side, side, side), AtomData::Type::Z, true);
     }
 
     void BenchmarkScenes::buildCrystal2D(Simulation& simulation, const BenchmarkCase& benchmarkCase) {

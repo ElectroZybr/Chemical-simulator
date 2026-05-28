@@ -23,3 +23,5 @@ target_link_libraries(benchmarks PRIVATE
     benchmark::benchmark_main
     latticelab_lib
 )
+
+target_copy_webgpu_binaries(benchmarks)

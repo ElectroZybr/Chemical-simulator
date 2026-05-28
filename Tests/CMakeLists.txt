@@ -2,7 +2,13 @@ file(GLOB_RECURSE TEST_SOURCES CONFIGURE_DEPENDS
     "*.cpp"
 )
 
-add_executable(latticelab_tests ${TEST_SOURCES})
+# Тесты могут включать .cpp бенч-сцен напрямую: они не зависят от
+# googlebenchmark и тянут только Engine/App символы из latticelab_lib.
+set(TEST_EXTRA_SOURCES
+    "${CMAKE_SOURCE_DIR}/Benchmarks/BenchmarkScenes.cpp"
+)
+
+add_executable(latticelab_tests ${TEST_SOURCES} ${TEST_EXTRA_SOURCES})
 target_compile_options(latticelab_tests PRIVATE
     $<$<AND:$<BOOL:${OPTIMIZE_FOR_NATIVE}>,$<NOT:$<CONFIG:Debug>>,$<CXX_COMPILER_ID:GNU,Clang,AppleClang>>:-march=native>
 )
