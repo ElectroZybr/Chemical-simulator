@@ -560,17 +560,20 @@ void RendererWGPU::drawGridImpl(const SpatialGrid& grid) {
     gridData.clear();
     int maxCount = 1;
 
-    for (unsigned int z = 1; z < grid.size.z - 1; ++z) {
-        for (unsigned int y = 1; y < grid.size.y - 1; ++y) {
-            for (unsigned int x = 1; x < grid.size.x - 1; ++x) {
-                const int cnt = grid.countAtomsInCell(x, y, z);
-                if (cnt > 0) {
-                    gridData.emplace_back(glm::vec4((x - 1) * grid.cellSize, (y - 1) * grid.cellSize, (z - 1) * grid.cellSize, 0.f),
-                                          (float)grid.cellSize, (float)cnt);
-                    maxCount = std::max(maxCount, cnt);
-                }
-            }
-        }
+    // SpatialGrid::nonEmptyCells() возвращает линейные индексы клеток с
+    // атомами, собранные в rebuild. На разреженных сценах это убирает
+    // O(всех клеток) обход — сразу идём по N << totalCells.
+    const auto stride = static_cast<uint32_t>(grid.size.x);
+    const auto plane = static_cast<uint32_t>(grid.size.x) * static_cast<uint32_t>(grid.size.y);
+    for (const uint32_t cellIndex : grid.nonEmptyCells()) {
+        const uint32_t z = cellIndex / plane;
+        const uint32_t rem = cellIndex - z * plane;
+        const uint32_t y = rem / stride;
+        const uint32_t x = rem - y * stride;
+        const int cnt = grid.countAtomsInCell(static_cast<int>(x), static_cast<int>(y), static_cast<int>(z));
+        gridData.emplace_back(glm::vec4((x - 1) * grid.cellSize, (y - 1) * grid.cellSize, (z - 1) * grid.cellSize, 0.f),
+                              (float)grid.cellSize, (float)cnt);
+        maxCount = std::max(maxCount, cnt);
     }
     if (gridData.empty()) {
         return;

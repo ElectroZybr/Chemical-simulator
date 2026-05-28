@@ -48,6 +48,13 @@ public:
 
     [[nodiscard]] int index(int x, int y, int z) const noexcept { return (z * size.y + y) * size.x + x; }
 
+    // Линейные индексы непустых клеток. Заполняется в rebuild и переиспользуется
+    // для render-обхода сетки: без него drawGridImpl шёл O(всех клеток) даже
+    // для разреженных сцен (на 100k клетках это ms-долго).
+    [[nodiscard]] std::span<const uint32_t> nonEmptyCells() const noexcept {
+        return {nonEmptyCellIndices_.data(), nonEmptyCellIndices_.size()};
+    }
+
 private:
     static constexpr uint32_t kGhostLayers = 1;
 
@@ -59,6 +66,7 @@ private:
     // рабочие буферы rebuild — переиспользуются между вызовами
     std::vector<uint32_t> cellIndices_;
     std::vector<uint32_t> counts_;
+    std::vector<uint32_t> nonEmptyCellIndices_;
 
     SpatialGridStats stats_{};
 
