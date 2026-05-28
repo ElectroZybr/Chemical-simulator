@@ -3,6 +3,11 @@
 #include "Engine/metrics/Profiler.h"
 #include "Engine/physics/integrators/StepOps.h"
 
+#ifdef ENABLE_TBB
+#include <tbb/blocked_range.h>
+#include <tbb/parallel_for.h>
+#endif
+
 void VerletScheme::pipeline(StepData& stepData) const {
     PROFILE_SCOPE("VerletScheme::pipeline");
     // Расчет новых позиций
@@ -10,7 +15,7 @@ void VerletScheme::pipeline(StepData& stepData) const {
     // Расчет сил
     StepOps::computeForces(stepData);
     // Корректировка скоростей
-    correct(stepData.atomStorage, stepData.accelDamping, stepData.dt);
+    correct(stepData.world.getAtomStorage(), stepData.accelDamping, stepData.dt);
 }
 
 void VerletScheme::predict(AtomStorage& atomStorage, float dt) {
@@ -30,12 +35,22 @@ void VerletScheme::predict(AtomStorage& atomStorage, float dt) {
 
     const float* RESTRICT invMass = atomStorage.invMassData();
 
-#pragma omp parallel for schedule(static)
+#ifdef ENABLE_TBB
+    tbb::parallel_for(tbb::blocked_range<size_t>(0, n),
+        [&](const tbb::blocked_range<size_t>& r) {
+            for (size_t i = r.begin(); i != r.end(); ++i) {
+                x[i] += (vx[i] + fx[i] * invMass[i] * 0.5f * dt) * dt;
+                y[i] += (vy[i] + fy[i] * invMass[i] * 0.5f * dt) * dt;
+                z[i] += (vz[i] + fz[i] * invMass[i] * 0.5f * dt) * dt;
+            }
+        });
+#else
     for (size_t i = 0; i < n; ++i) {
         x[i] += (vx[i] + fx[i] * invMass[i] * 0.5f * dt) * dt;
         y[i] += (vy[i] + fy[i] * invMass[i] * 0.5f * dt) * dt;
         z[i] += (vz[i] + fz[i] * invMass[i] * 0.5f * dt) * dt;
     }
+#endif
 }
 
 void VerletScheme::correct(AtomStorage& atomStorage, float accelDamping, float dt) {
@@ -56,7 +71,17 @@ void VerletScheme::correct(AtomStorage& atomStorage, float accelDamping, float d
 
     const float* RESTRICT invMass = atomStorage.invMassData();
 
-#pragma omp parallel for schedule(static)
+#ifdef ENABLE_TBB
+    tbb::parallel_for(tbb::blocked_range<size_t>(0, n),
+        [&](const tbb::blocked_range<size_t>& r) {
+            for (size_t i = r.begin(); i != r.end(); ++i) {
+                const float halfDtInvMass = 0.5f * accelDamping * dt * invMass[i];
+                vx[i] += (pfx[i] + fx[i]) * halfDtInvMass;
+                vy[i] += (pfy[i] + fy[i]) * halfDtInvMass;
+                vz[i] += (pfz[i] + fz[i]) * halfDtInvMass;
+            }
+        });
+#else
     for (size_t i = 0; i < n; ++i) {
         const float halfDtInvMass = 0.5f * accelDamping * dt * invMass[i];
 
@@ -64,4 +89,5 @@ void VerletScheme::correct(AtomStorage& atomStorage, float accelDamping, float d
         vy[i] += (pfy[i] + fy[i]) * halfDtInvMass;
         vz[i] += (pfz[i] + fz[i]) * halfDtInvMass;
     }
+#endif
 }

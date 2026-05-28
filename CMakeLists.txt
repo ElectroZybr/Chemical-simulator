@@ -11,7 +11,7 @@ set(APP_VERSION_STRING "${PROJECT_VERSION}")
 option(OPTIMIZE_FOR_NATIVE "Enable native CPU optimizations outside Debug builds" OFF)
 option(BUILD_BENCHMARKS "Build benchmarks" OFF)
 option(ENABLE_IPO "Enable link-time optimization for non-Debug builds when supported" ON)
-option(ENABLE_OPENMP "Enable OpenMP multithreading for physics simulation" ON)
+option(ENABLE_TBB "Enable Intel oneAPI TBB multithreading for physics simulation" ON)
 
 set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -66,14 +66,14 @@ add_dependencies(latticelab_lib embedded_resources)
 include(shaders)
 add_dependencies(latticelab_lib wgsl_shaders)
 
-if(ENABLE_OPENMP)
-    find_package(OpenMP)
-    if(OpenMP_CXX_FOUND)
-        target_link_libraries(latticelab_lib PUBLIC OpenMP::OpenMP_CXX)
-        message(STATUS "OpenMP: enabled (${OpenMP_CXX_VERSION})")
-    else()
-        message(WARNING "OpenMP not found — building without multithreading")
-    endif()
+include(embedded_translate)
+add_dependencies(latticelab_lib embedded_translate)
+
+if(ENABLE_TBB)
+    find_package(TBB REQUIRED)
+    target_link_libraries(latticelab_lib PUBLIC TBB::tbb)
+    target_compile_definitions(latticelab_lib PUBLIC ENABLE_TBB)
+    message(STATUS "TBB: enabled")
 endif()
 
 target_compile_options(latticelab_lib PRIVATE
@@ -93,6 +93,25 @@ target_include_directories(latticelab_lib PUBLIC
     ${imguifiledialog_SOURCE_DIR}
     ${webgpu_cpp_SOURCE_DIR}/wgpu-native
 )
+
+if(APPLE)
+    find_library(COCOA_FRAMEWORK Cocoa)
+    find_library(METAL_FRAMEWORK Metal)
+    find_library(QUARTZCORE_FRAMEWORK QuartzCore)
+
+    target_sources(latticelab_lib PRIVATE
+            Rendering/MetalBackend.mm
+    )
+
+    target_link_libraries(latticelab_lib PUBLIC
+        "-framework Cocoa"
+        "-framework QuartzCore"
+        "-framework Metal"
+        ${COCOA_FRAMEWORK}
+        ${METAL_FRAMEWORK}
+        ${QUARTZCORE_FRAMEWORK}
+    )
+endif()
 
 target_link_libraries(latticelab_lib PUBLIC
     glfw

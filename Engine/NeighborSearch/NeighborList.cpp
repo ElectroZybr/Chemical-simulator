@@ -6,10 +6,15 @@
 #include <vector>
 
 #include "Engine/NeighborSearch/SpatialGrid.h"
-#include "Engine/SimBox.h"
+#include "Engine/World.h"
 #include "Engine/metrics/Profiler.h"
 #include "Engine/physics/AtomStorage.h"
 #include "Engine/restrict.h"
+
+#ifdef ENABLE_TBB
+#include <tbb/blocked_range.h>
+#include <tbb/parallel_for.h>
+#endif
 
 void NeighborList::setCutoff(float cutoff) {
     cutoff_ = cutoff;
@@ -48,20 +53,20 @@ void NeighborList::clear() {
     resetStats();
 }
 
-void NeighborList::rebuildPipeline(const AtomStorage& atoms, SimBox& box, int simStep) {
+void NeighborList::rebuildPipeline(const AtomStorage& atoms, World& world, int simStep) {
     // перестройка пространственной сетки
-    box.grid.rebuild(atoms.xDataSpan(), atoms.yDataSpan(), atoms.zDataSpan());
+    world.getGrid().rebuild(atoms.xDataSpan(), atoms.yDataSpan(), atoms.zDataSpan());
     // перестройка списка соседей
-    build(atoms, box);
+    build(atoms, world);
     // обновление метрик
     const float rebuildTimeMs = static_cast<float>(Profiler::instance().lastMs("NeighborList::build"));
     stats_.recordRebuild(simStep, rebuildTimeMs);
 }
 
-void NeighborList::build(const AtomStorage& atoms, SimBox& box) {
+void NeighborList::build(const AtomStorage& atoms, World& box) {
     PROFILE_SCOPE("NeighborList::build");
 
-    const SpatialGrid& grid = box.grid;
+    const SpatialGrid& grid = box.getGrid();
     const uint32_t atomCount = static_cast<uint32_t>(atoms.size());
     const float* RESTRICT x = atoms.xData();
     const float* RESTRICT y = atoms.yData();
@@ -71,10 +76,17 @@ void NeighborList::build(const AtomStorage& atoms, SimBox& box) {
 
     // Фаза 1: каждый поток строит список соседей своих атомов независимо
     std::vector<std::vector<uint32_t>> perAtom(atomCount);
-#pragma omp parallel for schedule(dynamic, 64)
+#ifdef ENABLE_TBB
+    tbb::parallel_for(tbb::blocked_range<uint32_t>(0, atomCount, 64),
+        [&](const tbb::blocked_range<uint32_t>& r) {
+            for (uint32_t i = r.begin(); i != r.end(); ++i)
+                writeAtomNeighbors(grid, x, y, z, i, x[i], y[i], z[i], perAtom[i]);
+        });
+#else
     for (uint32_t i = 0; i < atomCount; ++i) {
         writeAtomNeighbors(grid, x, y, z, i, x[i], y[i], z[i], perAtom[i]);
     }
+#endif
 
     // Фаза 2: вычисляем смещения (prefix sum) — последовательно
     offsets_[0] = 0;
@@ -84,10 +96,17 @@ void NeighborList::build(const AtomStorage& atoms, SimBox& box) {
     neighbors_.resize(offsets_[atomCount]);
 
     // Фаза 3: копируем в плоский массив — снова параллельно
-#pragma omp parallel for schedule(static)
+#ifdef ENABLE_TBB
+    tbb::parallel_for(tbb::blocked_range<uint32_t>(0, atomCount),
+        [&](const tbb::blocked_range<uint32_t>& r) {
+            for (uint32_t i = r.begin(); i != r.end(); ++i)
+                std::copy(perAtom[i].begin(), perAtom[i].end(), neighbors_.begin() + offsets_[i]);
+        });
+#else
     for (uint32_t i = 0; i < atomCount; ++i) {
         std::copy(perAtom[i].begin(), perAtom[i].end(), neighbors_.begin() + offsets_[i]);
     }
+#endif
 
     std::copy(x, x + atoms.mobileCount(), refPosX_.data());
     std::copy(y, y + atoms.mobileCount(), refPosY_.data());
