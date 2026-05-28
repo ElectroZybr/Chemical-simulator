@@ -7,6 +7,19 @@
 #include "Engine/io/SimulationStateIO.h"
 #include "Engine/metrics/Profiler.h"
 #include "Engine/physics/Bond.h"
+#include "Engine/physics/gpu/GpuResidentPhysics.h"
+
+Simulation::WorldState::WorldState(Vec3f size, Vec3f renderOffset) : world(size, renderOffset) {
+    world.getNeighborList().setParams(5.f, 1.f);
+#ifdef LATTICELAB_USE_TBB
+    // Auto-mode: на каждом rebuild NL выбирает Half для mobileCount<5000
+    // (избегаем 2x работу force loop на маленьких сценах) и Full выше
+    // (parallel-выгода окупает удвоенную NL).
+    world.getNeighborList().setAutoMode(5000);
+#endif
+}
+
+Simulation::WorldState::~WorldState() = default;
 
 Simulation::Simulation() = default;
 
@@ -116,6 +129,11 @@ void Simulation::updateAll() {
 }
 
 void Simulation::updateState(WorldState& state) {
+    if (state.gpu) {
+        updateStateGpu(state);
+        return;
+    }
+
     if (state.world.getNeighborList().needsRebuild(state.world.getAtomStorage())) {
         state.world.getNeighborList().rebuildPipeline(state.world.getAtomStorage(), state.world, state.sim_step);
     }
@@ -125,6 +143,99 @@ void Simulation::updateState(WorldState& state) {
     state.metricsCacheValid_ = false;
     ++state.sim_step;
     state.sim_time_ns += state.Dt * Units::kTimeUnitToNs;
+}
+
+void Simulation::updateStateGpu(WorldState& state) {
+    // Сцена могла измениться под резидентным GPU (добавили/удалили атомы,
+    // загрузили сцену): VRAM-буфера залиты под старый totalCount — путь NL
+    // rebuild переполнил бы их (writeBuffer overrun), а новые атомы вообще не
+    // интегрировались бы. Замечаем расхождение по счётчику атомов и заново
+    // заливаем активную сцену (буфера растут в ensureCapacity). CPU-копия при
+    // этом свежая: рендер делает syncFromGpuIfNeeded в начале кадра, до
+    // UI-обработчиков правки сцены.
+    if (state.world.getAtomStorage().size() != state.gpu->totalCount()) {
+        uploadSceneToGpu(state);
+    }
+
+    // NL-rebuild решается по GPU-редукции смещения, проверяемой не каждый шаг
+    // (poll — это sync), а батчем раз в kDispCheckCadence шагов. Кадэнс должен
+    // быть меньше интервала реального rebuild, чтобы не пропустить (skin=1 даёт
+    // запас: пара видна пока атом не уехал на skin от reference).
+    constexpr int kDispCheckCadence = 4;
+    if (state.stepsSinceDispCheck >= kDispCheckCadence) {
+        state.stepsSinceDispCheck = 0;
+        const float skin = state.world.getNeighborList().skin();
+        const float threshold = 0.5f * skin;
+        if (state.gpu->maxDisplacementSqr() > threshold * threshold) {
+            // Реальный rebuild: скачиваем позиции на CPU, перестраиваем grid+NL
+            // на CPU (канонический путь), заливаем новый NL обратно в VRAM.
+            state.gpu->downloadToCpu(state.world.getAtomStorage(), /*withVelocities=*/true);
+            state.cpuPositionsDirty = false;
+            state.world.getNeighborList().rebuildPipeline(state.world.getAtomStorage(), state.world, state.sim_step);
+            state.gpu->uploadNeighborList(state.world.getNeighborList());
+        }
+    }
+
+    state.gpu->step(state.Dt, state.integrator.accelDamping());
+    ++state.stepsSinceDispCheck;
+    state.cpuPositionsDirty = true; // VRAM новее CPU-копии
+    state.metricsCacheValid_ = false;
+    ++state.sim_step;
+    state.sim_time_ns += state.Dt * Units::kTimeUnitToNs;
+}
+
+void Simulation::uploadSceneToGpu(WorldState& state) {
+    // NL в Full (требование резидентного LJ-пути), свежий build, полная заливка
+    // позиций/скоростей/типов/NL в VRAM. ensureCapacity растит буфера под
+    // текущий размер сцены — поэтому путь годится и для входа в GPU-режим, и для
+    // пере-синка после правки сцены (add/remove/load).
+    NeighborList& nl = state.world.getNeighborList();
+    nl.setMode(NeighborListMode::Full);
+    nl.rebuildPipeline(state.world.getAtomStorage(), state.world, static_cast<int>(state.sim_step));
+
+    const Vec3f size = state.world.getWorldSize();
+    state.gpu->uploadFromCpu(state.world.getAtomStorage(), nl, state.forceField_.ljForceField(),
+                             static_cast<float>(size.x), static_cast<float>(size.y), static_cast<float>(size.z));
+    state.cpuPositionsDirty = false;
+    state.stepsSinceDispCheck = 0;
+}
+
+void Simulation::setGpuMode(bool enable) {
+    WorldState& state = activeState();
+    if (enable == static_cast<bool>(state.gpu)) {
+        return; // уже в нужном режиме
+    }
+
+    if (enable) {
+        // CPU -> GPU: создаём резидентность и заливаем активную сцену.
+        state.gpu = std::make_unique<GpuResidentPhysics>();
+        uploadSceneToGpu(state);
+    }
+    else {
+        // GPU -> CPU: вернуть актуальное состояние в AtomStorage, снести GPU,
+        // пометить NL на перестройку (позиции изменились).
+        state.gpu->downloadToCpu(state.world.getAtomStorage(), /*withVelocities=*/true);
+        state.gpu.reset();
+        state.cpuPositionsDirty = false;
+        state.world.getNeighborList().clear();
+    }
+    state.metricsCacheValid_ = false;
+}
+
+bool Simulation::isGpuMode() const { return static_cast<bool>(activeState().gpu); }
+
+void Simulation::syncFromGpuIfNeeded() {
+    // Синкаем ВСЕ GPU-миры, а не только активный: updateAll() шагает каждый мир,
+    // поэтому неактивный GPU-мир тоже продвигается в VRAM, и его CPU-копию надо
+    // скачать для рендера/метрик. Иначе неактивный GPU-мир "застывает" на экране
+    // (рендер читает устаревшую CPU-копию), хотя физика на GPU идёт.
+    for (const auto& state : worlds_) {
+        if (state->gpu && state->cpuPositionsDirty) {
+            state->gpu->downloadToCpu(state->world.getAtomStorage(), /*withVelocities=*/true);
+            state->cpuPositionsDirty = false;
+            state->metricsCacheValid_ = false;
+        }
+    }
 }
 
 void Simulation::setSizeBox(Vec3f newSize, int cellSize) {

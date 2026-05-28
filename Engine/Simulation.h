@@ -14,6 +14,8 @@
 #include "Engine/physics/ForceField.h"
 #include "Engine/physics/Integrator.h"
 
+class GpuResidentPhysics; // GPU-режим (резидентная физика), opt-in через setGpuMode
+
 class Simulation {
 public:
     using WorldId = size_t;
@@ -91,6 +93,17 @@ public:
 
     void setBondFormationEnabled(bool enabled) { activeState().bondFormationEnabled_ = enabled; }
     bool isBondFormationEnabled() const { return activeState().bondFormationEnabled_; }
+
+    // CPU/GPU тумблер для физики активного мира. GPU-режим — LJ-only
+    // (резидентная физика на GPU). CPU-путь остаётся дефолтным и нетронутым;
+    // переключение в любую сторону синхронизирует состояние через AtomStorage.
+    // Требует инициализированного WGPUContext (есть после старта рендера).
+    void setGpuMode(bool enable);
+    [[nodiscard]] bool isGpuMode() const;
+    // Скачивает позиции/скорости из VRAM в AtomStorage, если активен GPU-режим
+    // и CPU-копия устарела. Вызывается перед рендером/метриками/сохранением —
+    // редкие точки синхронизации, не каждый физический шаг. В CPU-режиме no-op.
+    void syncFromGpuIfNeeded();
     void setLJEnabled(bool enabled) { world().setLJEnabled(enabled); }
     bool isLJEnabled() const { return world().isLJEnabled(); }
     void setCoulombEnabled(bool enabled) { world().setCoulombEnabled(enabled); }
@@ -134,15 +147,13 @@ private:
     friend class SimulationStateIO;
 
     struct WorldState {
-        explicit WorldState(Vec3f size, Vec3f renderOffset) : world(size, renderOffset) {
-            world.getNeighborList().setParams(5.f, 1.f);
-#ifdef LATTICELAB_USE_TBB
-            // Auto-mode: на каждом rebuild NL выбирает Half для mobileCount<5000
-            // (избегаем 2x работу force loop на маленьких сценах) и Full выше
-            // (parallel-выгода окупает удвоенную NL).
-            world.getNeighborList().setAutoMode(5000);
-#endif
-        }
+        // Конструктор и деструктор out-of-line: unique_ptr<GpuResidentPhysics>
+        // требует полного типа в точках конструирования/уничтожения, а в
+        // заголовке он только forward-declared.
+        explicit WorldState(Vec3f size, Vec3f renderOffset);
+        ~WorldState();
+        WorldState(WorldState&&) = delete;
+        WorldState& operator=(WorldState&&) = delete;
 
         World world;
         Integrator integrator;
@@ -153,11 +164,20 @@ private:
         bool bondFormationEnabled_ = false;
         mutable bool metricsCacheValid_ = false;
         mutable EnergyMetrics::Snapshot metricsCache_{};
+
+        // GPU-режим (opt-in). gpu == nullptr → CPU-путь.
+        std::unique_ptr<GpuResidentPhysics> gpu;
+        bool cpuPositionsDirty = false; // VRAM новее AtomStorage, нужен download
+        int stepsSinceDispCheck = 0;    // батчинг NL-displacement проверки
     };
 
     StepData makeStepData();
     StepData makeStepData(WorldState& state);
     void updateState(WorldState& state);
+    void updateStateGpu(WorldState& state);
+    // Заливает активную CPU-сцену в резидентный GPU (NL Full + полный upload).
+    // Общий путь для входа в GPU-режим и для пере-синка после правки сцены.
+    void uploadSceneToGpu(WorldState& state);
     WorldState& activeState();
     const WorldState& activeState() const;
     void invalidateMetricsCache() const { activeState().metricsCacheValid_ = false; }

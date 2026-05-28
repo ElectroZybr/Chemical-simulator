@@ -297,6 +297,19 @@ void SettingsPanel::draw(float uiScale, Vec2i windowSize, Simulation& simulation
     ImGui::EndDisabled();
     ImGui::PopItemWidth();
 
+    // --- CPU/GPU тумблер физики ---
+    // GPU-режим — резидентная LJ-only физика на GPU. Оба пути рабочие,
+    // переключение синхронизирует состояние через AtomStorage.
+    bool gpuMode = simulation.isGpuMode();
+    if (ImGui::Checkbox(i18n::tr("imgui_gpu_physics").data(), &gpuMode)) {
+        simulation.setGpuMode(gpuMode);
+    }
+    if (gpuMode) {
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.00f, 0.75f, 0.25f, 1.00f));
+        ImGui::TextWrapped("%s", i18n::tr("imgui_gpu_physics_lj_only").data());
+        ImGui::PopStyleColor();
+    }
+
     ImGui::SeparatorText(i18n::tr("imgui_neighbour_list").data());
     // cellSize >= cutoff + skin — иначе NL 27-cell stencil тихо потеряет пары
     // на (cellSize, listRadius]. Engine кидает invalid_argument при нарушении,

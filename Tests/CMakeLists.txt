@@ -27,3 +27,7 @@ target_link_libraries(latticelab_tests PRIVATE
     GTest::gtest_main
     latticelab_lib
 )
+
+# latticelab_lib тянет webgpu (GPU-физика); тестовому бинарю нужен wgpu_native.dll
+# рядом, иначе загрузка падает с STATUS_DLL_NOT_FOUND.
+target_copy_webgpu_binaries(latticelab_tests)

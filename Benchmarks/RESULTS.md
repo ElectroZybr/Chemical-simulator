@@ -14,6 +14,52 @@
 - **Bench framework**: GoogleBenchmark v1.9.5
 - **Methodology**: `--benchmark_repetitions=3 --benchmark_min_time=0.2-0.3s --benchmark_report_aggregates_only=true`, числа = median
 
+## Сводное сравнение: до оптимизаций / CPU / GPU
+
+Главная метрика — время вычисления LJ-сил на шаг, одинаковый бенч во всех
+трёх столбцах. «До оптимизаций» — upstream `fd28dc8` (single-thread, Half NL,
+без cutoff-фильтра). «CPU оптимизированный» — main (C1 cutoff + D5 TBB parallel
+Full NL). «GPU» — чистое время LJ-kernel на ветке `gpu-compute`.
+
+Провенанс:
+- CPU-столбцы: `SimulationFixture/ComputeForcesWithNeighborList` (pair LJ force,
+  без интегрирования и NL rebuild). «До» — из `.scratch/baseline-clang-20260528.json`;
+  «CPU опт» — свежий прогон main-ветки.
+- GPU-столбец: `BM_GpuLJReorder_Identity` (естественный порядок атомов),
+  per-dispatch = wall / 50 (батч 50 dispatch на один submit, kernel-only через
+  `Rendering/shaders/physics_lj.wgsl`).
+- Все: i7-14700K, RTX 4070 SUPER, clang 22.1.6 Release, median.
+
+| N атомов | До оптимизаций | CPU оптимизированный | GPU (kernel) |
+|---|---|---|---|
+| 1 000 | 42.6 μs | 34.3 μs | — (ниже полезного диапазона GPU) |
+| 15 625 | 742 μs | 195 μs | 12.6 μs |
+| 103 823 | 5 120 μs | 981 μs | 83 μs |
+
+Ускорения @ 103 823: CPU опт vs upstream **5.2×**; GPU vs CPU опт **11.8×**;
+GPU vs upstream **62×**. @ 15 625: соответственно 3.8× / 15.5× / 59×.
+
+Резидентный GPU full-step (predict + confine + LJ + correct, без per-step
+readback, `BM_GpuFullStep`, per-step = wall / 20):
+
+| N атомов | CPU steady-state шаг (~force+correct) | GPU резидентный шаг |
+|---|---|---|
+| 15 625 | ~205 μs | ~25 μs (~8×) |
+| 103 823 | ~1 040 μs | ~107 μs (~9×) |
+
+Оговорки:
+- GPU-числа — чистое вычисление, БЕЗ NL rebuild. CPU `ComputeForces` тоже без
+  rebuild — сравнение apples-to-apples. Полный per-frame GPU-замер с
+  rebuild-каденцией (`BM_GpuFullStepWithRebuild`) ещё не сделан; на «горячих»
+  сценах rebuild-round-trip CPU↔GPU съедает часть выигрыша (бенч CPU FullStep
+  @ 103k = 16 ms при rebuild каждые ~5 шагов).
+- GPU full-step замер шумный (cv 53-119%) — launch jitter на батч-нагрузке.
+- N=1000: GPU не выигрывает (launch overhead > вычисление); GPU полезен от ~10k.
+- Корректность: GPU-траектория бит-в-бит == CPU (`BM_GpuCorrectness`).
+
+Прочие оптимизации (не force-loop): bond hot path −50% (D1), формация бондов
+75-121× O(N²)→O(N) (D2), рендер sparse-сетки 3.7× (D4) — детали в секциях ниже.
+
 ## C1 — force loop фильтрует по физическому cutoff
 
 `a72aff1 fix: pair-силы фильтруются по физическому cutoff, не listRadius`
@@ -52,10 +98,72 @@
 
 `ae64056 perf: dup-check Bond::CreateBond через per-atom adjacency`
 
-`Bond::CreateBond` делал линейный скан `std::list<Bond>` для каждой
-кандидатной пары при формации бондов. O(B) на dup-check × C кандидатов
-= O(B·C). После D2 — `vector<vector<uint32_t>>` per-atom adjacency,
-O(degree) lookup.
+### Проблема
+
+При включённой формации связей (`allowBondFormation=true`)
+`BondForceField::formBonds` обходит **каждую** пару из NeighborList и для
+каждой вызывает `tryCreateBond` → `Bond::CreateBond`. Внутри `CreateBond`
+дубликат-проверка была линейным сканом всего списка связей:
+
+```cpp
+if (std::ranges::any_of(bonds, [&](const Bond& b) {
+        return (b.aIndex == aIndex && b.bIndex == bIndex) ||
+               (b.aIndex == bIndex && b.bIndex == aIndex);
+    })) { return nullptr; }   // bonds — std::list<Bond>
+```
+
+`bonds` — это `std::list<Bond>`, и скан идёт по **всем** B существующим
+связям. Обозначим C — число кандидатных пар за один `compute()` (растёт как
+N × среднее число соседей), B — число уже созданных связей (растёт линейно
+с N по мере формации). Тогда стоимость дубликат-проверок за вызов:
+
+> C кандидатов × O(B) скан = **O(C · B) ≈ O(N²)**
+
+Плюс `std::list` — это связный список с pointer-chasing: каждый узел в своём
+месте кучи, скан кэш-недружелюбен, так что константа при O(B) ещё и большая.
+
+Масштаб катастрофы виден в бенче (`BondFormationFixture/BondCompute`, решётка
+углерода): один вызов `compute()` на 8000 атомов — **437 мс**, на 15625 —
+**1.58 секунды**. Рост 8000→15625 (×1.95 по N) дал ×3.6 по времени — характерная
+суперлинейность O(N²).
+
+### Решение
+
+Добавлен per-atom adjacency-индекс: для каждого атома — список индексов
+атомов, с которыми он уже связан.
+
+```cpp
+using Adjacency = std::vector<std::vector<uint32_t>>;  // Bond.h
+```
+
+`Bond::CreateBond` получил опциональный параметр `Adjacency* adjacency`
+(по умолчанию `nullptr` — тогда работает прежний линейный скан, для редких
+одиночных вызовов из UI вроде `Simulation::addBond`). Когда индекс передан,
+дубликат-проверка — это `std::find` в списке соседей **одного** атома:
+
+```cpp
+const auto& neighbors = (*adjacency)[aIndex];
+if (std::find(neighbors.begin(), neighbors.end(), bIndex) != neighbors.end())
+    return nullptr;                       // O(degree), не O(B)
+// при успехе — обновляем индекс в обе стороны:
+(*adjacency)[aIndex].push_back(bIndex);
+(*adjacency)[bIndex].push_back(aIndex);
+```
+
+`BondForceField::compute` строит свежий adjacency из живых связей в начале
+фазы формации (O(N + B)) и держит его как `mutable`-член (scratch,
+переиспользуется между шагами — `.clear()` по элементам, без аллокаций),
+затем передаёт в `formBonds` → `tryCreateBond` → `CreateBond`.
+
+### Почему теперь O(N)
+
+Степень атома ограничена его валентностью — у углерода ≤ 4 связей, у
+большинства элементов ≤ 6-8. Значит per-atom список соседей крошечный и
+почти константный, а дубликат-проверка из O(B) превращается в O(degree) ≈
+O(1). Суммарная стоимость падает с O(C · B) до O(C · degree) ≈ O(C) ≈ O(N).
+Построение индекса O(N + B) на шаг ничтожно на фоне устранённого O(N²).
+
+### Числа
 
 | N atoms | Before D2 | After D2 | Speedup |
 |---|---|---|---|
@@ -65,8 +173,11 @@ O(degree) lookup.
 | 8000 | 436'678'900 ns | 5'806'302 ns | **75×** |
 | 15625 | 1'580'959'100 ns | 13'109'408 ns | **121×** |
 
-Бенч: `BondFormationFixture/BondCompute` (`allowBondFormation=true`).
-На больших N это устранение O(N²) поведения.
+Бенч: `BondFormationFixture/BondCompute` (`allowBondFormation=true`, решётка C
+с шагом 1.7, близким к равновесию C-C). На малых N (125, 512) выигрыша почти
+нет — B мало, O(B) скан дёшев. Эффект растёт с N: на 15625 устранение O(N²)
+даёт **121×**. Совместимость: одиночные вызовы `addBond` без adjacency идут
+прежним путём — защищено тестом `BondTest.CreateBondRejectsDuplicate`.
 
 ## D3 — render storage buffer 1.5× headroom
 

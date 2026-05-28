@@ -142,6 +142,11 @@ int Application::run() {
             PROFILE_SCOPE("Application::RenderFrame");
             renderAccum -= renderInterval;
 
+            // В GPU-режиме позиции живут в VRAM; перед чтением их рендером, UI и
+            // метриками синхронизируем CPU-копию (раз в кадр, не каждый шаг).
+            // В CPU-режиме — no-op.
+            simulation.syncFromGpuIfNeeded();
+
             uiState.simStep = simulation.getSimStep();
             appInterface.update();
             refreshAtomDebugViews(debugViews, simulation);

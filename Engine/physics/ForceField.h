@@ -15,6 +15,9 @@ public:
     void compute(World& world, bool allowBondFormation, float dt) const;
     void computePairInteractions(World& world) const;
 
+    // Доступ к LJ-таблице для GPU-режима (заливка pair-параметров в VRAM).
+    [[nodiscard]] const LJForceField& ljForceField() const { return ljForceField_; }
+
 private:
     WallForceField wallForceField_;
     LJForceField ljForceField_;
