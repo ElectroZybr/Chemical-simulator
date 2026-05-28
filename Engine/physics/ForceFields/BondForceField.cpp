@@ -79,35 +79,44 @@ void BondForceField::tryCreateBond(AtomStorage& atoms, Bond::List& bonds, uint32
     Bond::CreateBond(bonds, aIndex, bIndex, atoms);
 }
 
-void BondForceField::applyAngleForces(AtomStorage& atoms, const Bond::List& bonds) {
+void BondForceField::applyAngleForces(AtomStorage& atoms, const Bond::List& bonds) const {
     if (bonds.size() < 2) {
         return;
     }
 
-    std::vector<uint16_t> degree(atoms.size(), 0);
+    const size_t n = atoms.size();
+
+    // degreeScratch_ — счётчик степеней. resize(n, 0) делает только аллокацию при росте,
+    // assign(n, 0) обнуляет и shrink не нужен. Капасити переиспользуется между шагами.
+    degreeScratch_.assign(n, 0);
     for (const Bond& bond : bonds) {
-        if (bond.aIndex < atoms.size() && bond.bIndex < atoms.size()) {
-            ++degree[bond.aIndex];
-            ++degree[bond.bIndex];
+        if (bond.aIndex < n && bond.bIndex < n) {
+            ++degreeScratch_[bond.aIndex];
+            ++degreeScratch_[bond.bIndex];
         }
     }
 
-    std::vector<std::vector<size_t>> bondedNeighbours(atoms.size());
-    for (size_t atomIndex = 0; atomIndex < atoms.size(); ++atomIndex) {
-        if (degree[atomIndex] > 0) {
-            bondedNeighbours[atomIndex].reserve(degree[atomIndex]);
+    // neighborsScratch_ — list[N] списков соседей. resize до n; для каждого слота
+    // .clear() сохраняет capacity, поэтому повторные шаги не делают malloc/free.
+    if (neighborsScratch_.size() < n) {
+        neighborsScratch_.resize(n);
+    }
+    for (size_t i = 0; i < n; ++i) {
+        neighborsScratch_[i].clear();
+        if (degreeScratch_[i] > 0) {
+            neighborsScratch_[i].reserve(degreeScratch_[i]);
         }
     }
 
     for (const Bond& bond : bonds) {
-        if (bond.aIndex < atoms.size() && bond.bIndex < atoms.size()) {
-            bondedNeighbours[bond.aIndex].emplace_back(bond.bIndex);
-            bondedNeighbours[bond.bIndex].emplace_back(bond.aIndex);
+        if (bond.aIndex < n && bond.bIndex < n) {
+            neighborsScratch_[bond.aIndex].emplace_back(bond.bIndex);
+            neighborsScratch_[bond.bIndex].emplace_back(bond.aIndex);
         }
     }
 
-    for (size_t atomIndex = 0; atomIndex < bondedNeighbours.size(); ++atomIndex) {
-        const auto& neighbours = bondedNeighbours[atomIndex];
+    for (size_t atomIndex = 0; atomIndex < n; ++atomIndex) {
+        const auto& neighbours = neighborsScratch_[atomIndex];
         if (neighbours.size() < 2) {
             continue;
         }
