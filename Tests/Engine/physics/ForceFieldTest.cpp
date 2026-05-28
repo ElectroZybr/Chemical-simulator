@@ -1,0 +1,93 @@
+#include <cmath>
+
+#include <gtest/gtest.h>
+
+#include "Engine/Simulation.h"
+#include "Engine/math/Vec3.h"
+#include "Engine/physics/AtomData.h"
+#include "Engine/physics/AtomStorage.h"
+
+namespace {
+
+// Hybrid tolerance: abs(a-b) <= max(absTol, relTol * max(|a|, |b|)).
+// Заметка: после симметричной записи "forceA -= pairF; forceB += pairF" значение pairF
+// одно и то же, так что сумма forceA+forceB должна быть бит-равна нулю при
+// одинарном вычислении пары. 1e-12 — sanity на компилятор, а не на численный шум.
+::testing::AssertionResult FpNear(float a, float b, float absTol, float relTol, const char* lhs, const char* rhs) {
+    const float diff = std::abs(a - b);
+    const float scale = std::max(std::abs(a), std::abs(b));
+    const float tol = std::max(absTol, relTol * scale);
+    if (diff <= tol) {
+        return ::testing::AssertionSuccess();
+    }
+    return ::testing::AssertionFailure() << lhs << " = " << a << " vs " << rhs << " = " << b
+                                         << "; |diff| = " << diff << " > tol = " << tol;
+}
+
+#define EXPECT_FP_NEAR(a, b, absTol, relTol) EXPECT_TRUE(FpNear((a), (b), (absTol), (relTol), #a, #b))
+
+Simulation makeTwoAtomScene(float r, bool secondFixed) {
+    Simulation sim;
+    sim.createWorld(Vec3f{40.0f, 40.0f, 40.0f});
+    sim.setSizeBox(Vec3f{40.0f, 40.0f, 40.0f}, 6);
+    sim.setLJEnabled(true);
+    sim.setCoulombEnabled(false);
+
+    sim.appendAtomFast(Vec3f{20.0f, 20.0f, 20.0f},       Vec3f{0.0f, 0.0f, 0.0f}, AtomData::Type::H, /*fixed=*/false);
+    sim.appendAtomFast(Vec3f{20.0f, 20.0f, 20.0f + r},   Vec3f{0.0f, 0.0f, 0.0f}, AtomData::Type::H, /*fixed=*/secondFixed);
+    sim.finalizeAtomBatch();
+
+    sim.neighborList().build(sim.atoms(), sim.world());
+    return sim;
+}
+
+} // namespace
+
+// Pair-сила в LJ записывается через "forceA -= pairF; forceB += pairF" в один проход
+// внутри pairInteraction. Newton 3rd law держится бит-равно при одном вычислении.
+TEST(ForceFieldTest, PairNewton3) {
+    Simulation sim = makeTwoAtomScene(/*r=*/2.5f, /*secondFixed=*/false);
+    sim.forceField().computePairInteractions(sim.world());
+
+    const AtomStorage& atoms = sim.atoms();
+    EXPECT_FP_NEAR(atoms.forceX(0), -atoms.forceX(1), 1e-12f, 1e-12f);
+    EXPECT_FP_NEAR(atoms.forceY(0), -atoms.forceY(1), 1e-12f, 1e-12f);
+    EXPECT_FP_NEAR(atoms.forceZ(0), -atoms.forceZ(1), 1e-12f, 1e-12f);
+
+    // sanity: сила вообще ненулевая (sticky чтобы Newton-3 не прошёл тривиально).
+    const float fmag = std::sqrt(atoms.forceX(0) * atoms.forceX(0) + atoms.forceY(0) * atoms.forceY(0) +
+                                 atoms.forceZ(0) * atoms.forceZ(0));
+    EXPECT_GT(fmag, 0.0f);
+}
+
+// Атомы на дистанции 5.5 (между cutoff=5 и listRadius=6) сейчас попадают в NL и
+// получают LJ-силу — это и есть Bug 2 (force loop не фильтрует обратно по cutoff).
+// Тест DISABLED пока баг не пофикшен: он не должен зеленить нынешний неверный
+// контракт, но должен оставаться видимым в коде как точка истины.
+// После C1 fix снять DISABLED_, поменять "!=" на "==", и тест станет защитой
+// от регрессии.
+TEST(ForceFieldTest, DISABLED_StrictCutoffFiltersBeyondCutoff) {
+    Simulation sim = makeTwoAtomScene(/*r=*/5.5f, /*secondFixed=*/false);
+    sim.forceField().computePairInteractions(sim.world());
+
+    const AtomStorage& atoms = sim.atoms();
+    EXPECT_FLOAT_EQ(atoms.forceX(0), 0.0f);
+    EXPECT_FLOAT_EQ(atoms.forceY(0), 0.0f);
+    EXPECT_FLOAT_EQ(atoms.forceZ(0), 0.0f);
+}
+
+// Решение по Bug 6: атомы с fixed=true в текущей реализации — декоративные,
+// они не участвуют в pair-силах (mobile-first invariant + half-NL + force loop
+// до mobileCount исключают mobile-fixed пары). Этот тест защищает текущее
+// поведение от случайной "починки" в сторону anchor/pinned-семантики.
+TEST(ForceFieldTest, MobileFixedPairDoesNotInteract) {
+    Simulation sim = makeTwoAtomScene(/*r=*/3.0f, /*secondFixed=*/true);
+    ASSERT_EQ(sim.atoms().mobileCount(), 1u) << "scene должна иметь ровно 1 mobile атом";
+
+    sim.forceField().computePairInteractions(sim.world());
+
+    const AtomStorage& atoms = sim.atoms();
+    EXPECT_EQ(atoms.forceX(0), 0.0f);
+    EXPECT_EQ(atoms.forceY(0), 0.0f);
+    EXPECT_EQ(atoms.forceZ(0), 0.0f);
+}
