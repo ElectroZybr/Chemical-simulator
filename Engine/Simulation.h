@@ -137,9 +137,10 @@ private:
         explicit WorldState(Vec3f size, Vec3f renderOffset) : world(size, renderOffset) {
             world.getNeighborList().setParams(5.f, 1.f);
 #ifdef LATTICELAB_USE_TBB
-            // Full NL включает parallel-путь в ForceField для mobileCount >= 5000.
-            // Меньшие сцены идут серийно — overhead parallel_for/Full NL это перевешивает.
-            world.getNeighborList().setMode(NeighborListMode::Full);
+            // Auto-mode: на каждом rebuild NL выбирает Half для mobileCount<5000
+            // (избегаем 2x работу force loop на маленьких сценах) и Full выше
+            // (parallel-выгода окупает удвоенную NL).
+            world.getNeighborList().setAutoMode(5000);
 #endif
         }
 

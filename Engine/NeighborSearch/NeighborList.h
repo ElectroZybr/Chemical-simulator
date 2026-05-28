@@ -25,7 +25,12 @@ public:
     void setCutoff(float cutoff);
     void setSkin(float skin);
     void setParams(float cutoff, float skin);
+    // setMode фиксирует режим явно и выключает auto-выбор. Используется для
+    // bench/diagnostics, где нужно изолировать поведение конкретного режима.
     void setMode(NeighborListMode mode);
+    // setAutoMode включает выбор режима по mobileCount на каждом rebuild:
+    // mobileCount < threshold → Half (меньше работы), иначе Full (parallel).
+    void setAutoMode(size_t threshold);
     [[nodiscard]] NeighborListMode mode() const noexcept { return mode_; }
 
     void clear();
@@ -91,5 +96,7 @@ private:
     float listRadiusSqr_ = 0.0f;
     bool valid_ = false;
     NeighborListMode mode_ = NeighborListMode::Half;
+    bool autoMode_ = false;
+    size_t autoThreshold_ = 5000;
     NeighborListStats stats_{};
 };

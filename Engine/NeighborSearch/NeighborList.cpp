@@ -35,8 +35,17 @@ void NeighborList::setParams(float cutoff, float skin) {
 }
 
 void NeighborList::setMode(NeighborListMode mode) {
+    autoMode_ = false;
     if (mode_ != mode) {
         mode_ = mode;
+        valid_ = false;
+    }
+}
+
+void NeighborList::setAutoMode(size_t threshold) {
+    if (!autoMode_ || autoThreshold_ != threshold) {
+        autoMode_ = true;
+        autoThreshold_ = threshold;
         valid_ = false;
     }
 }
@@ -78,6 +87,13 @@ void NeighborList::rebuildPipeline(const AtomStorage& atoms, World& world, int s
 
 void NeighborList::build(const AtomStorage& atoms, World& box) {
     PROFILE_SCOPE("NeighborList::build");
+
+    // Auto-mode: режим выбирается по mobileCount на каждом rebuild.
+    // На малых сценах Half дешевле (1x работа в force loop, нет 2x памяти NL);
+    // на больших — Full окупает 2x работу parallel-выгодой.
+    if (autoMode_) {
+        mode_ = (atoms.mobileCount() >= autoThreshold_) ? NeighborListMode::Full : NeighborListMode::Half;
+    }
 
     const SpatialGrid& grid = box.getGrid();
     const uint32_t atomCount = static_cast<uint32_t>(atoms.size());
