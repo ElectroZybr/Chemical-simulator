@@ -23,7 +23,23 @@ void BondForceField::compute(AtomStorage& atoms, Bond::List& bonds, const Neighb
     });
 
     if (allowBondFormation) {
-        formBonds(atoms, bonds, neighborList);
+        // Пересобрать adjacency из живых bonds для O(degree) dup-check в
+        // последующих Bond::CreateBond. Cтоит O(N + B), но окупается на
+        // больших B (где линейный скан был O(B) на каждую кандидатную пару).
+        const size_t n = atoms.size();
+        if (adjacencyScratch_.size() < n) {
+            adjacencyScratch_.resize(n);
+        }
+        for (size_t i = 0; i < n; ++i) {
+            adjacencyScratch_[i].clear();
+        }
+        for (const Bond& bond : bonds) {
+            if (bond.aIndex < n && bond.bIndex < n) {
+                adjacencyScratch_[bond.aIndex].push_back(static_cast<uint32_t>(bond.bIndex));
+                adjacencyScratch_[bond.bIndex].push_back(static_cast<uint32_t>(bond.aIndex));
+            }
+        }
+        formBonds(atoms, bonds, neighborList, adjacencyScratch_);
     }
 
     for (Bond& bond : bonds) {
@@ -33,7 +49,8 @@ void BondForceField::compute(AtomStorage& atoms, Bond::List& bonds, const Neighb
     applyAngleForces(atoms, bonds);
 }
 
-void BondForceField::formBonds(AtomStorage& atoms, Bond::List& bonds, const NeighborList& neighborList) const {
+void BondForceField::formBonds(AtomStorage& atoms, Bond::List& bonds, const NeighborList& neighborList,
+                               Bond::Adjacency& adjacency) const {
     PROFILE_SCOPE("ForceField::FormBonds(NL)");
     const uint32_t atomCount = static_cast<uint32_t>(atoms.size());
     if (atomCount < 2) {
@@ -49,12 +66,13 @@ void BondForceField::formBonds(AtomStorage& atoms, Bond::List& bonds, const Neig
         const uint32_t begin = offsets[atomIndex];
         const uint32_t end = offsets[atomIndex + 1];
         for (uint32_t p = begin; p < end; ++p) {
-            tryCreateBond(atoms, bonds, atomIndex, neighbours[p]);
+            tryCreateBond(atoms, bonds, atomIndex, neighbours[p], adjacency);
         }
     }
 }
 
-void BondForceField::tryCreateBond(AtomStorage& atoms, Bond::List& bonds, uint32_t aIndex, uint32_t bIndex) const {
+void BondForceField::tryCreateBond(AtomStorage& atoms, Bond::List& bonds, uint32_t aIndex, uint32_t bIndex,
+                                   Bond::Adjacency& adjacency) const {
     Bond::ensureInitialized();
 
     if (aIndex >= atoms.size() || bIndex >= atoms.size() || aIndex == bIndex) {
@@ -76,7 +94,7 @@ void BondForceField::tryCreateBond(AtomStorage& atoms, Bond::List& bonds, uint32
         return;
     }
 
-    Bond::CreateBond(bonds, aIndex, bIndex, atoms);
+    Bond::CreateBond(bonds, aIndex, bIndex, atoms, &adjacency);
 }
 
 void BondForceField::applyAngleForces(AtomStorage& atoms, const Bond::List& bonds) const {

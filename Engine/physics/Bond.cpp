@@ -143,7 +143,7 @@ void Bond::angleForce(AtomStorage& atomStorage, size_t aIndex, size_t bIndex, si
     atomStorage.forceZ(aIndex) += static_cast<float>(force_o_z);
 }
 
-Bond* Bond::CreateBond(List& bonds, size_t aIndex, size_t bIndex, AtomStorage& atomStorage) {
+Bond* Bond::CreateBond(List& bonds, size_t aIndex, size_t bIndex, AtomStorage& atomStorage, Adjacency* adjacency) {
     ensureInitialized();
 
     if (aIndex >= atomStorage.size() || bIndex >= atomStorage.size() || aIndex == bIndex) {
@@ -154,9 +154,17 @@ Bond* Bond::CreateBond(List& bonds, size_t aIndex, size_t bIndex, AtomStorage& a
         return nullptr;
     }
 
-    if (std::ranges::any_of(bonds, [&](const Bond& bond) {
-            return (bond.aIndex == aIndex && bond.bIndex == bIndex) || (bond.aIndex == bIndex && bond.bIndex == aIndex);
-        })) {
+    if (adjacency != nullptr) {
+        // O(degree) lookup в per-atom списке, обычно ≤ valence.
+        const auto& neighbors = (*adjacency)[aIndex];
+        const auto target = static_cast<uint32_t>(bIndex);
+        if (std::find(neighbors.begin(), neighbors.end(), target) != neighbors.end()) {
+            return nullptr;
+        }
+    }
+    else if (std::ranges::any_of(bonds, [&](const Bond& bond) {
+                 return (bond.aIndex == aIndex && bond.bIndex == bIndex) || (bond.aIndex == bIndex && bond.bIndex == aIndex);
+             })) {
         return nullptr;
     }
 
@@ -168,6 +176,12 @@ Bond* Bond::CreateBond(List& bonds, size_t aIndex, size_t bIndex, AtomStorage& a
     bonds.emplace_back(aIndex, bIndex, atomStorage.type(aIndex), atomStorage.type(bIndex));
     --atomStorage.valenceCount(aIndex);
     --atomStorage.valenceCount(bIndex);
+
+    if (adjacency != nullptr) {
+        (*adjacency)[aIndex].push_back(static_cast<uint32_t>(bIndex));
+        (*adjacency)[bIndex].push_back(static_cast<uint32_t>(aIndex));
+    }
+
     return &bonds.back();
 }
 

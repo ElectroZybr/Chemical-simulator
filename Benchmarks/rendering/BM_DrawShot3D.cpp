@@ -16,4 +16,4 @@ BENCHMARK_TEMPLATE_DEFINE_F(RendererFixture, DrawShot3D, Renderer3DWGPU)(benchma
     setCounters(state);
 }
 
-BENCHMARK_REGISTER_F(RendererFixture, DrawShot3D)->RangeMultiplier(8)->Range(125, 8000);
+BENCHMARK_REGISTER_F(RendererFixture, DrawShot3D)->RangeMultiplier(8)->Range(125, 8000)->Args({15625})->Args({50000});
