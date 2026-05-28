@@ -26,7 +26,7 @@ public:
     [[nodiscard]] const LJPairRow& pairRow(AtomData::Type type) const;
 
     inline void pairInteraction(AtomStorage& atoms, uint32_t bIndex, float dx, float dy, float dz, float d2, const LJPairRow& ljPairRow,
-                                float& forceX, float& forceY, float& forceZ, float& potenE) const {
+                                float& forceX, float& forceY, float& forceZ, float& potenE, bool writeNeighbor = true) const {
         if (d2 <= Consts::Epsilon) {
             return;
         }
@@ -46,17 +46,22 @@ public:
         const float pairForceX = dx * forceScale;
         const float pairForceY = dy * forceScale;
         const float pairForceZ = dz * forceScale;
+        const float halfPotential = 0.5f * potential;
 
         forceX -= pairForceX;
         forceY -= pairForceY;
         forceZ -= pairForceZ;
+        potenE += halfPotential;
 
-        atoms.forceX(bIndex) += pairForceX;
-        atoms.forceY(bIndex) += pairForceY;
-        atoms.forceZ(bIndex) += pairForceZ;
-
-        potenE += 0.5f * potential;
-        atoms.energy(bIndex) += 0.5f * potential;
+        // writeNeighbor=false используется в parallel-режиме (NeighborListMode::Full),
+        // где каждая пара (i,j) обходится дважды: один раз центральный=i пишет в i,
+        // другой раз центральный=j пишет в j. Никакого race на atoms.forceX(bIndex).
+        if (writeNeighbor) {
+            atoms.forceX(bIndex) += pairForceX;
+            atoms.forceY(bIndex) += pairForceY;
+            atoms.forceZ(bIndex) += pairForceZ;
+            atoms.energy(bIndex) += halfPotential;
+        }
     }
 
 private:

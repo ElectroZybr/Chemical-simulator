@@ -9,11 +9,24 @@
 
 class World;
 
+// Half — для каждого центрального атома i хранятся только соседи с индексом
+//   j < i. Подходит для serial force loop с Newton-3 записью в обе стороны
+//   из одной пары.
+// Full — для каждого i хранятся все соседи (как j<i, так и j>i). Каждая
+//   физическая пара представлена дважды. Подходит для parallel force loop,
+//   где центральный пишет только в свою forceX и никакого race с соседями.
+enum class NeighborListMode {
+    Half,
+    Full,
+};
+
 class NeighborList {
 public:
     void setCutoff(float cutoff);
     void setSkin(float skin);
     void setParams(float cutoff, float skin);
+    void setMode(NeighborListMode mode);
+    [[nodiscard]] NeighborListMode mode() const noexcept { return mode_; }
 
     void clear();
     void build(const AtomStorage& atoms, World& world);
@@ -37,11 +50,17 @@ public:
                                    const float xi, const float yi, const float zi, std::vector<uint32_t>& outNeighbors) const {
         const auto& offsets27 = grid.neighborOffsets27();
         const int center = grid.linearCellOfAtom(atomIndex); // центральная ячейка атома i
+        const bool fullMode = (mode_ == NeighborListMode::Full);
 
         for (int k = 0; k < 27; ++k) {
             for (uint32_t neighborIndex : grid.atomsInCell(center + offsets27[k])) {
-                // grid.atomsInCellByLinearIndex возвращает соседей в порядке возрастания индексов
-                if (neighborIndex >= atomIndex) {
+                // grid.atomsInCellByLinearIndex возвращает соседей в порядке возрастания индексов.
+                // В Half-режиме обрываем как только дошли до собственного индекса — храним только j<i.
+                // В Full-режиме храним все пары, кроме самого себя.
+                if (neighborIndex == atomIndex) {
+                    continue;
+                }
+                if (!fullMode && neighborIndex >= atomIndex) {
                     break;
                 }
 
@@ -71,5 +90,6 @@ private:
     float listRadius_ = 0.0f;
     float listRadiusSqr_ = 0.0f;
     bool valid_ = false;
+    NeighborListMode mode_ = NeighborListMode::Half;
     NeighborListStats stats_{};
 };

@@ -34,6 +34,13 @@ void NeighborList::setParams(float cutoff, float skin) {
     valid_ = false;
 }
 
+void NeighborList::setMode(NeighborListMode mode) {
+    if (mode_ != mode) {
+        mode_ = mode;
+        valid_ = false;
+    }
+}
+
 void NeighborList::clear() {
     neighbors_.clear();
     offsets_.clear();

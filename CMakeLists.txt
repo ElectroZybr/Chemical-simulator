@@ -11,6 +11,7 @@ set(APP_VERSION_STRING "${PROJECT_VERSION}")
 option(OPTIMIZE_FOR_NATIVE "Enable native CPU optimizations outside Debug builds" OFF)
 option(BUILD_BENCHMARKS "Build benchmarks" OFF)
 option(BUILD_TESTS "Build unit tests" OFF)
+option(USE_TBB "Use Intel oneTBB for parallel CPU paths" ON)
 option(ENABLE_IPO "Enable link-time optimization for non-Debug builds when supported" ON)
 
 set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
@@ -117,6 +118,36 @@ target_link_libraries(latticelab_lib PUBLIC
     zpp_bits
     libzstd_static
 )
+
+if(USE_TBB)
+    # TBB v2023.0.0 безусловно добавляет -fPIC в Clang.cmake (Linux-парадигма);
+    # clang на Windows MSVC-таргете не понимает этот флаг. PATCH_COMMAND убирает
+    # его, и только на Windows-clang — другим платформам ничего не трогается.
+    if(WIN32 AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        set(_TBB_PATCH_CMD
+            ${CMAKE_COMMAND} -DSRC_DIR=<SOURCE_DIR>
+            -P ${CMAKE_SOURCE_DIR}/cmake/patch_tbb_clang_fpic.cmake)
+    else()
+        set(_TBB_PATCH_CMD "")
+    endif()
+
+    FetchContent_Declare(
+        onetbb
+        GIT_REPOSITORY https://github.com/uxlfoundation/oneTBB.git
+        GIT_TAG        v2023.0.0
+        GIT_SHALLOW    ON
+        PATCH_COMMAND  ${_TBB_PATCH_CMD}
+    )
+    set(TBB_TEST       OFF CACHE BOOL "" FORCE)
+    set(TBB_EXAMPLES   OFF CACHE BOOL "" FORCE)
+    set(TBB_INSTALL    OFF CACHE BOOL "" FORCE)
+    set(TBB_STRICT     OFF CACHE BOOL "" FORCE)
+
+    FetchContent_MakeAvailable(onetbb)
+
+    target_link_libraries(latticelab_lib PUBLIC TBB::tbb)
+    target_compile_definitions(latticelab_lib PUBLIC LATTICELAB_USE_TBB=1)
+endif()
 
 if (WIN32)
     add_executable(${APP_NAME} WIN32 main.cpp)
