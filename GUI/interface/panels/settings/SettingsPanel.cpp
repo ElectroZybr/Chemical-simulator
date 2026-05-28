@@ -1,6 +1,8 @@
 #include "SettingsPanel.h"
 
+#include <algorithm>
 #include <array>
+#include <cmath>
 #include <cstdio>
 #include <string>
 
@@ -133,6 +135,13 @@ void SettingsPanel::draw(float uiScale, Vec2i windowSize, Simulation& simulation
 
         for (Integrator::Scheme scheme : schemes) {
             const bool isSelected = (scheme == currentIntegrator);
+            // RK4 и Langevin сейчас стабы — Engine/physics/integrators/RK4Scheme.cpp:5
+            // и LangevinScheme.cpp:5 молча вызывают Verlet. Чтобы пользователь не
+            // выбирал их как новые варианты, опции задизаблены. Уже выбранный
+            // stub-режим (например из сохранённой сцены) остаётся видимым, чтобы
+            // переключение обратно на Verlet работало, а warning ниже виден.
+            const bool isStub = (scheme == Integrator::Scheme::RK4 || scheme == Integrator::Scheme::Langevin);
+            ImGui::BeginDisabled(isStub && !isSelected);
             if (ImGui::Selectable(integratorName(scheme).data(), isSelected)) {
                 simulation.setIntegrator(scheme);
                 currentIntegrator = scheme;
@@ -140,6 +149,7 @@ void SettingsPanel::draw(float uiScale, Vec2i windowSize, Simulation& simulation
             if (isSelected) {
                 ImGui::SetItemDefaultFocus();
             }
+            ImGui::EndDisabled();
         }
         ImGui::EndCombo();
     }
@@ -288,18 +298,33 @@ void SettingsPanel::draw(float uiScale, Vec2i windowSize, Simulation& simulation
     ImGui::PopItemWidth();
 
     ImGui::SeparatorText(i18n::tr("imgui_neighbour_list").data());
+    // cellSize >= cutoff + skin — иначе NL 27-cell stencil тихо потеряет пары
+    // на (cellSize, listRadius]. Engine кидает invalid_argument при нарушении,
+    // UI клампит слайдеры так, чтобы попасть в это нельзя.
+    const float currentCutoff = simulation.getNeighborListCutoff();
+    const float currentSkin = simulation.getNeighborListSkin();
+    const float currentListRadius = currentCutoff + currentSkin;
+    const float currentCellSizeF = static_cast<float>(simulation.world().getGridCellSize());
+
     int cellSize = simulation.world().getGridCellSize();
-    if (ImGui::SliderInt(i18n::tr("imgui_cell_size").data(), &cellSize, 1, 32)) {
+    const int cellSizeMin = std::max(1, static_cast<int>(std::ceil(currentListRadius)));
+    if (cellSize < cellSizeMin) {
+        cellSize = cellSizeMin;
+        simulation.setSizeBox(simulation.world().getWorldSize(), cellSize);
+    }
+    if (ImGui::SliderInt(i18n::tr("imgui_cell_size").data(), &cellSize, cellSizeMin, 32)) {
         simulation.setSizeBox(simulation.world().getWorldSize(), cellSize);
     }
 
-    float cutoff = simulation.getNeighborListCutoff();
-    if (ImGui::SliderFloat(i18n::tr("imgui_cutoff_nl").data(), &cutoff, 0.5f, 20.0f, "%.2f")) {
+    float cutoff = currentCutoff;
+    const float cutoffMax = std::max(0.5f, std::min(20.0f, currentCellSizeF - currentSkin));
+    if (ImGui::SliderFloat(i18n::tr("imgui_cutoff_nl").data(), &cutoff, 0.5f, cutoffMax, "%.2f")) {
         simulation.setNeighborListCutoff(cutoff);
     }
 
-    float skin = simulation.getNeighborListSkin();
-    if (ImGui::SliderFloat(i18n::tr("imgui_skin_nl").data(), &skin, 0.1f, 10.0f, "%.2f")) {
+    float skin = currentSkin;
+    const float skinMax = std::max(0.1f, std::min(10.0f, currentCellSizeF - currentCutoff));
+    if (ImGui::SliderFloat(i18n::tr("imgui_skin_nl").data(), &skin, 0.1f, skinMax, "%.2f")) {
         simulation.setNeighborListSkin(skin);
     }
 

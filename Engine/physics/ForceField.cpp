@@ -10,6 +10,10 @@ namespace {
                                      const CoulombForceField& coulombForceField) {
         const auto& offsets = neighborList.offsets();
         const auto& neighbours = neighborList.neighbors();
+        // NL хранит пары до listRadius = cutoff + skin. Физическая сила должна
+        // обрезаться по cutoff; skin — это только запас, чтобы реже перестраивать NL.
+        const float cutoff = neighborList.cutoff();
+        const float cutoffSqr = cutoff * cutoff;
 
         for (size_t atomIndex = 0; atomIndex < atoms.mobileCount(); ++atomIndex) {
             const uint32_t begin = offsets[atomIndex];
@@ -47,6 +51,10 @@ namespace {
                 const float dy = atoms.posY(bIndex) - posY;
                 const float dz = atoms.posZ(bIndex) - posZ;
                 const float d2 = dx * dx + dy * dy + dz * dz;
+
+                if (d2 > cutoffSqr) {
+                    continue;
+                }
 
                 if constexpr (UseLJ) {
                     ljForceField.pairInteraction(atoms, bIndex, dx, dy, dz, d2, *ljPairRow, forceX, forceY, forceZ, potentialEnergy);

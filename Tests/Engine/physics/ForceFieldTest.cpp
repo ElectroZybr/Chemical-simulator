@@ -60,13 +60,10 @@ TEST(ForceFieldTest, PairNewton3) {
     EXPECT_GT(fmag, 0.0f);
 }
 
-// Атомы на дистанции 5.5 (между cutoff=5 и listRadius=6) сейчас попадают в NL и
-// получают LJ-силу — это и есть Bug 2 (force loop не фильтрует обратно по cutoff).
-// Тест DISABLED пока баг не пофикшен: он не должен зеленить нынешний неверный
-// контракт, но должен оставаться видимым в коде как точка истины.
-// После C1 fix снять DISABLED_, поменять "!=" на "==", и тест станет защитой
-// от регрессии.
-TEST(ForceFieldTest, DISABLED_StrictCutoffFiltersBeyondCutoff) {
+// Атомы на дистанции 5.5 (между cutoff=5 и listRadius=6) попадают в NL как
+// потенциальные соседи (NL хранит пары до listRadius), но force loop должен
+// фильтровать их по физическому cutoff и не давать LJ-силу.
+TEST(ForceFieldTest, StrictCutoffFiltersBeyondCutoff) {
     Simulation sim = makeTwoAtomScene(/*r=*/5.5f, /*secondFixed=*/false);
     sim.forceField().computePairInteractions(sim.world());
 

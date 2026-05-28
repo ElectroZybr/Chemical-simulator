@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <random>
 #include <set>
+#include <stdexcept>
 #include <utility>
 
 #include <gtest/gtest.h>
@@ -98,4 +99,21 @@ TEST(NeighborListTest, RebuildTriggersOnDisplacement) {
     atoms.posX(0) += nl.skin();
 
     EXPECT_TRUE(nl.needsRebuild(atoms));
+}
+
+// 27-cell стенсил покрывает только если cellSize >= listRadius. Если cellSize
+// меньше, пары на (cellSize, listRadius] могут оказаться в клетках за пределами
+// 27-окна и не попасть в NL — тихая потеря пар вместо явной ошибки. Контракт
+// рантайма: rebuildPipeline бросает std::invalid_argument, чтобы UI или другие
+// caller'ы поймали несовместимую конфигурацию до того, как force loop начнёт
+// работать на ущербном NL.
+TEST(NeighborListTest, RebuildPipelineThrowsOnTooSmallCellSize) {
+    Simulation sim;
+    sim.createWorld(Vec3f{40.0f, 40.0f, 40.0f});
+    // listRadius = cutoff(5) + skin(1) = 6, cellSize = 3 — заведомо меньше.
+    sim.setSizeBox(Vec3f{40.0f, 40.0f, 40.0f}, /*cellSize=*/3);
+    sim.appendAtomFast(Vec3f{20.0f, 20.0f, 20.0f}, Vec3f{0.0f, 0.0f, 0.0f}, AtomData::Type::H);
+    sim.finalizeAtomBatch();
+
+    EXPECT_THROW(sim.neighborList().rebuildPipeline(sim.atoms(), sim.world(), 0), std::invalid_argument);
 }

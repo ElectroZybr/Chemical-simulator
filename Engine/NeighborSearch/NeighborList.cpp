@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <stdexcept>
 #include <vector>
 
 #include "Engine/NeighborSearch/SpatialGrid.h"
@@ -49,6 +50,16 @@ void NeighborList::clear() {
 }
 
 void NeighborList::rebuildPipeline(const AtomStorage& atoms, World& world, int simStep) {
+    // 27-cell стенсил покрывает только если cellSize >= listRadius. Иначе пары на
+    // расстоянии (cellSize, listRadius] окажутся за пределами обхода и тихо выпадут
+    // из NL — force loop их не учтёт. Это не warning, а контракт.
+    const float cellSize = world.getGrid().cellSize;
+    if (cellSize + 1e-6f < listRadius_) {
+        throw std::invalid_argument(
+            "NeighborList::rebuildPipeline: cellSize must be >= listRadius (cutoff + skin); "
+            "27-cell stencil cannot cover the radius otherwise");
+    }
+
     // перестройка пространственной сетки
     world.getGrid().rebuild(atoms.xDataSpan(), atoms.yDataSpan(), atoms.zDataSpan());
     // перестройка списка соседей

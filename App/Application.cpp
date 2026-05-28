@@ -115,13 +115,26 @@ int Application::run() {
         captureController.syncUiState(uiState);
         captureController.handleToggleShortcut();
 
-        // обновление физики
+        // обновление физики (fixed-timestep accumulator)
         const double physicsInterval = 1.0 / uiState.simulationSpeed;
-        if (physicsAccum >= physicsInterval) {
-            if (!uiState.pause) {
-                simulation.updateAll();
-            }
+        if (uiState.pause) {
+            // На паузе не копим долг — иначе при unpause последует лавина шагов.
             physicsAccum = 0.0;
+        }
+        else {
+            // anti-spiral: если уже сильно отстаём (тяжёлая сцена / просадка),
+            // выкидываем избыток времени вместо бесконечного догоняния.
+            constexpr int kMaxStepsPerFrame = 8;
+            const double maxAccum = kMaxStepsPerFrame * physicsInterval;
+            if (physicsAccum > maxAccum) {
+                physicsAccum = maxAccum;
+            }
+            int stepsThisFrame = 0;
+            while (physicsAccum >= physicsInterval && stepsThisFrame < kMaxStepsPerFrame) {
+                simulation.updateAll();
+                physicsAccum -= physicsInterval;
+                ++stepsThisFrame;
+            }
         }
 
         // отрисовка кадра
