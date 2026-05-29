@@ -8,6 +8,7 @@
 
 #include "App/interaction/ToolsManager.h"
 #include "Engine/Simulation.h"
+#include "Engine/physics/gpu/GpuResidentPhysics.h" // render-bind резидентных pos/vel
 #include "Rendering/WGPUContext.h"
 
 #ifdef True
@@ -362,6 +363,61 @@ template <typename T> void RendererWGPU::uploadStorageBuffer(wgpu::Buffer& buf, 
     WGPUContext::instance().queue()->writeBuffer(buf, 0, data, count * sizeof(T));
 }
 
+wgpu::BindGroup RendererWGPU::ensureAtomBindGroup(size_t boundCount, const GpuResidentPhysics* gpuResident) {
+    // CPU-режим: обычная renderer-owned bind-group (собрана в ensureStorageBuffers).
+    // Путь не меняется ни на байт относительно прежнего поведения.
+    if (gpuResident == nullptr) {
+        return *atomBindGroup;
+    }
+
+    // GPU-режим: bind-group биндит РЕЗИДЕНТНЫЕ pos/vel (binding 1/2) + renderer-owned
+    // type/radius/sel (binding 3/4/5). Layout тот же. Резидентный буфер — ЧУЖОЙ и
+    // может переехать при росте сцены, поэтому пере-собираем по кеш-ключу:
+    //   (gpuResident ptr, его renderBufferGeneration(), наша sbCapacity_, boundCount).
+    // boundCount в ключе: §11/§6.2 требуют BindGroupEntry.size резидентных = boundCount*16
+    // (а не полный буфер), а boundCount может меняться на transient-правке сцены при той
+    // же generation — тогда пере-биндим, чтобы bound size был ровно текущим. На статичной
+    // сцене ключ неизменен → горячий путь bind-group не трогает.
+    const uint64_t gen = gpuResident->renderBufferGeneration();
+    const bool keyMatch = gpuBindValid_ && gpuBindPtr_ == static_cast<const void*>(gpuResident) &&
+                          gpuBindGeneration_ == gen && gpuBindSbCapacity_ == sbCapacity_ && gpuBindBoundCount_ == boundCount;
+    if (keyMatch) {
+        return *atomBindGroupGpu_;
+    }
+
+    const uint64_t residentBytes = static_cast<uint64_t>(boundCount) * sizeof(AtomVec4); // boundCount*16
+    const uint64_t f32Bytes = static_cast<uint64_t>(sbCapacity_) * sizeof(float);
+
+    std::array<wgpu::BindGroupEntry, 6> entries{};
+    entries[0].binding = 0;
+    entries[0].buffer = *uniformBuffer;
+    entries[0].size = sizeof(SceneUniforms);
+    entries[1].binding = 1; // резидентные позиции физики (zero-copy)
+    entries[1].buffer = gpuResident->positionsBuffer();
+    entries[1].size = residentBytes;
+    entries[2].binding = 2; // резидентные скорости физики (zero-copy, нужны speed-color)
+    entries[2].buffer = gpuResident->velocitiesBuffer();
+    entries[2].size = residentBytes;
+    entries[3].binding = 3; // type/radius/sel остаются renderer-owned
+    entries[3].buffer = *sbType;
+    entries[3].size = f32Bytes;
+    entries[4].binding = 4;
+    entries[4].buffer = *sbRadius;
+    entries[4].size = f32Bytes;
+    entries[5].binding = 5;
+    entries[5].buffer = *sbSel;
+    entries[5].size = f32Bytes;
+
+    atomBindGroupGpu_ = WGPUContext::instance().createBindGroup(*atomBindGroupLayout, entries, "AtomBindGroupGpu");
+
+    gpuBindValid_ = true;
+    gpuBindPtr_ = static_cast<const void*>(gpuResident);
+    gpuBindGeneration_ = gen;
+    gpuBindSbCapacity_ = sbCapacity_;
+    gpuBindBoundCount_ = boundCount;
+    return *atomBindGroupGpu_;
+}
+
 void RendererWGPU::drawShot(wgpu::TextureView targetView, wgpu::TextureView depthView, const Simulation& simulation) {
     if (simulation.worldCount() == 0) {
         beginPass(targetView, depthView, wgpu::LoadOp::Clear);
@@ -369,8 +425,10 @@ void RendererWGPU::drawShot(wgpu::TextureView targetView, wgpu::TextureView dept
     }
 
     for (Simulation::WorldId worldId = 0; worldId < simulation.worldCount(); ++worldId) {
+        // Per-world резидентная физика (nullptr если мир в CPU-режиме). Mixed
+        // CPU/GPU миры корректны: каждый проход биндит ровно свой режим.
         drawWorldPass(targetView, depthView, simulation.worldAt(worldId), worldId == 0 ? wgpu::LoadOp::Clear : wgpu::LoadOp::Load,
-                      worldId == simulation.activeWorldId());
+                      worldId == simulation.activeWorldId(), simulation.gpuResidentAt(worldId));
         if (worldId + 1 < simulation.worldCount()) {
             endFrame();
         }
@@ -378,7 +436,7 @@ void RendererWGPU::drawShot(wgpu::TextureView targetView, wgpu::TextureView dept
 }
 
 void RendererWGPU::drawWorldPass(wgpu::TextureView targetView, wgpu::TextureView depthView, const World& world, wgpu::LoadOp targetLoadOp,
-                                 bool applySelection) {
+                                 bool applySelection, const GpuResidentPhysics* gpuResident) {
     updateMatrices();
 
     SceneUniforms uniforms{};
@@ -409,7 +467,7 @@ void RendererWGPU::drawWorldPass(wgpu::TextureView targetView, wgpu::TextureView
         setLineColor(applySelection ? glm::vec4(0.5f, 0.78f, 1.0f, 0.55f) : glm::vec4(0.35f, 0.52f, 0.9f, 0.3f));
         drawBoxImpl(world.getWorldSize());
     }
-    drawAtomsImpl(world.getAtomStorage(), applySelection);
+    drawAtomsImpl(world.getAtomStorage(), applySelection, gpuResident);
 }
 
 void RendererWGPU::beginPass(wgpu::TextureView targetView, wgpu::TextureView depthView, wgpu::LoadOp targetLoadOp) {
@@ -453,23 +511,42 @@ void RendererWGPU::endFrame() {
     currentEncoder = wgpu::raii::CommandEncoder{};
 }
 
-void RendererWGPU::drawAtomsImpl(const AtomStorage& atoms, bool applySelection) {
+void RendererWGPU::drawAtomsImpl(const AtomStorage& atoms, bool applySelection, const GpuResidentPhysics* gpuResident) {
     const size_t count = atoms.size();
     if (count == 0) {
         return;
     }
 
+    // В GPU-режиме рисуем ровно столько атомов, сколько залито в VRAM — clamp на
+    // transient-правке сцены (§6.2): CPU AtomStorage уже изменён, а резидентный
+    // re-upload отложен (напр. на паузе), поэтому boundCount = min(atoms.size(),
+    // renderBoundCount()) НИКОГДА не читает за пределами меньшего из буферов. В
+    // CPU-режиме gpuResident==nullptr и boundCount == count (поведение прежнее).
+    const bool gpuMode = gpuResident != nullptr;
+    const size_t boundCount = gpuMode ? std::min<size_t>(count, gpuResident->renderBoundCount()) : count;
+    if (boundCount == 0) {
+        return; // VRAM ещё пуст (например, рост сцены до первого upload) — нечего рисовать
+    }
+
     ensureStorageBuffers(count);
 
-    posData_.resize(count);
-    velData_.resize(count);
+    // type/radius/selection остаются renderer-owned В ОБОИХ режимах (формат type в
+    // физике u32, radius физике неизвестен, selection — render/UI-состояние). Пакуем
+    // и заливаем их всегда. pos/vel — только в CPU-режиме (в GPU их читаем zero-copy).
     radii.resize(count);
     typeData.resize(count);
     selectedData.assign(count, 0.0f);
 
+    if (!gpuMode) {
+        posData_.resize(count);
+        velData_.resize(count);
+    }
+
     for (size_t i = 0; i < count; ++i) {
-        posData_[i] = {atoms.xData()[i], atoms.yData()[i], atoms.zData()[i]};
-        velData_[i] = {atoms.vxData()[i], atoms.vyData()[i], atoms.vzData()[i]};
+        if (!gpuMode) {
+            posData_[i] = {atoms.xData()[i], atoms.yData()[i], atoms.zData()[i]};
+            velData_[i] = {atoms.vxData()[i], atoms.vyData()[i], atoms.vzData()[i]};
+        }
         const auto& props = AtomData::getProps(atoms.type(i));
         radii[i] = props.radius;
         typeData[i] = static_cast<float>(atoms.type(i));
@@ -482,8 +559,11 @@ void RendererWGPU::drawAtomsImpl(const AtomStorage& atoms, bool applySelection) 
         }
     }
 
-    uploadStorageBuffer(*sbPos, posData_.data(), count);
-    uploadStorageBuffer(*sbVel, velData_.data(), count);
+    // pos/vel pack+upload — это и есть убранная per-draw работа в GPU-режиме.
+    if (!gpuMode) {
+        uploadStorageBuffer(*sbPos, posData_.data(), count);
+        uploadStorageBuffer(*sbVel, velData_.data(), count);
+    }
     uploadStorageBuffer(*sbRadius, radii.data(), count);
     uploadStorageBuffer(*sbType, typeData.data(), count);
     uploadStorageBuffer(*sbSel, selectedData.data(), count);
@@ -494,6 +574,10 @@ void RendererWGPU::drawAtomsImpl(const AtomStorage& atoms, bool applySelection) 
             maxSpeedSqr = speedGradientMax * speedGradientMax;
         }
         else {
+            // CPU-скан max-скорости по AtomStorage. В GPU-режиме при auto-max
+            // (speedGradientMax<=0) это читает CPU-скорости — их свежесть обеспечит
+            // Инкремент B (условный per-frame sync); в этом инкременте sync пока
+            // безусловный, поэтому скорости свежи, поведение бит-в-бит как сегодня.
             const auto it =
                 std::ranges::max_element(std::views::iota(size_t{0}, count), {}, [&](size_t i) { return atoms.vel(i).sqrAbs(); });
             maxSpeedSqr = std::max(1e-6f, atoms.vel(*it).sqrAbs());
@@ -502,9 +586,9 @@ void RendererWGPU::drawAtomsImpl(const AtomStorage& atoms, bool applySelection) 
     WGPUContext::instance().queue()->writeBuffer(*uniformBuffer, offsetof(SceneUniforms, maxSpeedSqr), &maxSpeedSqr, sizeof(float));
 
     currentPass->setPipeline(*atomPipeline);
-    currentPass->setBindGroup(0, *atomBindGroup, 0, nullptr);
+    currentPass->setBindGroup(0, ensureAtomBindGroup(boundCount, gpuResident), 0, nullptr);
     currentPass->setVertexBuffer(0, *atomQuadVb, 0, atomQuadVb->getSize());
-    currentPass->draw(6, count, 0, 0);
+    currentPass->draw(6, static_cast<uint32_t>(boundCount), 0, 0);
 }
 
 void RendererWGPU::drawBoxImpl(const Vec3f& worldSize) {

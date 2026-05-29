@@ -7,6 +7,8 @@
 
 #include "Rendering/BaseRenderer.h"
 
+class GpuResidentPhysics; // render-bind seam: резидентные pos/vel в GPU-режиме
+
 class RendererWGPU : public IRenderer {
 public:
     RendererWGPU(World& world, wgpu::TextureFormat surfaceFormat);
@@ -77,6 +79,19 @@ private:
 
     wgpu::raii::BindGroup atomBindGroup;
 
+    // Zero-copy GPU-режим: отдельная atom-bind-group, биндящая РЕЗИДЕНТНЫЕ pos/vel
+    // физики (binding 1/2) + renderer-owned type/radius/sel (binding 3/4/5). Layout
+    // тот же (atomBindGroupLayout), меняются только два буфера. Пере-собирается
+    // лениво по кеш-ключу ниже — на статичной сцене горячий путь её не трогает.
+    wgpu::raii::BindGroup atomBindGroupGpu_;
+    // Кеш-ключ GPU-bind-group: пересобираем только при расхождении. -1 в gpuGen_
+    // (через флаг valid) означает «ещё не собрана».
+    bool gpuBindValid_ = false;
+    const void* gpuBindPtr_ = nullptr;       // какой GpuResidentPhysics биндили
+    uint64_t gpuBindGeneration_ = 0;         // его renderBufferGeneration() на момент сборки
+    size_t gpuBindSbCapacity_ = 0;           // ёмкость renderer-owned sbType/sbRadius/sbSel
+    size_t gpuBindBoundCount_ = 0;           // boundCount, под который выставлен bound size резидентных pos/vel
+
     wgpu::raii::RenderPassEncoder currentPass;
 
     wgpu::TextureFormat surfaceFormat;
@@ -91,12 +106,18 @@ private:
     // Helpers
     void ensureStorageBuffers(size_t count);
     template <typename T> void uploadStorageBuffer(wgpu::Buffer& buf, const T* data, size_t count);
+    // Гарантирует валидную atom-bind-group для текущего режима. В GPU-режиме
+    // (gpuResident != nullptr) лениво пере-собирает atomBindGroupGpu_ из резидентных
+    // pos/vel (boundCount*16) + renderer-owned type/radius/sel, и возвращает её; в
+    // CPU-режиме возвращает обычную atomBindGroup. boundCount нужен для bound size
+    // резидентных биндингов (min-clamp на стороне вызывающего).
+    wgpu::BindGroup ensureAtomBindGroup(size_t boundCount, const GpuResidentPhysics* gpuResident);
 
     // Draw
     void drawWorldPass(wgpu::TextureView targetView, wgpu::TextureView depthView, const World& world, wgpu::LoadOp targetLoadOp,
-                       bool applySelection);
+                       bool applySelection, const GpuResidentPhysics* gpuResident);
     void beginPass(wgpu::TextureView targetView, wgpu::TextureView depthView, wgpu::LoadOp targetLoadOp);
-    void drawAtomsImpl(const AtomStorage& atoms, bool applySelection);
+    void drawAtomsImpl(const AtomStorage& atoms, bool applySelection, const GpuResidentPhysics* gpuResident);
     void drawBondsImpl(const AtomStorage& atoms, const Bond::List& bonds);
     void drawBoxImpl(const Vec3f& worldSize);
     void drawGridImpl(const SpatialGrid& grid);

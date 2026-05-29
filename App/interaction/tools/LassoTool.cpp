@@ -1,6 +1,7 @@
 #include "LassoTool.h"
 
 #include "App/interaction/picking/PickingSystem.h"
+#include "Engine/Simulation.h"
 #include "GUI/interface/UiState.h"
 #include "GUI/io/keyboard/Keyboard.h"
 
@@ -22,6 +23,13 @@ void LassoTool::onLeftReleased(Vec2i mousePos) {
     ToolContext& ctx = context();
     if (ctx.pickingSystem == nullptr) {
         return;
+    }
+
+    // В GPU-режиме подтянуть свежие CPU-позиции из VRAM перед lasso-pick (Инкремент B
+    // убрал безусловный per-frame download). processLasso читает AtomStorage::pos.
+    // guard ctx.simulation как в FrameTool (по контракту всегда есть). В CPU-режиме no-op.
+    if (ctx.simulation != nullptr) {
+        ctx.simulation->syncFromGpuIfNeeded();
     }
 
     const bool cumulative = Keyboard::isPressed(GLFW_KEY_LEFT_CONTROL) || Keyboard::isPressed(GLFW_KEY_RIGHT_CONTROL);

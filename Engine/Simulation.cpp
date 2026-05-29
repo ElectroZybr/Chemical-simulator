@@ -83,6 +83,13 @@ const World& Simulation::worldAt(WorldId worldId) const {
     return worlds_[worldId]->world;
 }
 
+const GpuResidentPhysics* Simulation::gpuResidentAt(WorldId worldId) const {
+    if (worldId >= worlds_.size()) {
+        throw std::out_of_range("Simulation::gpuResidentAt: invalid world id");
+    }
+    return worlds_[worldId]->gpu.get(); // nullptr если мир в CPU-режиме
+}
+
 void Simulation::refreshMetricsCache() const {
     const WorldState& state = activeState();
     if (state.metricsCacheValid_) {
@@ -150,9 +157,11 @@ void Simulation::updateStateGpu(WorldState& state) {
     // загрузили сцену): VRAM-буфера залиты под старый totalCount — путь NL
     // rebuild переполнил бы их (writeBuffer overrun), а новые атомы вообще не
     // интегрировались бы. Замечаем расхождение по счётчику атомов и заново
-    // заливаем активную сцену (буфера растут в ensureCapacity). CPU-копия при
-    // этом свежая: рендер делает syncFromGpuIfNeeded в начале кадра, до
-    // UI-обработчиков правки сцены.
+    // заливаем активную сцену (буфера растут в ensureCapacity). CPU-копия к моменту
+    // правки свежа: обработчики правки сцены синкают GPU→CPU перед собой
+    // (syncGpuBeforeEdit), а uploadSceneToGpu при cpuPositionsDirty сливает прогресс
+    // GPU перед перезаливкой. (С zero-copy per-frame рендер-sync стал условным —
+    // на него как на гарантию свежести для правок больше не полагаемся.)
     if (state.world.getAtomStorage().size() != state.gpu->totalCount() ||
         state.cpuSceneVersion != state.gpuUploadedSceneVersion) {
         uploadSceneToGpu(state);

@@ -142,10 +142,39 @@ int Application::run() {
             PROFILE_SCOPE("Application::RenderFrame");
             renderAccum -= renderInterval;
 
-            // В GPU-режиме позиции живут в VRAM; перед чтением их рендером, UI и
-            // метриками синхронизируем CPU-копию (раз в кадр, не каждый шаг).
-            // В CPU-режиме — no-op.
-            simulation.syncFromGpuIfNeeded();
+            // UI обновляем ПЕРВЫМ в кадре: SettingsPanel может тут переключить
+            // drawBonds/drawGrid/speedColor, а от них зависит cpuPositionConsumerActive
+            // и решение о per-frame sync ниже. Если считать предикат ДО update(),
+            // включение потребителя из «чистого» режима дало бы один stale-кадр (sync
+            // решён по старым флагам, а drawShot ниже уже рисует с новыми).
+            uiState.simStep = simulation.getSimStep();
+            appInterface.update();
+
+            // Overlay соседей рисует грид-обход только при РОВНО одном выбранном
+            // атоме (NeighborListOverlay::draw), поэтому здесь проверка == 1.
+            const bool singleSelection = ToolsManager::pickingSystem && ToolsManager::pickingSystem->getSelectedIndices().size() == 1;
+
+            // Инкремент B (zero-copy): атомы рендерятся ПРЯМО из резидентных VRAM-буферов
+            // (Инкремент A), поэтому per-frame download нужен НЕ всегда, а только если
+            // активен хоть один CPU-потребитель позиций/скоростей. Перечисляем их явно:
+            //  - drawBonds  — связи рисуются по CPU-позициям (RendererWGPU::drawBondsImpl);
+            //  - drawGrid / singleSelection — viz-сетка и overlay соседей читают CPU-грид
+            //    (через refreshDiagnosticsGrid ниже, у которого precondition «позиции синканы»);
+            //  - debugPanel видна — atom/sim debug-views читают CPU pos/vel (UpdateDebugData);
+            //  - speed-color АВТО-max (speedColorMode != AtomColor && speedGradientMax <= 0)
+            //    — рендер CPU-сканит max|vel| по AtomStorage для нормировки (R3/§11 edit 6);
+            //    при заданном вручную speedGradientMax > 0 скан НЕ делается → синк не нужен.
+            // Если НИ ОДИН не активен («чистый» GPU-режим: атомы only, atom-color) —
+            // download ПРОПУСКАЕТСЯ целиком, атомы рисуются zero-copy. Это и есть выигрыш.
+            // Консервативно: при любом сомнении синк делается (лишний download безопасен,
+            // syncFromGpuIfNeeded идемпотентен по cpuPositionsDirty). В CPU-режиме — no-op.
+            const bool speedColorAutoMax =
+                renderer->speedColorMode != IRenderer::SpeedColorMode::AtomColor && renderer->speedGradientMax <= 0.0f;
+            const bool cpuPositionConsumerActive =
+                renderer->drawBonds || renderer->drawGrid || singleSelection || appInterface.debugPanel.isVisible() || speedColorAutoMax;
+            if (cpuPositionConsumerActive) {
+                simulation.syncFromGpuIfNeeded();
+            }
 
             // В GPU-режиме CPU SpatialGrid застывает (hot loop перестраивает NL на
             // GPU и грид не трогает), а его читают диагностические потребители:
@@ -153,9 +182,9 @@ int Application::run() {
             // debug-панель статистики грида. Перебинниваем грид из УЖЕ синканных
             // позиций ТОЛЬКО когда хоть один из них активен — иначе зря тратим O(N)
             // на каждый кадр. App знает про UI-тумблеры; движок про них не знает.
-            // Overlay соседей рисует грид-обход только при РОВНО одном выбранном
-            // атоме (NeighborListOverlay::draw), поэтому здесь та же проверка == 1.
-            const bool singleSelection = ToolsManager::pickingSystem && ToolsManager::pickingSystem->getSelectedIndices().size() == 1;
+            // gridConsumerActive ⊆ cpuPositionConsumerActive, поэтому к этому месту
+            // syncFromGpuIfNeeded уже вызван — precondition refreshDiagnosticsGrid
+            // (позиции синканы) соблюдён.
             const bool gridConsumerActive = renderer->drawGrid || singleSelection || appInterface.debugPanel.isVisible();
             if (gridConsumerActive) {
                 // Без проверки isGpuMode() активного мира: рендер рисует и неактивные
@@ -164,8 +193,6 @@ int Application::run() {
                 simulation.refreshDiagnosticsGrid();
             }
 
-            uiState.simStep = simulation.getSimStep();
-            appInterface.update();
             refreshAtomDebugViews(debugViews, simulation);
 
             WGPUContext& ctx = WGPUContext::instance();
@@ -199,7 +226,17 @@ int Application::run() {
         // обновление логов и данных счетчиков
         if (logAccum >= logInterval) {
             logAccum -= logInterval;
-            refreshSimulationDebugViews(debugViews, simulation);
+            // refreshSimulationDebugViews читает velocity-метрики (averageSpeed/temperature/
+            // energy через metricsCache_ из AtomStorage) на ЛОГ-каденции — отдельной от
+            // рендера. В GPU-режиме при УСЛОВНОМ синке (Инкремент B) эти CPU pos/vel свежи
+            // только когда сделан per-frame download. Гейтим refresh на видимости debug-
+            // панели: если она видна — она же в cpuPositionConsumerActive, значит синк на
+            // каденции рендера (60 Гц) опережает этот лог-refresh (20 Гц), и метрики свежи;
+            // если скрыта — refresh пропускается, чтобы НЕ читать устаревший снимок и не
+            // тратить O(N) на метрику, которую всё равно никто не показывает (§11 edit 5).
+            if (appInterface.debugPanel.isVisible()) {
+                refreshSimulationDebugViews(debugViews, simulation);
+            }
         }
     }
 

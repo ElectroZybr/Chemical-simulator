@@ -205,6 +205,15 @@ void GpuResidentPhysics::ensureCapacity(size_t totalCount, size_t mobileCount, s
                                                             "GRP_VelReadback");
         atomCapacity_ = cap;
         grew = true;
+        // Резидентные pos/vel пересозданы — старый render-bind handle протух. Токен
+        // поколения ГЛОБАЛЬНО монотонный (static, общий всем инстансам): после GPU off→on
+        // новый инстанс может переиспользовать адрес старого, а per-instance счётчик
+        // стартовал бы заново → рендер-кэш bind-group спутал бы новые буфера со старыми
+        // (ссылка на освобождённый буфер, серьёзный баг). Глобальный токен исключает
+        // коллизию. Тикаем только в этой ветке pos/vel (не на NL-grow — лишний ре-бинд не нужен).
+        // Только main-thread (uploadFromCpu/step) — atomic не нужен.
+        static uint64_t s_nextRenderBufferGeneration = 1;
+        bufferGeneration_ = s_nextRenderBufferGeneration++;
     }
     if (neighborCount > nlNeighborsCapacity_) {
         const size_t cap = kHeadroom(neighborCount);
@@ -562,6 +571,7 @@ void GpuResidentPhysics::downloadToCpu(AtomStorage& atoms, bool withVelocities) 
     if (n == 0) {
         return;
     }
+    ++downloadCount_; // B: телеметрия zero-copy — считаем РЕАЛЬНЫЕ GPU->CPU скачивания
     const uint64_t bytes = static_cast<uint64_t>(n) * 16;
 
     wgpu::Device dev = *WGPUContext::instance().device();

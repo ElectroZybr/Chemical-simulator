@@ -139,6 +139,12 @@ public:
     // авторитетный NL в hot loop, а CPU neighborList() легитимно устаревает.
     [[nodiscard]] const GpuResidentPhysics* activeGpuResident() const { return activeState().gpu.get(); }
 
+    // Read-only render-bind seam: резидентная GPU-физика мира worldId, либо nullptr
+    // если этот мир в CPU-режиме. Обобщает activeGpuResident() с активного на ЛЮБОЙ
+    // мир — рендер рисует ВСЕ миры (drawShot цикл по worldId), и каждому GPU-миру
+    // нужен render-bind его резидентных pos/vel. Bounds-check как worldAt(WorldId).
+    [[nodiscard]] const GpuResidentPhysics* gpuResidentAt(WorldId worldId) const;
+
     // Сообщить резидентному GPU, что CPU-сцена изменена вне обычного шага (правка
     // скоростей/позиций тулом, resize, cutoff, add/remove): инкремент версии
     // сцены заставит ближайший updateState залить CPU-сцену в VRAM заново, даже

@@ -16,6 +16,12 @@ void RemoveAtomTool::onLeftPressed(Vec2i mousePos) {
         return;
     }
 
+    // В GPU-режиме подтянуть свежие CPU-позиции из VRAM ПЕРЕД pickAtom (Инкремент B
+    // убрал безусловный per-frame download). removeAtom ниже синкает сам через
+    // syncGpuBeforeEdit, но pickAtom читает позиции РАНЬШЕ — без этого синка он
+    // попал бы в атом по устаревшим координатам. В CPU-режиме no-op.
+    ctx.simulation->syncFromGpuIfNeeded();
+
     AtomHit hit;
     if (!ctx.pickingSystem->pickAtom(mousePos, 10.0f, hit)) {
         return;

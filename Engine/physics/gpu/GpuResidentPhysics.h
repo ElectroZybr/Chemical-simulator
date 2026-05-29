@@ -91,6 +91,13 @@ public:
     // NL rebuild, рендера, метрик — редкие sync-точки, не каждый шаг.
     void downloadToCpu(AtomStorage& atoms, bool withVelocities = true);
 
+    // Телеметрия Инкремента B (zero-copy): сколько РЕАЛЬНЫХ GPU->CPU скачиваний
+    // случилось (по разу на каждый непустой downloadToCpu). Доказывает выигрыш:
+    // в «чистом» GPU-режиме (атомы only, atom-color, без bonds/grid/панелей/спид-
+    // цвета-авто) условный per-frame sync НЕ зовёт downloadToCpu, поэтому счётчик
+    // за N рендер-кадров не растёт; при активном CPU-потребителе позиций — растёт.
+    [[nodiscard]] uint64_t downloadCount() const noexcept { return downloadCount_; }
+
     // Возвращает максимум |pos - refPos|^2 по mobile-атомам через GPU-редукцию
     // (для решения нужен ли NL rebuild). Читает 4 байта, но БЛОКИРУЕТ (dev.poll)
     // — дренит GPU-очередь. Оставлен для совместимости/backstop.
@@ -122,6 +129,25 @@ public:
     // с CPU AtomStorage::size() для детекта правки сцены при включённом GPU.
     [[nodiscard]] uint32_t totalCount() const noexcept { return totalCount_; }
 
+    // --- Read-only render-bind seam (zero-copy рендер в GPU-режиме) ---
+    // Отдают СЫРОЙ non-owning handle резидентных pos/vel (НЕ raii — владение
+    // остаётся у физики; рендер биндит как ReadOnlyStorage и НЕ пишет). Формат —
+    // array<vec4<f32>> (16 байт/атом, как ждёт шейдер atom2d/atom3d binding 1/2),
+    // размер буфера >= totalCount*16. Зеркалит GpuNeighborListBuilder::nlOffsetsBuffer().
+    // ВАЖНО: handle протухает при росте сцены (ensureCapacity пересоздаёт буфера),
+    // поэтому рендер обязан пере-биндить, когда renderBufferGeneration() изменилась.
+    // Биндить/рисовать можно ровно renderBoundCount() атомов.
+    [[nodiscard]] wgpu::Buffer positionsBuffer() const noexcept { return *positions_; }
+    [[nodiscard]] wgpu::Buffer velocitiesBuffer() const noexcept { return *velocities_; }
+    // Сколько атомов рендеру разрешено биндить/рисовать из резидентных буферов
+    // (== totalCount_ — число залитых в VRAM атомов). Отдельное имя документирует
+    // render-контракт «сколько биндить», который семантически совпадает с totalCount.
+    [[nodiscard]] uint32_t renderBoundCount() const noexcept { return totalCount_; }
+    // Счётчик пересозданий резидентных pos/vel-буферов. Растёт ровно когда
+    // ensureCapacity пересоздаёт positions_/velocities_ (рост atom-ёмкости) — сигнал
+    // рендеру «handle протух, пере-биндить». НЕ тикает на росте NL-буферов.
+    [[nodiscard]] uint64_t renderBufferGeneration() const noexcept { return bufferGeneration_; }
+
 private:
     void ensureInitialized();
     void ensureCapacity(size_t totalCount, size_t mobileCount, size_t neighborCount);
@@ -138,6 +164,10 @@ private:
 
     uint32_t mobileCount_ = 0;
     uint32_t totalCount_ = 0;
+    // Счётчик пересозданий резидентных positions_/velocities_ (render-bind seam).
+    // Инкремент в ensureCapacity при росте atom-ёмкости (handle протухает). Рендер
+    // сравнивает его, чтобы пере-биндить чужой буфер. См. renderBufferGeneration().
+    uint64_t bufferGeneration_ = 0;
     int parity_ = 0; // какой из forces_[2] сейчас «current»
 
     float cutoffSqr_ = 0.0f;
@@ -210,4 +240,5 @@ private:
     std::unique_ptr<GpuNeighborListBuilder> nlBuilder_;
     uint64_t nlCapacityGrows_ = 0; // сколько раз резидентный nlNeighbors_ рос под GPU-NL total
     uint64_t nlRebuilds_ = 0;      // 2e: сколько GPU-перестроек NL (по разу на rebuildNeighborListOnGpu)
+    uint64_t downloadCount_ = 0;   // B: сколько реальных GPU->CPU downloadToCpu (perf-гейт zero-copy)
 };

@@ -13,6 +13,12 @@ void CursorTool::onLeftPressed(Vec2i mousePos) {
         return;
     }
 
+    // В GPU-режиме CPU-позиции устаревают (Инкремент B убрал безусловный per-frame
+    // download). Picking читает displayAtomPos = AtomStorage::pos + offset, поэтому
+    // подтягиваем свежие позиции из VRAM ПЕРЕД pick — один синк покрывает и
+    // processClick, и pickAtom. В CPU-режиме no-op.
+    ctx.simulation->syncFromGpuIfNeeded();
+
     const bool cumulative = Keyboard::isPressed(GLFW_KEY_LEFT_CONTROL) || Keyboard::isPressed(GLFW_KEY_RIGHT_CONTROL);
 
     ctx.pickingSystem->processClick(mousePos, cumulative);

@@ -44,8 +44,14 @@ namespace {
 namespace AppActions {
     void Handler::trackIOPanel(CaptureController& captureController, UiState& uiState, Simulation& simulation,
                                std::unique_ptr<IRenderer>& renderer) {
-        track(AppSignals::UI::SaveSimulation.connect(
-            [&](std::string_view path) { AppStateIO::save(captureController, uiState.scenePreviewRect, simulation, *renderer, path); }));
+        track(AppSignals::UI::SaveSimulation.connect([&](std::string_view path) {
+            // В GPU-режиме позиции/скорости живут в VRAM; Инкремент B убрал безусловный
+            // per-frame download, поэтому CPU AtomStorage может быть устаревшим. Синкаем
+            // ПЕРЕД save (AppStateIO читает atoms() через const Simulation& и сам синкнуть
+            // не может). Без этого файл нёс бы устаревшие координаты. В CPU-режиме no-op.
+            simulation.syncFromGpuIfNeeded();
+            AppStateIO::save(captureController, uiState.scenePreviewRect, simulation, *renderer, path);
+        }));
         track(AppSignals::UI::LoadSimulation.connect([&](std::string_view path) {
             AppStateIO::load(simulation, *renderer, path);
             ToolsManager::resetInteractionState();
