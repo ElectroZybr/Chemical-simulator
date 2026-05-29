@@ -9,6 +9,7 @@
 #include "Engine/NeighborSearch/NeighborList.h"
 #include "Engine/physics/AtomData.h"
 #include "Engine/physics/AtomStorage.h"
+#include "Engine/physics/ForceFields/CoulombForceField.h" // kCoulombEvAngstrom (== CPU-константа в uniform)
 #include "Engine/physics/ForceFields/LJForceField.h"
 #include "Engine/physics/gpu/GpuNeighborListBuilder.h"
 #include "Rendering/WGPUContext.h"
@@ -16,6 +17,7 @@
 #include "generated/shaders/integrate_verlet.wgsl.h"
 #include "generated/shaders/nl_displacement.wgsl.h"
 #include "generated/shaders/physics_bond.wgsl.h"
+#include "generated/shaders/physics_coulomb.wgsl.h"
 #include "generated/shaders/physics_lj.wgsl.h"
 #include "generated/shaders/physics_wall.wgsl.h"
 
@@ -27,6 +29,19 @@ struct LJUniforms {
     uint32_t mobileCount;
     uint32_t typeCount;
 };
+
+// Раскладка ОБЯЗАНА совпадать с CoulombUniforms в physics_coulomb.wgsl (тот же
+// порядок полей). 16 байт (кратно 16 → uniform-выравнивание без хвостового
+// паддинга). Если поле переставят/переименуют и размеры разойдутся, в
+// mobileCount/kCoulomb попадут чужие байты → физика молча поедет (провал
+// parity-гейта вдали от причины). Ловим на компиляции.
+struct CoulombUniforms {
+    float cutoffSqr;
+    float epsilon;
+    uint32_t mobileCount;
+    float kCoulomb; // == CoulombForceField.h:14 (140.399645)
+};
+static_assert(sizeof(CoulombUniforms) == 16, "CoulombUniforms != 16 байт: разошёлся контракт с physics_coulomb.wgsl");
 
 // Раскладка ОБЯЗАНА совпадать с WallUniforms в physics_wall.wgsl (тот же порядок
 // полей + хвостовой паддинг до кратного 16 байт под uniform-binding).
@@ -131,6 +146,24 @@ void GpuResidentPhysics::ensureInitialized() {
         e[6].buffer.type = wgpu::BufferBindingType::Storage;
         ljLayout_ = WGPUContext::instance().createBindGroupLayout(e, "GRP_LJ_BGL");
     }
+    // Coulomb layout (6): uniform + pos/charges/off/nbr(read) + forces(rw). Как LJ,
+    // но 6 биндингов вместо 7 — charges (binding 2) вместо typeIndices, и НЕТ ljPairs
+    // (электростатика не лезет в LJ-таблицу). Per-atom Full-NL gather по ТОМУ ЖЕ NL.
+    {
+        std::array<wgpu::BindGroupLayoutEntry, 6> e{};
+        e[0].binding = 0;
+        e[0].visibility = wgpu::ShaderStage::Compute;
+        e[0].buffer.type = wgpu::BufferBindingType::Uniform;
+        for (uint32_t i = 1; i <= 4; ++i) {
+            e[i].binding = i;
+            e[i].visibility = wgpu::ShaderStage::Compute;
+            e[i].buffer.type = wgpu::BufferBindingType::ReadOnlyStorage;
+        }
+        e[5].binding = 5;
+        e[5].visibility = wgpu::ShaderStage::Compute;
+        e[5].buffer.type = wgpu::BufferBindingType::Storage;
+        coulombLayout_ = WGPUContext::instance().createBindGroupLayout(e, "GRP_Coulomb_BGL");
+    }
     // Wall layout (3): uniform + positions(read) + forces(rw). Per-atom soft-wall+gravity.
     {
         std::array<wgpu::BindGroupLayoutEntry, 3> e{};
@@ -226,6 +259,8 @@ void GpuResidentPhysics::ensureInitialized() {
 
     wgpu::ShaderModule ljMod = makeModule(physics_ljWGSL);
     ljPipeline_ = makePipeline(*ljLayout_, ljMod, "compute_lj");
+    wgpu::ShaderModule coulombMod = makeModule(physics_coulombWGSL);
+    coulombPipeline_ = makePipeline(*coulombLayout_, coulombMod, "compute_coulomb");
     wgpu::ShaderModule wallMod = makeModule(physics_wallWGSL);
     wallPipeline_ = makePipeline(*wallLayout_, wallMod, "compute_wall");
     wgpu::ShaderModule bondMod = makeModule(physics_bondWGSL);
@@ -241,6 +276,8 @@ void GpuResidentPhysics::ensureInitialized() {
 
     ljUniform_ = WGPUContext::instance().createBuffer(sizeof(LJUniforms), wgpu::BufferUsage::Uniform | wgpu::BufferUsage::CopyDst,
                                                       "GRP_LJU");
+    coulombUniform_ = WGPUContext::instance().createBuffer(
+        sizeof(CoulombUniforms), wgpu::BufferUsage::Uniform | wgpu::BufferUsage::CopyDst, "GRP_CoulombU");
     wallUniform_ = WGPUContext::instance().createBuffer(sizeof(WallUniforms), wgpu::BufferUsage::Uniform | wgpu::BufferUsage::CopyDst,
                                                         "GRP_WallU");
     bondUniform_ = WGPUContext::instance().createBuffer(sizeof(BondUniforms), wgpu::BufferUsage::Uniform | wgpu::BufferUsage::CopyDst,
@@ -283,10 +320,16 @@ void GpuResidentPhysics::ensureCapacity(size_t totalCount, size_t mobileCount, s
         const size_t cap = kHeadroom(totalCount);
         positions_ = WGPUContext::instance().createBuffer(cap * 16, stSrc, "GRP_Pos");
         velocities_ = WGPUContext::instance().createBuffer(cap * 16, stSrc, "GRP_Vel");
-        forces_[0] = WGPUContext::instance().createBuffer(cap * 16, st, "GRP_F0");
-        forces_[1] = WGPUContext::instance().createBuffer(cap * 16, st, "GRP_F1");
+        // stSrc (CopySrc): readbackPotentialEnergy() копирует лейн .w (PE) форс-буфера
+        // для прямого наблюдения PE-контракта Coulomb (.w add). CopySrc на rw-буфере
+        // безвреден — лишь usage-флаг, доступ kernel'ов не меняет.
+        forces_[0] = WGPUContext::instance().createBuffer(cap * 16, stSrc, "GRP_F0");
+        forces_[1] = WGPUContext::instance().createBuffer(cap * 16, stSrc, "GRP_F1");
         invMass_ = WGPUContext::instance().createBuffer(cap * 4, st, "GRP_InvMass");
         types_ = WGPUContext::instance().createBuffer(cap * 4, st, "GRP_Types");
+        // charges_ зеркалит types_ (тот же cap, f32 = 4 байта). stSrc: CopySrc для
+        // readbackCharges() (прямой assert «заряды в VRAM»), CopyDst для writeBuffer.
+        charges_ = WGPUContext::instance().createBuffer(cap * 4, stSrc, "GRP_Charges");
         refPos_ = WGPUContext::instance().createBuffer(cap * 16, st, "GRP_RefPos");
         posReadback_ = WGPUContext::instance().createBuffer(cap * 16, wgpu::BufferUsage::MapRead | wgpu::BufferUsage::CopyDst,
                                                             "GRP_PosReadback");
@@ -298,7 +341,7 @@ void GpuResidentPhysics::ensureCapacity(size_t totalCount, size_t mobileCount, s
         // поколения ГЛОБАЛЬНО монотонный (static, общий всем инстансам): после GPU off→on
         // новый инстанс может переиспользовать адрес старого, а per-instance счётчик
         // стартовал бы заново → рендер-кэш bind-group спутал бы новые буфера со старыми
-        // (ссылка на освобождённый буфер, серьёзный баг). Глобальный токен исключает
+        // (ссылка на освобождённый буфер — серьёзный баг). Глобальный токен исключает
         // коллизию. Тикаем только в этой ветке pos/vel (не на NL-grow — лишний ре-бинд не нужен).
         // Только main-thread (uploadFromCpu/step) — atomic не нужен.
         static uint64_t s_nextRenderBufferGeneration = 1;
@@ -373,6 +416,31 @@ void GpuResidentPhysics::rebuildBindGroups() {
         b[6].buffer = *forces_[p];
         b[6].size = vec4Bytes;
         ljBindGroup_[p] = WGPUContext::instance().createBindGroup(*ljLayout_, b, "GRP_LJ_BG");
+    }
+
+    // Coulomb bind groups (forces -> forces_[p]) для p=0,1 — тот же ping-pong, что LJ.
+    // charges/positions/nlOffsets/nlNeighbors — НЕ ping-pong (одни на оба parity).
+    for (int p = 0; p < 2; ++p) {
+        std::array<wgpu::BindGroupEntry, 6> b{};
+        b[0].binding = 0;
+        b[0].buffer = *coulombUniform_;
+        b[0].size = sizeof(CoulombUniforms);
+        b[1].binding = 1;
+        b[1].buffer = *positions_;
+        b[1].size = vec4Bytes;
+        b[2].binding = 2;
+        b[2].buffer = *charges_;
+        b[2].size = f32Bytes;
+        b[3].binding = 3;
+        b[3].buffer = *nlOffsets_;
+        b[3].size = nlOffsetsCapacity_ * 4;
+        b[4].binding = 4;
+        b[4].buffer = *nlNeighbors_;
+        b[4].size = nlNeighborsCapacity_ * 4;
+        b[5].binding = 5;
+        b[5].buffer = *forces_[p];
+        b[5].size = vec4Bytes;
+        coulombBindGroup_[p] = WGPUContext::instance().createBindGroup(*coulombLayout_, b, "GRP_Coulomb_BG");
     }
 
     // Wall bind groups (forces -> forces_[p]) для p=0,1 — тот же ping-pong, что LJ.
@@ -486,7 +554,7 @@ void GpuResidentPhysics::rebuildBindGroups() {
 
 void GpuResidentPhysics::uploadFromCpu(const AtomStorage& atoms, const NeighborList& neighborList, const LJForceField& ljForceField,
                                        float worldSizeX, float worldSizeY, float worldSizeZ, float gravityX, float gravityY,
-                                       float gravityZ, bool ljEnabled) {
+                                       float gravityZ, bool ljEnabled, bool coulombEnabled) {
     ensureInitialized();
 
     const size_t n = atoms.size();
@@ -504,9 +572,10 @@ void GpuResidentPhysics::uploadFromCpu(const AtomStorage& atoms, const NeighborL
     gravity_[1] = gravityY;
     gravity_[2] = gravityZ;
     ljEnabled_ = ljEnabled; // step() пропустит compute_lj если false (паритет с CPU isLJEnabled)
+    coulombEnabled_ = coulombEnabled; // step() пропустит compute_coulomb если false (паритет с CPU isCoulombEnabled)
     parity_ = 0;
 
-    std::vector<float> pos(n * 4), vel(n * 4), im(n);
+    std::vector<float> pos(n * 4), vel(n * 4), im(n), ch(n);
     std::vector<uint32_t> ty(n);
     for (size_t i = 0; i < n; ++i) {
         pos[i * 4 + 0] = atoms.posX(i);
@@ -519,6 +588,7 @@ void GpuResidentPhysics::uploadFromCpu(const AtomStorage& atoms, const NeighborL
         vel[i * 4 + 3] = 0.0f;
         im[i] = atoms.invMass(i);
         ty[i] = static_cast<uint32_t>(atoms.type(i));
+        ch[i] = atoms.charge(i); // заряд как есть из CPU (без арифметики) → бит-идентичен гарду
     }
 
     auto q = WGPUContext::instance().queue();
@@ -526,6 +596,7 @@ void GpuResidentPhysics::uploadFromCpu(const AtomStorage& atoms, const NeighborL
     q->writeBuffer(*velocities_, 0, vel.data(), vel.size() * 4);
     q->writeBuffer(*invMass_, 0, im.data(), im.size() * 4);
     q->writeBuffer(*types_, 0, ty.data(), ty.size() * 4);
+    q->writeBuffer(*charges_, 0, ch.data(), ch.size() * 4);
     // forces начинаем с нуля — первый шаг predict сдвинет по нулевой силе,
     // как CPU при свежей сцене (forces инициализированы нулями в AtomStorage).
     std::vector<float> zero(n * 4, 0.0f);
@@ -553,6 +624,11 @@ void GpuResidentPhysics::uploadFromCpu(const AtomStorage& atoms, const NeighborL
 
     LJUniforms lju{cutoffSqr_, 1e-6f, mobileCount_, static_cast<uint32_t>(AtomData::Type::COUNT)};
     q->writeBuffer(*ljUniform_, 0, &lju, sizeof(lju));
+    // Coulomb uniform: тот же cutoffSqr/epsilon, что LJ (общий NL + Consts::Epsilon);
+    // kCoulomb == CoulombForceField.h:14 (физическая константа в uniform ради читаемого
+    // контракта, единообразно с тем как wall держит k/border, а bond — theta_0/k_angle).
+    CoulombUniforms cu{cutoffSqr_, 1e-6f, mobileCount_, CoulombForceField::kCoulombEvAngstrom};
+    q->writeBuffer(*coulombUniform_, 0, &cu, sizeof(cu));
     DispUniforms du{mobileCount_};
     q->writeBuffer(*dispUniform_, 0, &du, sizeof(du));
 
@@ -787,6 +863,56 @@ std::vector<uint32_t> readU32Blocking(const wgpu::raii::Buffer& src, uint32_t co
     return out;
 }
 
+// Блокирующий readback float-буфера (bench/диагностика, как readU32Blocking).
+// strideFloats — шаг между нужными элементами (1 для плотного array<f32>, 4 для
+// лейна vec4<f32> при чтении одной компоненты); offsetFloats — смещение первого
+// нужного элемента (3 для .w в vec4). Копирует count полных элементов с GPU, затем
+// выбирает count/strideFloats значений со смещением offsetFloats.
+std::vector<float> readF32Blocking(const wgpu::raii::Buffer& src, uint32_t totalFloats, uint32_t strideFloats,
+                                   uint32_t offsetFloats) {
+    if (totalFloats == 0u || strideFloats == 0u) {
+        return {};
+    }
+    const uint64_t bytes = static_cast<uint64_t>(totalFloats) * 4;
+    wgpu::Device dev = *WGPUContext::instance().device();
+    wgpu::Buffer rb = WGPUContext::instance().createBuffer(bytes, wgpu::BufferUsage::MapRead | wgpu::BufferUsage::CopyDst,
+                                                           "GRP_F32Readback");
+
+    wgpu::CommandEncoder enc = dev.createCommandEncoder({});
+    enc.copyBufferToBuffer(*src, 0, rb, 0, bytes);
+    wgpu::CommandBuffer cmd = enc.finish({});
+    WGPUContext::instance().queue()->submit(1, &cmd);
+
+    struct MapCtx {
+        bool done;
+        bool ok;
+    } ctx{false, true};
+    auto cb = [](WGPUMapAsyncStatus s, WGPUStringView, void* u1, void*) {
+        auto* c = static_cast<MapCtx*>(u1);
+        c->ok = (s == WGPUMapAsyncStatus_Success);
+        c->done = true;
+    };
+    wgpu::BufferMapCallbackInfo ci{};
+    ci.mode = wgpu::CallbackMode::AllowSpontaneous;
+    ci.callback = cb;
+    ci.userdata1 = &ctx;
+    rb.mapAsync(wgpu::MapMode::Read, 0, bytes, ci);
+    while (!ctx.done) {
+        dev.poll(true, nullptr);
+    }
+    if (!ctx.ok) {
+        throw std::runtime_error("GpuResidentPhysics: f32 readback map failed");
+    }
+    const float* data = static_cast<const float*>(rb.getConstMappedRange(0, bytes));
+    std::vector<float> out;
+    out.reserve(totalFloats / strideFloats);
+    for (uint32_t i = offsetFloats; i < totalFloats; i += strideFloats) {
+        out.push_back(data[i]);
+    }
+    rb.unmap();
+    return out;
+}
+
 } // namespace
 
 std::vector<uint32_t> GpuResidentPhysics::readbackNlOffsets() const {
@@ -809,6 +935,18 @@ std::vector<uint32_t> GpuResidentPhysics::readbackBondNeighbors(uint32_t total) 
         return {};
     }
     return readU32Blocking(bondNeighbors_, total, 0u);
+}
+
+std::vector<float> GpuResidentPhysics::readbackCharges() const {
+    // charges_ — плотный array<f32> длины totalCount (stride 1, offset 0).
+    return readF32Blocking(charges_, totalCount_, 1u, 0u);
+}
+
+std::vector<float> GpuResidentPhysics::readbackPotentialEnergy() const {
+    // Лейн .w текущего force-буфера (parity_): vec4<f32> на атом → totalCount*4 float,
+    // .w — каждый 4-й со смещением 3. parity_ указывает на буфер, записанный последним
+    // step()'ом (forces_[out], out стал parity_ в конце step) — несёт PE последнего шага.
+    return readF32Blocking(forces_[parity_], totalCount_ * 4u, 4u, 3u);
 }
 
 void GpuResidentPhysics::step(float dt, float accelDamping) {
@@ -851,6 +989,22 @@ void GpuResidentPhysics::step(float dt, float accelDamping) {
     if (ljEnabled_) {
         pass.setBindGroup(0, *ljBindGroup_[out], 0, nullptr);
         pass.setPipeline(*ljPipeline_);
+        pass.dispatchWorkgroups(gMobile, 1, 1);
+    }
+
+    // Coulomb (mobile) ПОСЛЕ LJ, ПЕРЕД bonds — зеркалит CPU-порядок (LJ и Coulomb в
+    // одном pair-loop computePairInteractions ПЕРЕД bonds, ForceField.cpp:57-82,136-138).
+    // gMobile (как LJ): Coulomb — mobile-mobile pair-сила с fixed-skip (CPU pair-loop
+    // не обрабатывает fixed-центр и пропускает fixed-соседа, ForceField.cpp:59-62,120-123).
+    // Charge-gated: kernel сам делает return при chargeA==0, поэтому на нейтральной
+    // сцене добавляет ровно 0 (LJ-only паритет цел). ПРОПУСКАЕМ диспатч, если Coulomb
+    // выключен (паритет с CPU isCoulombEnabled). Аккумулятивно прибавляет к forces_[out]
+    // .xyz И к .w (PE): .w после zero->wall->LJ->coulomb несёт LJ_PE + Coulomb_PE.
+    // Memory-ordering между LJ→coulomb→bonds — та же гарантия storage-барьеров WebGPU
+    // в одном compute-pass, на которую уже полагается zero→wall→LJ→bonds→correct.
+    if (coulombEnabled_) {
+        pass.setBindGroup(0, *coulombBindGroup_[out], 0, nullptr);
+        pass.setPipeline(*coulombPipeline_);
         pass.dispatchWorkgroups(gMobile, 1, 1);
     }
 

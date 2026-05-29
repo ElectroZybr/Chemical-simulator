@@ -21,19 +21,21 @@ class GpuNeighborListBuilder;
 // CPU их не качает в hot loop. Это и есть «физика на GPU» (в отличие от
 // GpuPairForceCompute, который оффлоадит одну операцию с readback каждый раз).
 //
-// Что считается на GPU: LJ + soft-wall + gravity + Morse- и угловые силы статичных
-// связей. Ограничения GPU-режима: Coulomb выключен; bonds — силы (Morse + angle)
-// считаются по СТАТИЧНОЙ топологии (формация/разрыв заморожены, пока активен
-// GPU-режим); NeighborList в режиме Full (каждая пара дважды, force loop пишет
-// только в свой forceX — нет race). Эти ограничения — следствие резидентности:
-// если бы силы читал CPU, пришлось бы качать позиции каждый шаг.
+// Что считается на GPU: LJ + Coulomb + soft-wall + gravity + Morse- и угловые силы
+// статичных связей. Ограничения GPU-режима: bonds — силы (Morse + angle) считаются
+// по СТАТИЧНОЙ топологии (формация/разрыв заморожены, пока активен GPU-режим);
+// NeighborList в режиме Full (каждая пара дважды, force loop пишет только в свой
+// forceX — нет race). Эти ограничения — следствие резидентности: если бы силы
+// читал CPU, пришлось бы качать позиции каждый шаг.
 // (Soft-wall/gravity — per-atom-силы без neighbor-чтения, поэтому легли на GPU
 // без CPU round-trip: зеркалят WallForceField, паритет проверяет BM_GpuWallGravityParity.
 // Morse — per-atom gather по bond-CSR, зеркалит Bond::forceBond; angle — двух-ролевой
-// per-atom gather по той же CSR, зеркалит Bond::angleForce; паритет — BM_GpuBondParity.)
+// per-atom gather по той же CSR, зеркалит Bond::angleForce; паритет — BM_GpuBondParity.
+// Coulomb — per-atom gather по ТОМУ ЖЕ NL, что LJ, charge-gated; зеркалит
+// CoulombForceField::pairInteraction, паритет — BM_GpuCoulombParity.)
 //
 // Шаг повторяет CPU velocity Verlet (VerletScheme + StepOps::confineToBox):
-//   predict -> confine -> swap(pf<->f, parity) -> zero(f, total) -> wall+gravity -> LJ -> bond_morse -> bond_angle -> correct
+//   predict -> confine -> swap(pf<->f, parity) -> zero(f, total) -> wall+gravity -> LJ -> coulomb -> bond_morse -> bond_angle -> correct
 // swap реализован ping-pong'ом двух force-буферов через parity-бит и две
 // пред-собранные bind-группы (не копирование).
 class GpuResidentPhysics {
@@ -55,9 +57,13 @@ public:
     // Раньше GPU-шаг диспатчил LJ безусловно — setLJEnabled(false) молча игнорился
     // (тихая дивергенция). Полная перезаливка несёт текущий флаг, поэтому рантайм-
     // смена (через cpuSceneVersion-бамп) подхватывается ближайшим re-upload'ом.
+    // coulombEnabled — world.isCoulombEnabled(): если false, step() ПРОПУСКАЕТ диспатч
+    // compute_coulomb (зеркало ljEnabled, паритет с CPU isCoulombEnabled). Заряды
+    // (atoms.charge) заливаются в резидентный charges_ той же перезаливкой, что
+    // позиции/типы — рантайм-смена заряда (scene load/edit) подхватывается re-upload'ом.
     void uploadFromCpu(const AtomStorage& atoms, const NeighborList& neighborList, const LJForceField& ljForceField,
                        float worldSizeX, float worldSizeY, float worldSizeZ, float gravityX, float gravityY, float gravityZ,
-                       bool ljEnabled);
+                       bool ljEnabled, bool coulombEnabled);
 
     // Только NL (offsets+neighbors) + refPos для displacement-проверки. Вызывается
     // после CPU NeighborList::build, без перезаливки позиций/скоростей.
@@ -118,6 +124,19 @@ public:
     //   readbackBondNeighbors(n): ровно n directed-рёбер (n = bondOffsets[totalCount]).
     [[nodiscard]] std::vector<uint32_t> readbackBondOffsets() const;
     [[nodiscard]] std::vector<uint32_t> readbackBondNeighbors(uint32_t total) const;
+
+    // Блокирующий readback РЕЗИДЕНТНЫХ зарядов (bench/диагностика — как readbackNl*).
+    // Доказывает, что charges_ реально доставлены в VRAM (а не молча 0 → Coulomb-сила 0
+    // → ложный pass гейта). Возвращает totalCount() элементов (== atoms.charge(i)).
+    [[nodiscard]] std::vector<float> readbackCharges() const;
+
+    // Блокирующий readback лейна .w (PE) РЕЗИДЕНТНОГО force-буфера текущего parity —
+    // суммы LJ_PE + Coulomb_PE за последний шаг (bench/диагностика). Нужен, чтобы
+    // ПРЯМО наблюдать PE-контракт Coulomb (.w add, не set): траектория идёт по .xyz и
+    // не читает .w, а downloadToCpu качает только позиции/скорости — без этого seam'а
+    // баг «coulomb затёр LJ_PE» (set вместо add) был бы невидим. Возвращает .w по
+    // totalCount() атомам. forces_ имеет CopySrc именно ради этого readback'а.
+    [[nodiscard]] std::vector<float> readbackPotentialEnergy() const;
 
     // Один резидентный шаг (dt, accelDamping как у CPU Integrator). Ничего не
     // качает CPU<->GPU. Допускает батчинг (несколько step() подряд до sync).
@@ -209,6 +228,10 @@ private:
     // false. Доставляется на uploadFromCpu (полная перезаливка несёт текущий флаг).
     // По умолчанию true — дефолтное поведение (LJ включён) не меняется.
     bool ljEnabled_ = true;
+    // Coulomb on/off (world.isCoulombEnabled()): step() пропускает диспатч
+    // compute_coulomb когда false (зеркало ljEnabled_). Доставляется на uploadFromCpu.
+    // По умолчанию true — дефолтное поведение (Coulomb включён) не меняется.
+    bool coulombEnabled_ = true;
     // Число directed-рёбер в bond-CSR (= 2*bondCount), залитых в bondNeighbors_.
     // 0 при сцене без связей → bond-kernel при пустых offsets прибавляет ровно 0.
     uint32_t bondNeighborCount_ = 0;
@@ -223,6 +246,7 @@ private:
 
     // Pipelines
     wgpu::raii::ComputePipeline ljPipeline_;
+    wgpu::raii::ComputePipeline coulombPipeline_; // 2.3: Coulomb pair-силы (charge-gated)
     wgpu::raii::ComputePipeline wallPipeline_;
     wgpu::raii::ComputePipeline bondMorsePipeline_; // 2.2a: Morse-силы статичных связей
     wgpu::raii::ComputePipeline bondAnglePipeline_; // 2.2b: угловые силы статичных связей
@@ -233,6 +257,7 @@ private:
     wgpu::raii::ComputePipeline displacementPipeline_;
 
     wgpu::raii::BindGroupLayout ljLayout_;
+    wgpu::raii::BindGroupLayout coulombLayout_; // 2.3 (6 bindings: charges вместо ljPairs+types)
     wgpu::raii::BindGroupLayout wallLayout_;
     wgpu::raii::BindGroupLayout bondMorseLayout_; // 2.2a
     wgpu::raii::BindGroupLayout bondAngleLayout_; // 2.2b (5 bindings: без bondParams)
@@ -245,6 +270,11 @@ private:
     wgpu::raii::Buffer forces_[2]; // ping-pong: current / prev
     wgpu::raii::Buffer invMass_;
     wgpu::raii::Buffer types_;
+    // Заряд каждого атома (== atoms.charge(i)), array<f32> длины totalCount. Читает
+    // compute_coulomb. Растёт в ensureCapacity рядом с types_; заливается в
+    // uploadFromCpu. Резидентен в той же плоскости, что позиции/типы (cpuSceneVersion-
+    // путь) — рантайм-смена заряда (scene load/edit) подхватывается re-upload'ом.
+    wgpu::raii::Buffer charges_;
     wgpu::raii::Buffer nlOffsets_;
     wgpu::raii::Buffer nlNeighbors_;
     wgpu::raii::Buffer ljPairs_;
@@ -261,6 +291,7 @@ private:
     wgpu::raii::Buffer velReadback_;
 
     wgpu::raii::Buffer ljUniform_;
+    wgpu::raii::Buffer coulombUniform_; // 2.3: {cutoffSqr, epsilon, mobileCount, kCoulomb}
     wgpu::raii::Buffer wallUniform_;
     wgpu::raii::Buffer bondUniform_; // 2.2a: {totalCount, thetaZero, kAngle, pad}
     wgpu::raii::Buffer intUniform_;
@@ -268,6 +299,7 @@ private:
 
     // Bind-группы для parity 0 и 1 (current/prev меняются местами).
     wgpu::raii::BindGroup ljBindGroup_[2];
+    wgpu::raii::BindGroup coulombBindGroup_[2]; // 2.3: forces -> forces_[p]
     wgpu::raii::BindGroup wallBindGroup_[2]; // wall+gravity: forces -> forces_[p]
     wgpu::raii::BindGroup bondMorseBindGroup_[2]; // 2.2a: forces -> forces_[p]
     wgpu::raii::BindGroup bondAngleBindGroup_[2]; // 2.2b: forces -> forces_[p]

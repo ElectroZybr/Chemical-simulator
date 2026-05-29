@@ -89,7 +89,7 @@ struct ResidentScene {
         const Vec3f size = sim.world().getWorldSize();
         gpu.uploadFromCpu(sim.atoms(), sim.neighborList(), LJForceField{}, static_cast<float>(size.x),
                           static_cast<float>(size.y), static_cast<float>(size.z), 0.0f, 0.0f, 0.0f,
-                          /*ljEnabled=*/true); // gravity=0 (perf-сцена)
+                          /*ljEnabled=*/true, /*coulombEnabled=*/false); // gravity=0 (perf-сцена)
         totalCount = gpu.totalCount();
 
         // Приёмник download'а: тот же размер, что резидентная сцена (downloadToCpu

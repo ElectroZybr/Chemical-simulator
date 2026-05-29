@@ -335,6 +335,62 @@ sin≈0-сингулярности → `acos`/`1/sin` хорошо обусло�
 ./build/bench/benchmarks.exe --benchmark_filter='BM_GpuBondParity|BM_GpuCorrectness'
 ```
 
+## 2.3 — Coulomb pair-силы на GPU (charge-gated)
+
+Coulomb перенесён на GPU как per-atom Full-NL gather по ТОМУ ЖЕ резидентному NL, что LJ (тот же
+cutoff, тот же fixed-skip), с charge-gating: `compute_coulomb` (`physics_coulomb.wgsl`) зеркалит
+`CoulombForceField::pairInteraction` (`CoulombForceField.h:16-48`). Сила:
+`dr = pos(j)-pos(i)`, `qqScale = 140.399645·qa·qb`, `invR = 1.0/sqrt(d2)` (НЕ `inverseSqrt` — повтор
+CPU `1.0f/std::sqrt`, ближе к биту), `forceScale = qqScale·invR/d2`, `force_i -= dr·forceScale`;
+PE `+= 0.5·qqScale·invR`. Лейн `.w` ПРИБАВЛЯЕТСЯ (как LJ, `physics_lj.wgsl:84-85`) → после
+`zero→wall→LJ→coulomb` `.w` = LJ_PE + Coulomb_PE. Диспатч `gMobile` после LJ, перед bonds
+(CPU-порядок: LJ+Coulomb в одном pair-loop перед bonds, `ForceField.cpp:57-82,136-138`), под флагом
+`coulombEnabled_` (зеркало `ljEnabled_`; `setCoulombEnabled` бампит `cpuSceneVersion`). Заряды
+резидентны в `charges_` (заливаются в `uploadFromCpu` рядом с типами).
+
+### Гейт паритета: `BM_GpuCoulombParity`
+
+| Проверка | Результат | Примечание |
+|---|---|---|
+| Coulomb-only, GPU vs CPU | **9.537e-07** | пара притяжения (+1/−1) + пара отталкивания (+1/+1), старт 4.5 в cutoff(5); H; LJ ВЫКЛ; 50 шагов |
+| Комбинированный LJ+Coulomb, GPU vs CPU | **0.000e+00** | те же заряды + LJ ВКЛ; силы складываются в один `forces[out]` |
+| Комбинированный PE (.w), GPU vs CPU | gpu **−51.236** / cpu **−51.236** (absdiff **0.000e+00**) | ловит баг `.w` SET-вместо-ADD: при SET GPU `.w` нёс бы только Coulomb_PE (LJ_PE затёрт). Порог абсолютный `< 0.25·\|LJ_PE\|` = **7.424e-03** (измеренный LJ_PE-сигнал **−2.970e-02**) |
+| CPU реально двинулся (не слеп) | combined self-disp **8.791e-01** | assert > 1e-4 до сверки: Coulomb-сила активна (заряды НЕнулевы) |
+| no-regression uncharged→0 | **0.000e+00** | все заряды 0 + Coulomb ВКЛ → `chargeA==0` short-circuit → добавляет ровно 0 |
+| charge доставлен в VRAM | точное совпадение | `readbackCharges` == CPU `atoms.charge(i)` |
+| Coulomb-toggle долетел | parity **9.562e-03** << stale-gap **3.103e-01** | `setCoulombEnabled(false)` после `setGpuMode` долетает (бамп версии); `!(parity < 0.25·stale)` ловит и NaN |
+| регрессия LJ-only | `BM_GpuCorrectness` **max_abs=0** | charge-0 → Coulomb прибавляет 0; `coulombEnabled=false` на этих callsite'ах |
+
+Провенанс: формула — `CoulombForceField::pairInteraction` (`CoulombForceField.h:27-40`; всё во float,
+`qqScale=k·qa·qb`, `invR=1/sqrt(d2)`, `forceScale=qqScale·invR/d2`, `PE += 0.5·qqScale·invR`, знак
+`force -= dr·scale`, гарды `chargeB==0`/`d2<=1e-6`/cutoff/fixed-skip); код GPU —
+`physics_coulomb.wgsl` (`compute_coulomb`) + `GpuResidentPhysics.cpp` (диспатч после LJ, `charges_`,
+`coulombEnabled_`, PE-readback); входы — заряженная сцена в `BM_GpuCoulombParity.cpp` (2 пары
++1/−1 и +1/+1, dt=0.01, 50 шагов).
+
+Tolerance траектории **1e-2** (порог по измерению; Coulomb весь во float на ОБЕИХ сторонах, GPU всё
+в f32 → дрейф уровня LJ-паритета `BM_GpuCorrectness`, НЕ уровня angle — нет double-геометрии, только
+`sqrt`-форма + порядок суммирования). Измеренные дрейфы НАМНОГО ниже порога: combined и
+uncharged **0.000e+00** (бит-в-бит — LJ держит сцену, .w/.xyz складываются точно), coulomb-only
+**9.537e-07** (старт 4.5 далёк от epsilon-сингулярности 1/r^3 → дрейф мал; старт 1.5 дал бы взрыв,
+дизайн §6.7). PE-порог ПРИВЯЗАН к измеренному LJ_PE-сигналу — той величине, что SET-баг затёр бы:
+после комбинированного прогона на ФИНАЛЬНЫХ позициях считаем LJ_PE отдельной CPU-симуляцией
+(LJ ВКЛ / Coulomb ВЫКЛ, один `updateAll`) → `LJ_PE-signal` = **−2.970e-02**; assert абсолютный
+`absdiff < 0.25·|LJ_PE|` = **7.424e-03**. Измеренный `absdiff` = **0.000e+00** (combined PE бит-в-бит)
+→ запас ниже порога ≈∞, что прямо доказывает `.w` ADD: при SET `absdiff` ≈ |LJ_PE| = **2.970e-02** >
+порога → провал. Относительный порог по ПОЛНОЙ PE здесь был бы СЛЕП: SET сдвигает полную PE лишь на
+`|LJ_PE|/|PE|` ≈ 6e-4 (LJ_PE мал на фоне Coulomb_PE), ниже типичного rel-порога. Плюс blindness-guard
+`|LJ_PE| > 5e-3`: если сигнала нет — гейт не может поймать SET и падает с требованием усилить сцену.
+Гейт прогоняется через реальный путь `Simulation::setGpuMode(true)`+`updateAll()` (тестирует
+доставку `charges_` И `coulombEnabled_` через `uploadSceneToGpu`→`uploadFromCpu`).
+
+Воспроизведение:
+```sh
+cmake -S . -B build/bench   # новый physics_coulomb.wgsl: shader GLOB не CONFIGURE_DEPENDS
+cmake --build build/bench --target latticelab_benchmarks
+./build/bench/benchmarks.exe --benchmark_filter='BM_GpuCoulombParity|BM_GpuCorrectness'
+```
+
 ## C1 — force loop фильтрует по физическому cutoff
 
 `a72aff1 fix: pair-силы фильтруются по физическому cutoff, не listRadius`
@@ -613,9 +669,10 @@ per-step readback: 20 шагов в одном submit + один poll, per-step 
 - Renderer zero-copy (positions+velocities из GpuPhysicsState; type/radius/
   selection остаются renderer-owned) либо явный per-frame sync.
 - GPU mode считает LJ + soft-wall + gravity + силы связей Morse (2.2a) и угловые
-  (2.2b) по СТАТИЧНОЙ топологии (паритет с CPU `WallForceField`/`Bond::forceBond`/
-  `Bond::angleForce` проверяют `BM_GpuWallGravityParity`/`BM_GpuBondParity`). Остаётся
-  off: образование/разрыв связей (2.2c — отдельное исследование) и Coulomb (2.3).
+  (2.2b) по СТАТИЧНОЙ топологии + Coulomb (2.3, charge-gated) (паритет с CPU
+  `WallForceField`/`Bond::forceBond`/`Bond::angleForce`/`CoulombForceField` проверяют
+  `BM_GpuWallGravityParity`/`BM_GpuBondParity`/`BM_GpuCoulombParity`). Остаётся off:
+  образование/разрыв связей (2.2c — отдельное исследование).
 
 ### Kernel-оптимизации — отклонены
 

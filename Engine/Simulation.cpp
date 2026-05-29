@@ -257,7 +257,7 @@ void Simulation::uploadSceneToGpu(WorldState& state) {
     state.gpu->uploadFromCpu(state.world.getAtomStorage(), nl, state.forceField_.ljForceField(),
                              static_cast<float>(size.x), static_cast<float>(size.y), static_cast<float>(size.z),
                              static_cast<float>(gravity.x), static_cast<float>(gravity.y), static_cast<float>(gravity.z),
-                             state.world.isLJEnabled());
+                             state.world.isLJEnabled(), state.world.isCoulombEnabled());
     // Bond-adjacency (CSR) заливаем рядом с позициями/NL: статичная топология
     // существующих связей получает Morse-силы на GPU (2.2a). uploadFromCpu уже
     // выставил totalCount_, на который uploadBonds строит CSR (offsets длины

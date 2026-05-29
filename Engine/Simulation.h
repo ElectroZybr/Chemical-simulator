@@ -96,9 +96,9 @@ public:
     bool isBondFormationEnabled() const { return activeState().bondFormationEnabled_; }
 
     // CPU/GPU тумблер для физики активного мира. GPU-режим — резидентная физика
-    // на GPU: LJ + soft-wall + gravity + силы связей (Morse + угловые) по СТАТИЧНОЙ
-    // топологии. Образование/разрыв связей и Кулон в GPU-режиме отключены (связи
-    // существуют на момент входа в режим и неизменны, пока он активен).
+    // на GPU: LJ + Coulomb + soft-wall + gravity + силы связей (Morse + угловые) по
+    // СТАТИЧНОЙ топологии. В GPU-режиме отключено только образование/разрыв связей
+    // (связи существуют на момент входа в режим и неизменны, пока он активен).
     // CPU-путь остаётся дефолтным и нетронутым; переключение в любую сторону
     // синхронизирует состояние через AtomStorage. Требует инициализированного
     // WGPUContext (есть после старта рендера).
@@ -163,7 +163,10 @@ public:
         notifySceneEdited(); // GPU-шаг диспатчит LJ под флагом ljEnabled_, снятым на upload — рантайм-смена требует re-upload (иначе toggle не долетит до GPU)
     }
     bool isLJEnabled() const { return world().isLJEnabled(); }
-    void setCoulombEnabled(bool enabled) { world().setCoulombEnabled(enabled); }
+    void setCoulombEnabled(bool enabled) {
+        world().setCoulombEnabled(enabled);
+        notifySceneEdited(); // GPU-шаг диспатчит Coulomb под флагом coulombEnabled_, снятым на upload — рантайм-смена требует re-upload (иначе toggle не долетит до GPU)
+    }
     bool isCoulombEnabled() const { return world().isCoulombEnabled(); }
     void setGravity(const Vec3f& gravity) {
         world().setGravity(gravity);
