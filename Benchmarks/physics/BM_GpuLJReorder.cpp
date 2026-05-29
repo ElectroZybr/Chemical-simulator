@@ -1,12 +1,12 @@
 // De-risking microbench: измеряет влияние порядка атомов на время GPU LJ kernel.
 //
-// Цель (проверка сходимости): доказать/опровергнуть, что spatial reorder
+// Цель: доказать/опровергнуть, что spatial reorder
 // (Morton) даёт заявленное ускорение kernel'а за счёт cache-locality gather'а
 // positions[j]. Это gate для всего GPU roadmap — если reorder не уводит kernel
-// заметно ниже CPU pair baseline (~0.925 ms на 103k), Stage 2 не оставит бюджета
-// на integrator/submit/displacement.
+// заметно ниже CPU pair baseline (~0.925 ms на 103k), следующий этап не оставит
+// бюджета на integrator/submit/displacement.
 //
-// Методология (по совету профилировщик'ов):
+// Методология:
 //   - НЕ wall-clock вокруг blocking readback (он ~1ms swamp'ит kernel delta).
 //   - Batch из kDispatchesPerSubmit dispatch'ей в одном submit + один poll →
 //     fixed submit/poll overhead амортизируется, остаётся ~чистое kernel-время.
