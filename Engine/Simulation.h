@@ -95,10 +95,11 @@ public:
     void setBondFormationEnabled(bool enabled) { activeState().bondFormationEnabled_ = enabled; }
     bool isBondFormationEnabled() const { return activeState().bondFormationEnabled_; }
 
-    // CPU/GPU тумблер для физики активного мира. GPU-режим — LJ-only
-    // (резидентная физика на GPU). CPU-путь остаётся дефолтным и нетронутым;
-    // переключение в любую сторону синхронизирует состояние через AtomStorage.
-    // Требует инициализированного WGPUContext (есть после старта рендера).
+    // CPU/GPU тумблер для физики активного мира. GPU-режим — резидентная физика
+    // на GPU: LJ + soft-wall + gravity (связи/Кулон пока на CPU, отключены).
+    // CPU-путь остаётся дефолтным и нетронутым; переключение в любую сторону
+    // синхронизирует состояние через AtomStorage. Требует инициализированного
+    // WGPUContext (есть после старта рендера).
     void setGpuMode(bool enable);
     [[nodiscard]] bool isGpuMode() const;
     // Скачивает позиции/скорости из VRAM в AtomStorage, если активен GPU-режим
@@ -159,7 +160,10 @@ public:
     bool isLJEnabled() const { return world().isLJEnabled(); }
     void setCoulombEnabled(bool enabled) { world().setCoulombEnabled(enabled); }
     bool isCoulombEnabled() const { return world().isCoulombEnabled(); }
-    void setGravity(const Vec3f& gravity) { world().setGravity(gravity); }
+    void setGravity(const Vec3f& gravity) {
+        world().setGravity(gravity);
+        notifySceneEdited(); // gravity в VRAM устарела — нужен re-upload (wall-kernel читает её как СИЛУ)
+    }
     Vec3f getGravity() const { return world().getGravity(); }
     void setNeighborListCutoff(float cutoff) {
         world().getNeighborList().setCutoff(cutoff);

@@ -250,8 +250,13 @@ void Simulation::uploadSceneToGpu(WorldState& state) {
     nl.rebuildPipeline(state.world.getAtomStorage(), state.world, static_cast<int>(state.sim_step));
 
     const Vec3f size = state.world.getWorldSize();
+    // gravity берём из World (как CPU-путь WallForceField.cpp:8) — резидентный
+    // wall-kernel считает её как постоянную СИЛУ. Рантайм-смена gravity бампит
+    // cpuSceneVersion (Simulation::setGravity) → этот re-upload несёт новое значение.
+    const Vec3f gravity = state.world.getGravity();
     state.gpu->uploadFromCpu(state.world.getAtomStorage(), nl, state.forceField_.ljForceField(),
-                             static_cast<float>(size.x), static_cast<float>(size.y), static_cast<float>(size.z));
+                             static_cast<float>(size.x), static_cast<float>(size.y), static_cast<float>(size.z),
+                             static_cast<float>(gravity.x), static_cast<float>(gravity.y), static_cast<float>(gravity.z));
     state.cpuPositionsDirty = false;
     state.stepsSinceDispCheck = 0;
     state.gpuUploadedSceneVersion = state.cpuSceneVersion; // VRAM теперь соответствует CPU-сцене

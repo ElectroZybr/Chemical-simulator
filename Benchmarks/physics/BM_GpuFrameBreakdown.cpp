@@ -88,7 +88,7 @@ struct ResidentScene {
         // Заливаем сцену в bench-owned резидентный инстанс (public API).
         const Vec3f size = sim.world().getWorldSize();
         gpu.uploadFromCpu(sim.atoms(), sim.neighborList(), LJForceField{}, static_cast<float>(size.x),
-                          static_cast<float>(size.y), static_cast<float>(size.z));
+                          static_cast<float>(size.y), static_cast<float>(size.z), 0.0f, 0.0f, 0.0f); // gravity=0 (perf-сцена)
         totalCount = gpu.totalCount();
 
         // Приёмник download'а: тот же размер, что резидентная сцена (downloadToCpu

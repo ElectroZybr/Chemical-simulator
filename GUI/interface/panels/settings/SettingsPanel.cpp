@@ -298,8 +298,9 @@ void SettingsPanel::draw(float uiScale, Vec2i windowSize, Simulation& simulation
     ImGui::PopItemWidth();
 
     // --- CPU/GPU тумблер физики ---
-    // GPU-режим — резидентная LJ-only физика на GPU. Оба пути рабочие,
-    // переключение синхронизирует состояние через AtomStorage.
+    // GPU-режим — резидентная физика на GPU: LJ + soft-wall + gravity (связи/Кулон
+    // пока на CPU, в GPU-режиме отключены). Оба пути рабочие, переключение
+    // синхронизирует состояние через AtomStorage.
     bool gpuMode = simulation.isGpuMode();
     if (ImGui::Checkbox(i18n::tr("imgui_gpu_physics").data(), &gpuMode)) {
         simulation.setGpuMode(gpuMode);

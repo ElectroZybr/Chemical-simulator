@@ -84,7 +84,9 @@ void runCorrectness(benchmark::State& state) {
 
     LJForceField lj;
     GpuResidentPhysics grp;
-    grp.uploadFromCpu(gpu.atoms(), gpu.neighborList(), lj, worldSize, worldSize, worldSize);
+    // gravity=0 (как CPU reference): атомы глубоко внутри box, wall-kernel прибавит
+    // ровно 0 → LJ-only паритет сохраняется (Q6-регрессия остаётся зелёной).
+    grp.uploadFromCpu(gpu.atoms(), gpu.neighborList(), lj, worldSize, worldSize, worldSize, 0.0f, 0.0f, 0.0f);
 
     // Прогон.
     for (auto _ : state) {
@@ -111,7 +113,7 @@ void runCorrectness(benchmark::State& state) {
         fillScene(gpuRun, atomCount, worldSize, spacing);
         gpuRun.neighborList().build(gpuRun.atoms(), gpuRun.world());
         GpuResidentPhysics g;
-        g.uploadFromCpu(gpuRun.atoms(), gpuRun.neighborList(), lj, worldSize, worldSize, worldSize);
+        g.uploadFromCpu(gpuRun.atoms(), gpuRun.neighborList(), lj, worldSize, worldSize, worldSize, 0.0f, 0.0f, 0.0f);
         for (int s = 0; s < kSteps; ++s) {
             g.step(kDt, kAccelDamping);
         }

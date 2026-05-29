@@ -210,6 +210,41 @@ bind-group не переиспользует ссылку на освобожд�
 Прочие оптимизации (не force-loop): bond hot path −50% (D1), формация бондов
 75-121× O(N²)→O(N) (D2), рендер sparse-сетки 3.7× (D4) — детали в секциях ниже.
 
+## Фаза 2.1 — soft-wall + гравитация на GPU (расширение за LJ-only)
+
+Это НЕ оптимизация, а расширение функционала: резидентный GPU-шаг раньше считал
+только LJ и МОЛЧА игнорировал мягкие стены и гравитацию. Теперь GPU считает их тоже,
+поэтому GPU-траектория совпадает с CPU. Побочно чинит тихую дивергенцию: при
+`gravity != 0` GPU-режим ронял гравитацию (атомы не падали). Планка корректности —
+ПАРИТЕТ с CPU-владельцем `Engine/physics/ForceFields/WallForceField.cpp`.
+
+Новый kernel `Rendering/shaders/physics_wall.wgsl` (`compute_wall`, per-atom, mobile-only)
+диспатчится в `GpuResidentPhysics::step` между `zero_forces` и LJ — зеркалит CPU-порядок
+`wall → pair` (`ForceField.cpp:136`). Зеркалит `WallForceField` точно: `k=500`,
+`border=2`, `wallMax = worldSize − 1`, нижняя стена толкает в +, верхняя в −, гравитация
+прибавляется как постоянная СИЛА (не ускорение), `forces.w` (PE) не трогается. Рантайм-смена
+гравитации доставляется через `Simulation::setGravity` → бамп версии сцены → re-upload.
+
+### Гейт паритета: `BM_GpuWallGravityParity`
+
+| Кейс | Сцена | max\|Δ(CPU,GPU)\| | Порог | Примечание |
+|---|---|---|---|---|
+| static gravity | 9 атомов у нижней стены Y (penLow=0.6), gravity=(0,−5,0), массы H/Ar | **0.000e+00** (бит-в-бит) | 1e-2 | чистый паритет wall+gravity, без правок в hot loop |
+| runtime gravity change | 9 атомов внутри box, g0=(0,−3,0) → g1=(2,4,0) после 20 шагов | **3.365e-03** | 1e-2 | одношаговый transient от re-upload (force-история зануляется); stale-gap ref = 1.883e-01 (≈56× → новая гравитация доставлена, не устарела) |
+| регрессия LJ-only | `BM_GpuCorrectness` (gravity=0, атомы глубоко внутри) | **0** (без изменений) | 1e-2 | wall-kernel прибавляет ровно 0 → LJ-only паритет не сдвинулся |
+
+Провенанс: формула — `WallForceField::applyWall/applyGravityForce` (`WallForceField.cpp:27-51`),
+код GPU — `physics_wall.wgsl` + `GpuResidentPhysics.cpp:607-617` (диспатч), входы — сцены в
+`BM_GpuWallGravityParity.cpp:68-98` (атомы в зоне `border`, смешанные массы H/Ar,
+ненулевая гравитация). Смешанные массы важны: гравитация-как-сила даёт разные ускорения
+(H ~1.008, Ar ~39.948), поэтому гейт ловит, что GPU копирует именно силу, а не «чинит» на
+ускорение. Контракт uniform-буфера C++↔WGSL закреплён `static_assert(sizeof(WallUniforms)==48)`.
+
+Воспроизведение:
+```sh
+./build/bench/benchmarks.exe --benchmark_filter='BM_GpuWallGravityParity|BM_GpuCorrectness'
+```
+
 ## C1 — force loop фильтрует по физическому cutoff
 
 `a72aff1 fix: pair-силы фильтруются по физическому cutoff, не listRadius`
@@ -487,8 +522,9 @@ per-step readback: 20 шагов в одном submit + один poll, per-step 
   positions только на rebuild.
 - Renderer zero-copy (positions+velocities из GpuPhysicsState; type/radius/
   selection остаются renderer-owned) либо явный per-frame sync.
-- LJ-only ограничение (wall/bond/Coulomb off в GPU mode) — bond/wall на GPU
-  это дальнейший трек.
+- GPU mode считает LJ + soft-wall + gravity (фаза 2.1: wall+gravity перенесены,
+  паритет с CPU `WallForceField` проверяет `BM_GpuWallGravityParity`). Остаётся
+  bond/Coulomb off — это дальнейший трек (2.2/2.3).
 
 ### Kernel-оптимизации — отклонены
 

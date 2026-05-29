@@ -19,13 +19,15 @@ class GpuNeighborListBuilder;
 // CPU их не качает в hot loop. Это и есть «физика на GPU» (в отличие от
 // GpuPairForceCompute, который оффлоадит одну операцию с readback каждый раз).
 //
-// Ограничения GPU-режима (LJ-only): wall/bond/Coulomb выключены, NeighborList
-// в режиме Full (каждая пара дважды, force loop пишет только в свой forceX —
-// нет race). Эти ограничения — следствие резидентности: если бы силы читал
-// CPU (bond/wall), пришлось бы качать позиции каждый шаг.
+// Что считается на GPU: LJ + soft-wall + gravity. Ограничения GPU-режима:
+// bond/Coulomb выключены, NeighborList в режиме Full (каждая пара дважды, force
+// loop пишет только в свой forceX — нет race). Эти ограничения — следствие
+// резидентности: если бы силы читал CPU, пришлось бы качать позиции каждый шаг.
+// (Soft-wall/gravity — per-atom-силы без neighbor-чтения, поэтому легли на GPU
+// без CPU round-trip: зеркалят WallForceField, паритет проверяет BM_GpuWallGravityParity.)
 //
 // Шаг повторяет CPU velocity Verlet (VerletScheme + StepOps::confineToBox):
-//   predict -> confine -> swap(pf<->f, parity) -> zero(f, total) -> LJ -> correct
+//   predict -> confine -> swap(pf<->f, parity) -> zero(f, total) -> wall+gravity -> LJ -> correct
 // swap реализован ping-pong'ом двух force-буферов через parity-бит и две
 // пред-собранные bind-группы (не копирование).
 class GpuResidentPhysics {
@@ -38,8 +40,12 @@ public:
 
     // Заливает полное состояние атомов + NL из CPU в VRAM. Вызывается при входе
     // в GPU-режим и после любой структурной правки (add/remove atom, NL rebuild).
+    // gravity — постоянная сила wall-ядра (world.getGravity()); заливается в
+    // wallUniform_. Полная перезаливка несёт текущую gravity, поэтому рантайм-смена
+    // gravity (через cpuSceneVersion-бамп в Simulation::setGravity) подхватывается
+    // ближайшим re-upload'ом.
     void uploadFromCpu(const AtomStorage& atoms, const NeighborList& neighborList, const LJForceField& ljForceField,
-                       float worldSizeX, float worldSizeY, float worldSizeZ);
+                       float worldSizeX, float worldSizeY, float worldSizeZ, float gravityX, float gravityY, float gravityZ);
 
     // Только NL (offsets+neighbors) + refPos для displacement-проверки. Вызывается
     // после CPU NeighborList::build, без перезаливки позиций/скоростей.
@@ -172,9 +178,15 @@ private:
 
     float cutoffSqr_ = 0.0f;
     float worldMax_[3] = {0, 0, 0};
+    // Gravity (постоянная СИЛА wall-ядра, world.getGravity()) — обновляется на
+    // каждом uploadFromCpu (полная перезаливка несёт текущую gravity). k/border —
+    // CPU-инварианты модели (== WallForceField.cpp:28-29), лежат в wallUniform_
+    // рядом с gravity для читаемости («эти числа = CPU k/border»).
+    float gravity_[3] = {0, 0, 0};
 
     // Pipelines
     wgpu::raii::ComputePipeline ljPipeline_;
+    wgpu::raii::ComputePipeline wallPipeline_;
     wgpu::raii::ComputePipeline predictPipeline_;
     wgpu::raii::ComputePipeline confinePipeline_;
     wgpu::raii::ComputePipeline zeroPipeline_;
@@ -182,6 +194,7 @@ private:
     wgpu::raii::ComputePipeline displacementPipeline_;
 
     wgpu::raii::BindGroupLayout ljLayout_;
+    wgpu::raii::BindGroupLayout wallLayout_;
     wgpu::raii::BindGroupLayout intLayout_;
     wgpu::raii::BindGroupLayout dispLayout_;
 
@@ -201,11 +214,13 @@ private:
     wgpu::raii::Buffer velReadback_;
 
     wgpu::raii::Buffer ljUniform_;
+    wgpu::raii::Buffer wallUniform_;
     wgpu::raii::Buffer intUniform_;
     wgpu::raii::Buffer dispUniform_;
 
     // Bind-группы для parity 0 и 1 (current/prev меняются местами).
     wgpu::raii::BindGroup ljBindGroup_[2];
+    wgpu::raii::BindGroup wallBindGroup_[2]; // wall+gravity: forces -> forces_[p]
     wgpu::raii::BindGroup intBindGroup_[2];
     wgpu::raii::BindGroup zeroBindGroup_[2];
     wgpu::raii::BindGroup dispBindGroup_;

@@ -174,7 +174,7 @@ void checkScene(const Scene& s, bool forceCapacityGrow) {
 
     LJForceField lj;
     GpuResidentPhysics grp;
-    grp.uploadFromCpu(gpuWorld.getAtomStorage(), seedNl, lj, s.world.x, s.world.y, s.world.z);
+    grp.uploadFromCpu(gpuWorld.getAtomStorage(), seedNl, lj, s.world.x, s.world.y, s.world.z, 0.0f, 0.0f, 0.0f); // gravity=0 (NL-build гейт)
 
     const uint64_t growsBefore = grp.nlCapacityGrows();
 

@@ -16,6 +16,7 @@
 #include "generated/shaders/integrate_verlet.wgsl.h"
 #include "generated/shaders/nl_displacement.wgsl.h"
 #include "generated/shaders/physics_lj.wgsl.h"
+#include "generated/shaders/physics_wall.wgsl.h"
 
 namespace {
 
@@ -25,6 +26,21 @@ struct LJUniforms {
     uint32_t mobileCount;
     uint32_t typeCount;
 };
+
+// Раскладка ОБЯЗАНА совпадать с WallUniforms в physics_wall.wgsl (тот же порядок
+// полей + хвостовой паддинг до кратного 16 байт под uniform-binding).
+struct WallUniforms {
+    float worldMaxX, worldMaxY, worldMaxZ;
+    float gravityX, gravityY, gravityZ;
+    float k, border; // == WallForceField.cpp:28-29 (500.0, 2.0)
+    uint32_t mobileCount;
+    uint32_t pad0, pad1, pad2; // выравнивание до 48 байт (кратно 16)
+};
+// Контракт с physics_wall.wgsl держится вручную (C++ struct <-> WGSL struct под
+// uniform-раскладкой). Если кто-то переставит/переименует поле и размеры разойдутся,
+// в mobileCount/k попадут чужие байты — физика молча поедет (ни краша, ни ошибки
+// компиляции, только провал parity-гейта вдали от причины). Ловим на компиляции.
+static_assert(sizeof(WallUniforms) == 48, "WallUniforms != 48 байт: разошёлся контракт с physics_wall.wgsl");
 
 struct IntegratorUniforms {
     float dt;
@@ -103,6 +119,20 @@ void GpuResidentPhysics::ensureInitialized() {
         e[6].buffer.type = wgpu::BufferBindingType::Storage;
         ljLayout_ = WGPUContext::instance().createBindGroupLayout(e, "GRP_LJ_BGL");
     }
+    // Wall layout (3): uniform + positions(read) + forces(rw). Per-atom soft-wall+gravity.
+    {
+        std::array<wgpu::BindGroupLayoutEntry, 3> e{};
+        e[0].binding = 0;
+        e[0].visibility = wgpu::ShaderStage::Compute;
+        e[0].buffer.type = wgpu::BufferBindingType::Uniform;
+        e[1].binding = 1;
+        e[1].visibility = wgpu::ShaderStage::Compute;
+        e[1].buffer.type = wgpu::BufferBindingType::ReadOnlyStorage;
+        e[2].binding = 2;
+        e[2].visibility = wgpu::ShaderStage::Compute;
+        e[2].buffer.type = wgpu::BufferBindingType::Storage;
+        wallLayout_ = WGPUContext::instance().createBindGroupLayout(e, "GRP_Wall_BGL");
+    }
     // Integrator layout (6): uniform + pos/vel/forces(rw) + prevForces/invMass(read)
     {
         std::array<wgpu::BindGroupLayoutEntry, 6> e{};
@@ -146,6 +176,8 @@ void GpuResidentPhysics::ensureInitialized() {
 
     wgpu::ShaderModule ljMod = makeModule(physics_ljWGSL);
     ljPipeline_ = makePipeline(*ljLayout_, ljMod, "compute_lj");
+    wgpu::ShaderModule wallMod = makeModule(physics_wallWGSL);
+    wallPipeline_ = makePipeline(*wallLayout_, wallMod, "compute_wall");
     wgpu::ShaderModule iMod = makeModule(integrate_verletWGSL);
     predictPipeline_ = makePipeline(*intLayout_, iMod, "predict");
     confinePipeline_ = makePipeline(*intLayout_, iMod, "confine");
@@ -156,6 +188,8 @@ void GpuResidentPhysics::ensureInitialized() {
 
     ljUniform_ = WGPUContext::instance().createBuffer(sizeof(LJUniforms), wgpu::BufferUsage::Uniform | wgpu::BufferUsage::CopyDst,
                                                       "GRP_LJU");
+    wallUniform_ = WGPUContext::instance().createBuffer(sizeof(WallUniforms), wgpu::BufferUsage::Uniform | wgpu::BufferUsage::CopyDst,
+                                                        "GRP_WallU");
     intUniform_ = WGPUContext::instance().createBuffer(sizeof(IntegratorUniforms),
                                                        wgpu::BufferUsage::Uniform | wgpu::BufferUsage::CopyDst, "GRP_IntU");
     dispUniform_ = WGPUContext::instance().createBuffer(sizeof(DispUniforms), wgpu::BufferUsage::Uniform | wgpu::BufferUsage::CopyDst,
@@ -269,6 +303,21 @@ void GpuResidentPhysics::rebuildBindGroups() {
         ljBindGroup_[p] = WGPUContext::instance().createBindGroup(*ljLayout_, b, "GRP_LJ_BG");
     }
 
+    // Wall bind groups (forces -> forces_[p]) для p=0,1 — тот же ping-pong, что LJ.
+    for (int p = 0; p < 2; ++p) {
+        std::array<wgpu::BindGroupEntry, 3> b{};
+        b[0].binding = 0;
+        b[0].buffer = *wallUniform_;
+        b[0].size = sizeof(WallUniforms);
+        b[1].binding = 1;
+        b[1].buffer = *positions_;
+        b[1].size = vec4Bytes;
+        b[2].binding = 2;
+        b[2].buffer = *forces_[p];
+        b[2].size = vec4Bytes;
+        wallBindGroup_[p] = WGPUContext::instance().createBindGroup(*wallLayout_, b, "GRP_Wall_BG");
+    }
+
     // Integrator bind groups: forces=forces_[p], prevForces=forces_[1-p].
     for (int p = 0; p < 2; ++p) {
         std::array<wgpu::BindGroupEntry, 6> b{};
@@ -313,7 +362,8 @@ void GpuResidentPhysics::rebuildBindGroups() {
 }
 
 void GpuResidentPhysics::uploadFromCpu(const AtomStorage& atoms, const NeighborList& neighborList, const LJForceField& ljForceField,
-                                       float worldSizeX, float worldSizeY, float worldSizeZ) {
+                                       float worldSizeX, float worldSizeY, float worldSizeZ, float gravityX, float gravityY,
+                                       float gravityZ) {
     ensureInitialized();
 
     const size_t n = atoms.size();
@@ -327,6 +377,9 @@ void GpuResidentPhysics::uploadFromCpu(const AtomStorage& atoms, const NeighborL
     worldMax_[0] = worldSizeX - 1.0f;
     worldMax_[1] = worldSizeY - 1.0f;
     worldMax_[2] = worldSizeZ - 1.0f;
+    gravity_[0] = gravityX;
+    gravity_[1] = gravityY;
+    gravity_[2] = gravityZ;
     parity_ = 0;
 
     std::vector<float> pos(n * 4), vel(n * 4), im(n);
@@ -378,6 +431,22 @@ void GpuResidentPhysics::uploadFromCpu(const AtomStorage& atoms, const NeighborL
     q->writeBuffer(*ljUniform_, 0, &lju, sizeof(lju));
     DispUniforms du{mobileCount_};
     q->writeBuffer(*dispUniform_, 0, &du, sizeof(du));
+
+    // Wall uniform: worldMax (== confine max), gravity (постоянная СИЛА), k/border
+    // (CPU-инварианты WallForceField.cpp:28-29). Полная перезаливка несёт текущую
+    // gravity, поэтому рантайм-смена gravity подхватывается ближайшим re-upload'ом
+    // (Simulation::setGravity бампит cpuSceneVersion → updateStateGpu перезаливает).
+    WallUniforms wu{};
+    wu.worldMaxX = worldMax_[0];
+    wu.worldMaxY = worldMax_[1];
+    wu.worldMaxZ = worldMax_[2];
+    wu.gravityX = gravity_[0];
+    wu.gravityY = gravity_[1];
+    wu.gravityZ = gravity_[2];
+    wu.k = 500.0f;     // == WallForceField.cpp:28
+    wu.border = 2.0f;  // == WallForceField.cpp:29
+    wu.mobileCount = mobileCount_;
+    q->writeBuffer(*wallUniform_, 0, &wu, sizeof(wu));
 }
 
 void GpuResidentPhysics::uploadNeighborList(const NeighborList& neighborList) {
@@ -537,11 +606,20 @@ void GpuResidentPhysics::step(float dt, float accelDamping) {
     pass.setPipeline(*confinePipeline_);
     pass.dispatchWorkgroups(gMobile, 1, 1);
 
-    // zero + LJ пишут out = forces_[1-p]; correct читает out + in.
+    // zero + wall + LJ пишут out = forces_[1-p]; correct читает out + in.
     // intBindGroup_[out] имеет forces=forces_[out], prevForces=forces_[p]=in.
     pass.setBindGroup(0, *intBindGroup_[out], 0, nullptr);
     pass.setPipeline(*zeroPipeline_);
     pass.dispatchWorkgroups(gTotal, 1, 1);
+
+    // wall+gravity (mobile) в forces_[out], МЕЖДУ zero и LJ — зеркалит CPU-порядок
+    // wallForceField_.compute ПЕРЕД computePairInteractions (ForceField.cpp:136-137).
+    // Аккумулятивно прибавляет к обнулённой силе; correct видит wall+gravity+LJ.
+    // Memory-ordering между zero→wall→LJ — та же гарантия storage-барьеров WebGPU
+    // в одном compute-pass, на которую уже полагается zero→LJ→correct.
+    pass.setBindGroup(0, *wallBindGroup_[out], 0, nullptr);
+    pass.setPipeline(*wallPipeline_);
+    pass.dispatchWorkgroups(gMobile, 1, 1);
 
     pass.setBindGroup(0, *ljBindGroup_[out], 0, nullptr);
     pass.setPipeline(*ljPipeline_);
