@@ -84,6 +84,58 @@ TEST(NeighborListTest, MatchesBruteForce) {
     EXPECT_EQ(nlPairs, bfPairs);
 }
 
+// Расширенная проверка пар vs брутфорс: множество плотностей, размеров, seed'ов
+// и обоих режимов NL (Half/Full). Это страховка от "потерянных пар" — если
+// grid/27-cell stencil/режим теряет соседа, атом не получит силу и улетит "сам
+// по себе". Half и Full после канонизации (lo,hi) дают одно множество = брутфорс.
+TEST(NeighborListTest, MatchesBruteForceSweep) {
+    struct Cfg {
+        uint32_t n;
+        uint32_t seed;
+        NeighborListMode mode;
+        const char* tag;
+    };
+    const Cfg cfgs[] = {
+        {16, 1, NeighborListMode::Half, "sparse/half"},   {16, 1, NeighborListMode::Full, "sparse/full"},
+        {128, 2, NeighborListMode::Half, "mid/half"},     {128, 2, NeighborListMode::Full, "mid/full"},
+        {512, 3, NeighborListMode::Half, "dense/half"},   {512, 3, NeighborListMode::Full, "dense/full"},
+        {512, 99, NeighborListMode::Full, "dense/seed99"}, {1000, 7, NeighborListMode::Full, "verydense/full"},
+    };
+    for (const auto& c : cfgs) {
+        Simulation sim = makeRandomScene(c.n, c.seed);
+        sim.neighborList().setMode(c.mode);
+        sim.neighborList().build(sim.atoms(), sim.world());
+
+        const PairSet nlPairs = collectNlPairs(sim.neighborList(), static_cast<uint32_t>(sim.atoms().mobileCount()));
+        const PairSet bfPairs = bruteForcePairsWithin(sim.atoms(), sim.neighborList().listRadius());
+
+        EXPECT_EQ(nlPairs, bfPairs) << "config " << c.tag << " n=" << c.n;
+    }
+}
+
+// setAutoMode выбирает режим NL на каждом build по mobileCount: ниже порога —
+// Half (дешевле на малых сценах), на/выше — Full (parallel-выгода). Покрываем
+// сам выбор (Sweep использует явный setMode и авто-логику не трогает).
+TEST(NeighborListTest, AutoModeSelectsHalfBelowFullAtOrAboveThreshold) {
+    constexpr size_t kThreshold = 50;
+
+    Simulation small = makeRandomScene(/*n=*/20, /*seed=*/11);
+    small.neighborList().setAutoMode(kThreshold);
+    small.neighborList().build(small.atoms(), small.world());
+    EXPECT_EQ(small.neighborList().mode(), NeighborListMode::Half) << "mobileCount 20 < 50 → Half";
+
+    Simulation big = makeRandomScene(/*n=*/80, /*seed=*/12);
+    big.neighborList().setAutoMode(kThreshold);
+    big.neighborList().build(big.atoms(), big.world());
+    EXPECT_EQ(big.neighborList().mode(), NeighborListMode::Full) << "mobileCount 80 >= 50 → Full";
+
+    // На границе (== threshold) — Full.
+    Simulation edge = makeRandomScene(/*n=*/kThreshold, /*seed=*/13);
+    edge.neighborList().setAutoMode(kThreshold);
+    edge.neighborList().build(edge.atoms(), edge.world());
+    EXPECT_EQ(edge.neighborList().mode(), NeighborListMode::Full) << "mobileCount == threshold → Full";
+}
+
 // needsRebuild() сигнализирует true когда любой mobile-атом сместился более чем
 // на 0.5*skin от reference position. Тригер должен сработать после явного сдвига
 // одного атома на skin (= 1.0 при default-параметрах).
@@ -116,4 +168,17 @@ TEST(NeighborListTest, RebuildPipelineThrowsOnTooSmallCellSize) {
     sim.finalizeAtomBatch();
 
     EXPECT_THROW(sim.neighborList().rebuildPipeline(sim.atoms(), sim.world(), 0), std::invalid_argument);
+}
+
+// Тот же контракт должен срабатывать и на прямом вызове build() — публичного
+// входа, который обходит rebuildPipeline (тесты, бенчи, будущий код). Иначе
+// проверка живёт только в pipeline и build() тихо строит ущербный NL.
+TEST(NeighborListTest, BuildThrowsOnTooSmallCellSize) {
+    Simulation sim;
+    sim.createWorld(Vec3f{40.0f, 40.0f, 40.0f});
+    sim.setSizeBox(Vec3f{40.0f, 40.0f, 40.0f}, /*cellSize=*/3); // listRadius 6 > 3
+    sim.appendAtomFast(Vec3f{20.0f, 20.0f, 20.0f}, Vec3f{0.0f, 0.0f, 0.0f}, AtomData::Type::H);
+    sim.finalizeAtomBatch();
+
+    EXPECT_THROW(sim.neighborList().build(sim.atoms(), sim.world()), std::invalid_argument);
 }

@@ -30,6 +30,11 @@ namespace {
         const Vec3f oldSize = world.getWorldSize();
         const Vec3f delta = (newSize - oldSize) * 0.5f;
 
+        // shiftAtoms правит позиции на месте — в GPU-режиме подтянуть актуальные
+        // позиции ДО сдвига, иначе сдвиг ляжет на устаревший снимок, а позже
+        // слияние/синк затрёт его. Снимает dirty, так что setSizeBox ниже не
+        // перекачивает заново.
+        simulation.syncGpuBeforeEdit();
         shiftAtoms(simulation.atoms(), delta);
         world.setRenderOffset(world.getRenderOffset() - delta);
         simulation.setSizeBox(newSize);

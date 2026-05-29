@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <vector>
@@ -104,15 +105,32 @@ public:
     // и CPU-копия устарела. Вызывается перед рендером/метриками/сохранением —
     // редкие точки синхронизации, не каждый физический шаг. В CPU-режиме no-op.
     void syncFromGpuIfNeeded();
+
+    // Сообщить резидентному GPU, что CPU-сцена изменена вне обычного шага (правка
+    // скоростей/позиций тулом, resize, cutoff, add/remove): инкремент версии
+    // сцены заставит ближайший updateState залить CPU-сцену в VRAM заново, даже
+    // если число атомов не изменилось. В CPU-режиме просто бамп счётчика.
+    void notifySceneEdited();
+    // Перед правкой CPU-сцены при активном GPU подтянуть актуальное состояние из
+    // VRAM, иначе правка ляжет поверх устаревшего снимка и re-upload откатит
+    // прогресс GPU с последнего синка. В CPU-режиме no-op.
+    void syncGpuBeforeEdit();
+
     void setLJEnabled(bool enabled) { world().setLJEnabled(enabled); }
     bool isLJEnabled() const { return world().isLJEnabled(); }
     void setCoulombEnabled(bool enabled) { world().setCoulombEnabled(enabled); }
     bool isCoulombEnabled() const { return world().isCoulombEnabled(); }
     void setGravity(const Vec3f& gravity) { world().setGravity(gravity); }
     Vec3f getGravity() const { return world().getGravity(); }
-    void setNeighborListCutoff(float cutoff) { world().getNeighborList().setCutoff(cutoff); }
+    void setNeighborListCutoff(float cutoff) {
+        world().getNeighborList().setCutoff(cutoff);
+        notifySceneEdited(); // меняет listRadius/cutoffSqr — GPU должен перезалить uniforms
+    }
     float getNeighborListCutoff() const { return world().getNeighborList().cutoff(); }
-    void setNeighborListSkin(float skin) { world().getNeighborList().setSkin(skin); }
+    void setNeighborListSkin(float skin) {
+        world().getNeighborList().setSkin(skin);
+        notifySceneEdited();
+    }
     float getNeighborListSkin() const { return world().getNeighborList().skin(); }
     float getNeighborListRadius() const { return world().getNeighborList().listRadius(); }
 
@@ -133,6 +151,11 @@ public:
     // методы для быстрого создания большого количества атомов
     void reserveAtoms(size_t count) { world().getAtomStorage().reserve(count); }
     void appendAtomFast(Vec3f startCoords, Vec3f startSpeed, AtomData::Type type, bool fixed = false) {
+        // Под активным GPU подтянуть свежие позиции ДО вставки: addAtom вставляет
+        // mobile-атом в середину массива (swap для инварианта "mobile первыми"),
+        // поэтому слепое слияние префикса на upload перезатёрло бы новый атом.
+        // Синк один раз на батч (первый append снимает dirty), дальше — no-op.
+        syncGpuBeforeEdit();
         world().getAtomStorage().addAtom(startCoords, startSpeed, type, fixed);
         invalidateMetricsCache();
     }
@@ -140,6 +163,7 @@ public:
         world().getGrid().rebuild(world().getAtomStorage().xDataSpan(), world().getAtomStorage().yDataSpan(),
                                   world().getAtomStorage().zDataSpan());
         world().getNeighborList().clear();
+        notifySceneEdited(); // батч мог изменить контент при том же числе атомов (load той же длины)
     }
     void clear();
 
@@ -169,6 +193,11 @@ private:
         std::unique_ptr<GpuResidentPhysics> gpu;
         bool cpuPositionsDirty = false; // VRAM новее AtomStorage, нужен download
         int stepsSinceDispCheck = 0;    // батчинг NL-displacement проверки
+        // Версия CPU-сцены против версии, залитой в VRAM. Расхождение → re-upload.
+        // Ловит правки контента при неизменном числе атомов (скорости тулом, load
+        // той же длины, resize, cutoff), которые проверка по size пропускает.
+        uint64_t cpuSceneVersion = 0;
+        uint64_t gpuUploadedSceneVersion = 0;
     };
 
     StepData makeStepData();

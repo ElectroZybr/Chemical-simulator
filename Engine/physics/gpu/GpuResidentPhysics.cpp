@@ -416,7 +416,14 @@ void GpuResidentPhysics::step(float dt, float accelDamping) {
 }
 
 void GpuResidentPhysics::downloadToCpu(AtomStorage& atoms, bool withVelocities) {
-    const size_t n = totalCount_;
+    // Усечение CPU-сцены (removeAtom/clear) при активном GPU — реальный transient:
+    // totalCount_ ещё старый, а AtomStorage уже меньше. Качаем min, иначе циклы
+    // записи ниже выйдут за границы AtomStorage. Ближайший updateState сделает
+    // re-upload и синхронизирует totalCount_.
+    const size_t n = std::min<size_t>(static_cast<size_t>(totalCount_), atoms.size());
+    if (n == 0) {
+        return;
+    }
     const uint64_t bytes = static_cast<uint64_t>(n) * 16;
 
     wgpu::Device dev = *WGPUContext::instance().device();

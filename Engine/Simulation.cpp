@@ -153,7 +153,8 @@ void Simulation::updateStateGpu(WorldState& state) {
     // заливаем активную сцену (буфера растут в ensureCapacity). CPU-копия при
     // этом свежая: рендер делает syncFromGpuIfNeeded в начале кадра, до
     // UI-обработчиков правки сцены.
-    if (state.world.getAtomStorage().size() != state.gpu->totalCount()) {
+    if (state.world.getAtomStorage().size() != state.gpu->totalCount() ||
+        state.cpuSceneVersion != state.gpuUploadedSceneVersion) {
         uploadSceneToGpu(state);
     }
 
@@ -185,6 +186,19 @@ void Simulation::updateStateGpu(WorldState& state) {
 }
 
 void Simulation::uploadSceneToGpu(WorldState& state) {
+    // Если GPU ушёл вперёд (CPU-копия устарела), сперва слить его прогресс в CPU,
+    // иначе полный upload откатил бы существующие атомы к последнему CPU-снимку.
+    // Усечённая выгрузка (downloadToCpu clamp) трогает только старый префикс —
+    // свежедобавленный хвост остаётся из CPU. Это покрывает структурные правки,
+    // которые лишь бампят версию без собственного синка (finalizeAtomBatch,
+    // cutoff/skin). clear() заранее сбрасывает dirty, поэтому сброшенная сцена тут
+    // не «воскресает». In-place правки (термо-тул, resize-сдвиг) синкаются ДО
+    // правки сами, так что здесь их dirty уже снят и слияние их не затирает.
+    if (state.cpuPositionsDirty) {
+        state.gpu->downloadToCpu(state.world.getAtomStorage(), /*withVelocities=*/true);
+        state.cpuPositionsDirty = false;
+    }
+
     // NL в Full (требование резидентного LJ-пути), свежий build, полная заливка
     // позиций/скоростей/типов/NL в VRAM. ensureCapacity растит буфера под
     // текущий размер сцены — поэтому путь годится и для входа в GPU-режим, и для
@@ -198,6 +212,17 @@ void Simulation::uploadSceneToGpu(WorldState& state) {
                              static_cast<float>(size.x), static_cast<float>(size.y), static_cast<float>(size.z));
     state.cpuPositionsDirty = false;
     state.stepsSinceDispCheck = 0;
+    state.gpuUploadedSceneVersion = state.cpuSceneVersion; // VRAM теперь соответствует CPU-сцене
+}
+
+void Simulation::notifySceneEdited() { ++activeState().cpuSceneVersion; }
+
+void Simulation::syncGpuBeforeEdit() {
+    WorldState& state = activeState();
+    if (state.gpu && state.cpuPositionsDirty) {
+        state.gpu->downloadToCpu(state.world.getAtomStorage(), /*withVelocities=*/true);
+        state.cpuPositionsDirty = false;
+    }
 }
 
 void Simulation::setGpuMode(bool enable) {
@@ -239,27 +264,37 @@ void Simulation::syncFromGpuIfNeeded() {
 }
 
 void Simulation::setSizeBox(Vec3f newSize, int cellSize) {
+    syncGpuBeforeEdit(); // grid rebuild ниже должен видеть актуальные позиции
     World& activeWorld = world();
     activeWorld.setWorldSize(newSize);
     activeWorld.setGridCellSize(cellSize);
     activeWorld.getGrid().rebuild(activeWorld.getAtomStorage().xDataSpan(), activeWorld.getAtomStorage().yDataSpan(),
                                   activeWorld.getAtomStorage().zDataSpan());
+    notifySceneEdited(); // worldMax_ в VRAM устарел — нужен re-upload
 }
 
 void Simulation::createAtom(Vec3f start_coords, Vec3f start_speed, AtomData::Type type, bool fixed) {
+    syncGpuBeforeEdit(); // подтянуть свежие позиции существующих атомов перед добавлением
     world().addAtom(start_coords, start_speed, type, fixed);
     invalidateMetricsCache();
+    notifySceneEdited();
 }
 
 void Simulation::removeAtom(size_t atomIndex) {
+    syncGpuBeforeEdit();
     world().removeAtom(atomIndex);
     invalidateMetricsCache();
+    notifySceneEdited();
 }
 
 void Simulation::addBond(size_t aIndex, size_t bIndex) { Bond::CreateBond(world().getBonds(), aIndex, bIndex, world().getAtomStorage()); }
 
 void Simulation::clear() {
     WorldState& state = activeState();
+    // Сцена сбрасывается целиком — старое состояние VRAM не нужно (и качать его
+    // перед очисткой нельзя: затёрло бы свежезагружаемые атомы). Версия растёт,
+    // чтобы пустая/новая сцена была залита в GPU на ближайшем шаге.
+    state.cpuPositionsDirty = false;
     state.world.clear();
 
     state.world.worldTitle_.clear();
@@ -268,4 +303,5 @@ void Simulation::clear() {
     invalidateMetricsCache();
     state.sim_step = 0;
     state.sim_time_ns = 0.0f;
+    ++state.cpuSceneVersion;
 }

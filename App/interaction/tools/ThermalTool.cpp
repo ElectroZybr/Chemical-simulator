@@ -54,6 +54,10 @@ void ThermalTool::applyAt(Vec2i mousePos, float deltaTime) {
     if (atoms.empty()) {
         return;
     }
+    // В GPU-режиме CPU-скорости устаревшие (VRAM новее). Подтянуть их перед
+    // масштабированием, иначе нагрев применится к старым значениям, а re-upload
+    // откатит позиции к последнему синку.
+    ctx.simulation->syncGpuBeforeEdit();
 
     const Vec3f center = screenToLocalWorld(mousePos);
     const float radiusSqr = radius_ * radius_;
@@ -85,4 +89,8 @@ void ThermalTool::applyAt(Vec2i mousePos, float deltaTime) {
         vy[i] *= clampedFactor;
         vz[i] *= clampedFactor;
     }
+
+    // Скорости изменены вне обычного шага — в GPU-режиме их нужно перезалить в
+    // VRAM (число атомов не изменилось, поэтому проверки по size недостаточно).
+    ctx.simulation->notifySceneEdited();
 }
