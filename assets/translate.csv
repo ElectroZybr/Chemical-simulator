@@ -51,8 +51,8 @@ imgui_neighbour_list;Neighbour list;Список соседей
 imgui_cell_size;Cell size;Cell size
 imgui_cutoff_nl;Cutoff NL;Cutoff NL
 imgui_skin_nl;Skin NL;Skin NL
-imgui_gpu_physics;GPU physics (LJ + walls + gravity);GPU физика (LJ + стены + гравитация)
-imgui_gpu_physics_lj_only;GPU mode: LJ + walls + gravity; bonds/Coulomb disabled;GPU-режим: LJ + стены + гравитация; связи/Кулон отключены
+imgui_gpu_physics;GPU physics (LJ + walls + bonds);GPU физика (LJ + стены + связи)
+imgui_gpu_physics_lj_only;GPU mode: LJ + walls + gravity + static bonds (Morse + angle); bond formation/breaking & Coulomb disabled;GPU-режим: LJ + стены + гравитация + статичные связи (Morse + угол); образование/разрыв связей и Кулон отключены
 imgui_write;Record;Запись
 imgui_video_saving_folder;Video save folder;Папка сохранения видео
 imgui_capture_dir;##capture_dir;##capture_dir

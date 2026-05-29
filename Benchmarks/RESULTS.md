@@ -286,6 +286,55 @@ NL-структуру; каждая связь — два directed-ребра, �
 ./build/bench/benchmarks.exe --benchmark_filter='BM_GpuBondParity|BM_GpuCorrectness'
 ```
 
+## Фаза 2.2b — Угловые силы связей на GPU (статичная топология)
+
+Расширение функционала: GPU добавил **угловые силы** связей (гармонический потенциал вокруг
+равновесного угла theta_0=60°, жёсткость k=50), паритетно CPU `Bond::angleForce`. Это финальная
+силовая под-стадия связей; формация/разрыв (2.2c) вынесены отдельно. Топология по-прежнему
+**статична** в GPU-режиме.
+
+Реализация: новый entry `compute_bond_angle` в `Rendering/shaders/physics_bond.wgsl` —
+двух-ролевой per-atom gather по той же резидентной bond-CSR (новых буферов не нужно). Атом i
+накапливает СВОЮ угловую силу в двух ролях: роль A — i центр, перебор неупорядоченных пар (b,c)
+своих рёбер → член `force_o` каждой тройки; роль B — i плечо, для каждого соседа-центра o перебор
+ДРУГИХ соседей o (двух-хоповый обход CSR) → член `force_b` тройки (o, i, c). Сила на плечо зависит
+только от (центр, своё плечо, другое плечо), а `force_scale` симметричен → единая `force_b`-форма
+даёт верный CPU-член независимо от метки b/c (подтверждено численно, см. ниже). Каждый член каждой
+тройки попадает ровно одному атому ровно раз → сумма == CPU `applyAngleForces`. theta_0/k берутся
+из `bondUniform_` (== `Bond.cpp:116,121`). Отдельный 5-binding layout `bondAngleLayout_` (без
+`bondParams` — угол берёт только геометрию). Диспатч `gTotal` после Morse, перед correct
+(CPU-порядок `forceBond` → `applyAngleForces`).
+
+### Гейт паритета: `BM_GpuBondParity` (angle sub-case)
+
+| Проверка | Результат | Примечание |
+|---|---|---|
+| Угловая сила, GPU vs CPU | **2.861e-06** | триплет H-O-H (O центр, 2×O-H @r0≈0.957, угол ≈90° != 60°); LJ/Кулон ВЫКЛ; массы O(16)+H(1)+H(1); 50 шагов |
+| CPU реально двинулся (не слеп) | self-disp **1.862e-01** | assert > 1e-4 до сверки; старт на r0 → Morse≈0, смещение несёт ИМЕННО угловой член |
+| центр имеет угол | degree **2** | assert: O в резидентном CSR имеет 2 соседа (иначе триплет не возник бы) |
+| топология статична | bonds **2→2** | assert: CPU не порвал связь за прогон |
+| Morse-only НЕ регрессировал | **0.000e+00** | угловое ядро при degree-1 (нет пар рёбер / двух-хоповых троек) прибавляет ровно 0 |
+| регрессия LJ-only | `BM_GpuCorrectness` **max_abs=0** | пустой bond-CSR → угол прибавляет 0 |
+
+Провенанс: формула — `Bond::angleForce` (`Bond.cpp:77-144`; clamp cos → acos → sin из sqrt(1-cos²),
+гарды len≤1e-12 и sin²<1e-12, theta_0=60°·π/180, k=50, force_b/force_c/force_o; dt не участвует,
+PE не пишется); код GPU — `physics_bond.wgsl` (`compute_bond_angle`, `angle_triplet`) +
+`GpuResidentPhysics.cpp` (диспатч после Morse); входы — H-O-H сцена в `BM_GpuBondParity.cpp`,
+50 шагов, dt=0.01.
+
+Tolerance **1e-5** (порог по измерению, ~3.5× запас над измеренным 2.861e-06 под run-to-run
+f32-недетерминизм). Угол считается ШИРЕ Morse-only (тот бит-в-бит 0): CPU считает угол ВЕСЬ в
+double + `acos` + `1/sin`, GPU всё в f32 → дрейф не бит-в-бит. Дизайн §4.4 закладывал worst-case
+до ~1e-1; на практике дрейф НАМНОГО меньше, потому что угол H-O-H (90°) далёк от
+sin≈0-сингулярности → `acos`/`1/sin` хорошо обусловлены. (Острый/тупой угол у sin≈0 дал бы шире
+из-за усиления `1/sin`-членом, но гард sin²<1e-12 отсекает сингулярность одинаково на CPU и GPU.)
+Гейт прогоняется через реальный путь `Simulation::setGpuMode(true)`+`updateAll()`.
+
+Воспроизведение:
+```sh
+./build/bench/benchmarks.exe --benchmark_filter='BM_GpuBondParity|BM_GpuCorrectness'
+```
+
 ## C1 — force loop фильтрует по физическому cutoff
 
 `a72aff1 fix: pair-силы фильтруются по физическому cutoff, не listRadius`
@@ -563,9 +612,10 @@ per-step readback: 20 шагов в одном submit + один poll, per-step 
   positions только на rebuild.
 - Renderer zero-copy (positions+velocities из GpuPhysicsState; type/radius/
   selection остаются renderer-owned) либо явный per-frame sync.
-- GPU mode считает LJ + soft-wall + gravity (фаза 2.1: wall+gravity перенесены,
-  паритет с CPU `WallForceField` проверяет `BM_GpuWallGravityParity`). Остаётся
-  bond/Coulomb off — это дальнейший трек (2.2/2.3).
+- GPU mode считает LJ + soft-wall + gravity + силы связей Morse (2.2a) и угловые
+  (2.2b) по СТАТИЧНОЙ топологии (паритет с CPU `WallForceField`/`Bond::forceBond`/
+  `Bond::angleForce` проверяют `BM_GpuWallGravityParity`/`BM_GpuBondParity`). Остаётся
+  off: образование/разрыв связей (2.2c — отдельное исследование) и Coulomb (2.3).
 
 ### Kernel-оптимизации — отклонены
 

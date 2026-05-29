@@ -57,8 +57,8 @@ struct DispUniforms {
 };
 
 // Раскладка ОБЯЗАНА совпадать с BondUniforms в physics_bond.wgsl (порядок полей +
-// хвостовой паддинг до кратного 16 байт под uniform-binding). thetaZero/kAngle —
-// резерв под угловые силы (2.2b); Morse-kernel их не читает.
+// хвостовой паддинг до кратного 16 байт под uniform-binding). thetaZero/kAngle
+// читает compute_bond_angle (2.2b); Morse-kernel их не читает.
 struct BondUniforms {
     uint32_t totalCount;
     float thetaZero; // == Bond.cpp:116 (60° в радианах)
@@ -163,6 +163,26 @@ void GpuResidentPhysics::ensureInitialized() {
         e[5].buffer.type = wgpu::BufferBindingType::Storage;
         bondMorseLayout_ = WGPUContext::instance().createBindGroupLayout(e, "GRP_BondMorse_BGL");
     }
+    // Bond angle layout (5): uniform + positions/bondOffsets/bondNeighbors(read)
+    // + forces(rw). БЕЗ bondParams (binding 4): угловая сила берёт только геометрию
+    // + глобальные theta_0/k из uniform, не лезет в Morse-параметры рёбер. Биндинги
+    // 0,1,2,3,5 (4 пропущен) — compute_bond_angle статически не ссылается на
+    // bondParams, поэтому это ребро не входит в его ресурсный интерфейс.
+    {
+        std::array<wgpu::BindGroupLayoutEntry, 5> e{};
+        e[0].binding = 0;
+        e[0].visibility = wgpu::ShaderStage::Compute;
+        e[0].buffer.type = wgpu::BufferBindingType::Uniform;
+        for (uint32_t i = 1; i <= 3; ++i) {
+            e[i].binding = i;
+            e[i].visibility = wgpu::ShaderStage::Compute;
+            e[i].buffer.type = wgpu::BufferBindingType::ReadOnlyStorage;
+        }
+        e[4].binding = 5; // forces (rw) — binding 5 в шейдере (4 — bondParams, не нужен)
+        e[4].visibility = wgpu::ShaderStage::Compute;
+        e[4].buffer.type = wgpu::BufferBindingType::Storage;
+        bondAngleLayout_ = WGPUContext::instance().createBindGroupLayout(e, "GRP_BondAngle_BGL");
+    }
     // Integrator layout (6): uniform + pos/vel/forces(rw) + prevForces/invMass(read)
     {
         std::array<wgpu::BindGroupLayoutEntry, 6> e{};
@@ -210,6 +230,7 @@ void GpuResidentPhysics::ensureInitialized() {
     wallPipeline_ = makePipeline(*wallLayout_, wallMod, "compute_wall");
     wgpu::ShaderModule bondMod = makeModule(physics_bondWGSL);
     bondMorsePipeline_ = makePipeline(*bondMorseLayout_, bondMod, "compute_bond_morse");
+    bondAnglePipeline_ = makePipeline(*bondAngleLayout_, bondMod, "compute_bond_angle");
     wgpu::ShaderModule iMod = makeModule(integrate_verletWGSL);
     predictPipeline_ = makePipeline(*intLayout_, iMod, "predict");
     confinePipeline_ = makePipeline(*intLayout_, iMod, "confine");
@@ -396,6 +417,30 @@ void GpuResidentPhysics::rebuildBindGroups() {
         bondMorseBindGroup_[p] = WGPUContext::instance().createBindGroup(*bondMorseLayout_, b, "GRP_BondMorse_BG");
     }
 
+    // Bond angle bind groups (forces -> forces_[p]) для p=0,1 — тот же ping-pong.
+    // 5 биндингов (без bondParams): uniform + positions + bondOffsets + bondNeighbors
+    // + forces. Биндинги 0,1,2,3,5 (4 пропущен) — совпадают с bondAngleLayout_.
+    // positions/bondOffsets/bondNeighbors — НЕ ping-pong (одни на оба parity).
+    for (int p = 0; p < 2; ++p) {
+        std::array<wgpu::BindGroupEntry, 5> b{};
+        b[0].binding = 0;
+        b[0].buffer = *bondUniform_;
+        b[0].size = sizeof(BondUniforms);
+        b[1].binding = 1;
+        b[1].buffer = *positions_;
+        b[1].size = vec4Bytes;
+        b[2].binding = 2;
+        b[2].buffer = *bondOffsets_;
+        b[2].size = bondOffsetsCapacity_ * 4;
+        b[3].binding = 3;
+        b[3].buffer = *bondNeighbors_;
+        b[3].size = bondNeighborsCapacity_ * 4;
+        b[4].binding = 5; // forces (rw) на binding 5 (4 — bondParams, угол не читает)
+        b[4].buffer = *forces_[p];
+        b[4].size = vec4Bytes;
+        bondAngleBindGroup_[p] = WGPUContext::instance().createBindGroup(*bondAngleLayout_, b, "GRP_BondAngle_BG");
+    }
+
     // Integrator bind groups: forces=forces_[p], prevForces=forces_[1-p].
     for (int p = 0; p < 2; ++p) {
         std::array<wgpu::BindGroupEntry, 6> b{};
@@ -529,11 +574,11 @@ void GpuResidentPhysics::uploadFromCpu(const AtomStorage& atoms, const NeighborL
 
     // Bond uniform: totalCount (гард kernel'а i >= totalCount при gTotal-диспатче).
     // thetaZero/kAngle — глобальные хардкод-инварианты угловой модели (== Bond.cpp:116,121),
-    // резерв под угловые силы (2.2b); Morse-kernel их не читает. 60°·π/180 = 1.04719755.
+    // читает compute_bond_angle (2.2b); Morse-kernel их не читает. 60°·π/180 = 1.04719755.
     BondUniforms bu{};
     bu.totalCount = totalCount_;
-    bu.thetaZero = 60.0f / 180.0f * 3.14159265358979323846f; // == Bond.cpp:116
-    bu.kAngle = 50.0f;                                        // == Bond.cpp:121
+    bu.thetaZero = 60.0f / 180.0f * 3.14159265358979323846f; // == Bond.cpp:116 (theta_0)
+    bu.kAngle = 50.0f;                                        // == Bond.cpp:121 (k)
     q->writeBuffer(*bondUniform_, 0, &bu, sizeof(bu));
 }
 
@@ -817,6 +862,17 @@ void GpuResidentPhysics::step(float dt, float accelDamping) {
     // (сцена без связей) gather по пустым окнам даёт ровно 0 → LJ-only паритет цел.
     pass.setBindGroup(0, *bondMorseBindGroup_[out], 0, nullptr);
     pass.setPipeline(*bondMorsePipeline_);
+    pass.dispatchWorkgroups(gTotal, 1, 1);
+
+    // Угловые силы связей (gTotal) ПОСЛЕ Morse, ПЕРЕД correct — зеркалит CPU-порядок
+    // (BondForceField::compute: цикл forceBond ПЕРЕД applyAngleForces, BondForceField.cpp:45-49).
+    // Порядок morse→angle математически не важен (оба только прибавляют к forces[out].xyz,
+    // ни один не читает forces — читают positions+bond-CSR), но зеркалит CPU для очевидности.
+    // gTotal как Morse (Bond::angleForce пишет по индексам без mobile-фильтра, Bond.cpp:133-143;
+    // запись в fixed-слот безвредна). При пустой/degree-1 adjacency прибавляет ровно 0
+    // (нет пар рёбер у центра, нет двух-хоповых троек) → LJ-only и Morse-only паритет цел.
+    pass.setBindGroup(0, *bondAngleBindGroup_[out], 0, nullptr);
+    pass.setPipeline(*bondAnglePipeline_);
     pass.dispatchWorkgroups(gTotal, 1, 1);
 
     pass.setBindGroup(0, *intBindGroup_[out], 0, nullptr);

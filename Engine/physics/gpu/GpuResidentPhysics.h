@@ -21,18 +21,19 @@ class GpuNeighborListBuilder;
 // CPU их не качает в hot loop. Это и есть «физика на GPU» (в отличие от
 // GpuPairForceCompute, который оффлоадит одну операцию с readback каждый раз).
 //
-// Что считается на GPU: LJ + soft-wall + gravity + Morse-силы статичных связей.
-// Ограничения GPU-режима: Coulomb выключен; bonds — Morse-силы считаются по
-// статичной топологии (формация/разрыв заморожены, пока активен GPU-режим),
-// угловые силы пока на CPU (2.2b); NeighborList в режиме Full (каждая пара дважды,
-// force loop пишет только в свой forceX — нет race). Эти ограничения — следствие
-// резидентности: если бы силы читал CPU, пришлось бы качать позиции каждый шаг.
+// Что считается на GPU: LJ + soft-wall + gravity + Morse- и угловые силы статичных
+// связей. Ограничения GPU-режима: Coulomb выключен; bonds — силы (Morse + angle)
+// считаются по СТАТИЧНОЙ топологии (формация/разрыв заморожены, пока активен
+// GPU-режим); NeighborList в режиме Full (каждая пара дважды, force loop пишет
+// только в свой forceX — нет race). Эти ограничения — следствие резидентности:
+// если бы силы читал CPU, пришлось бы качать позиции каждый шаг.
 // (Soft-wall/gravity — per-atom-силы без neighbor-чтения, поэтому легли на GPU
 // без CPU round-trip: зеркалят WallForceField, паритет проверяет BM_GpuWallGravityParity.
-// Morse — per-atom gather по bond-CSR, зеркалит Bond::forceBond, паритет — BM_GpuBondParity.)
+// Morse — per-atom gather по bond-CSR, зеркалит Bond::forceBond; angle — двух-ролевой
+// per-atom gather по той же CSR, зеркалит Bond::angleForce; паритет — BM_GpuBondParity.)
 //
 // Шаг повторяет CPU velocity Verlet (VerletScheme + StepOps::confineToBox):
-//   predict -> confine -> swap(pf<->f, parity) -> zero(f, total) -> wall+gravity -> LJ -> bond_morse -> correct
+//   predict -> confine -> swap(pf<->f, parity) -> zero(f, total) -> wall+gravity -> LJ -> bond_morse -> bond_angle -> correct
 // swap реализован ping-pong'ом двух force-буферов через parity-бит и две
 // пред-собранные bind-группы (не копирование).
 class GpuResidentPhysics {
@@ -224,6 +225,7 @@ private:
     wgpu::raii::ComputePipeline ljPipeline_;
     wgpu::raii::ComputePipeline wallPipeline_;
     wgpu::raii::ComputePipeline bondMorsePipeline_; // 2.2a: Morse-силы статичных связей
+    wgpu::raii::ComputePipeline bondAnglePipeline_; // 2.2b: угловые силы статичных связей
     wgpu::raii::ComputePipeline predictPipeline_;
     wgpu::raii::ComputePipeline confinePipeline_;
     wgpu::raii::ComputePipeline zeroPipeline_;
@@ -233,6 +235,7 @@ private:
     wgpu::raii::BindGroupLayout ljLayout_;
     wgpu::raii::BindGroupLayout wallLayout_;
     wgpu::raii::BindGroupLayout bondMorseLayout_; // 2.2a
+    wgpu::raii::BindGroupLayout bondAngleLayout_; // 2.2b (5 bindings: без bondParams)
     wgpu::raii::BindGroupLayout intLayout_;
     wgpu::raii::BindGroupLayout dispLayout_;
 
@@ -267,6 +270,7 @@ private:
     wgpu::raii::BindGroup ljBindGroup_[2];
     wgpu::raii::BindGroup wallBindGroup_[2]; // wall+gravity: forces -> forces_[p]
     wgpu::raii::BindGroup bondMorseBindGroup_[2]; // 2.2a: forces -> forces_[p]
+    wgpu::raii::BindGroup bondAngleBindGroup_[2]; // 2.2b: forces -> forces_[p]
     wgpu::raii::BindGroup intBindGroup_[2];
     wgpu::raii::BindGroup zeroBindGroup_[2];
     wgpu::raii::BindGroup dispBindGroup_;

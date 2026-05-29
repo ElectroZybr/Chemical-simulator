@@ -301,6 +301,124 @@ BondParityResult runBondParity() {
     return r;
 }
 
+// ============================ ANGLE-сцена (2.2b) ============================
+// Триплет H-O-H: O — центр (степень 2 → угловой член существует, BondForceField.cpp:138),
+// два H — плечи через две O-H связи (r0≈0.957, BondTable.cpp:8). Плечи под ~90° друг
+// к другу → угол H-O-H ≈ 90° != theta_0=60° → угловая сила НЕнулева (atoms реально
+// шевелятся под angle-членом). О-H старт на 0.957 (РАВНОВЕСИЕ Morse) — тогда self-
+// displacement несёт ИМЕННО angle-силу, не Morse (изолируем угловой член; Morse-only
+// уже покрыт runBondParity). Смешанные массы O(16)+H(1)+H(1) → invMass развёл бы
+// силовую ошибку. LJ/Кулон ВЫКЛ, формация ВЫКЛ, gravity 0, вдали от стен.
+//
+// Угол f32: CPU считает angle ВЕСЬ в double + acos + 1/sin (Bond.cpp:108-122), GPU
+// всё в f32 → дрейф ожидаемо ШИРЕ Morse-only (acos/деление на sin усиливают f32-
+// погрешность). Tolerance — ПО ИЗМЕРЕНИЮ (порог чуть выше измеренного, провенанс
+// в RESULTS.md). Дизайн §4.4: если > ~1e-1 — принципиальный потолок f32 (флаг).
+struct AngleSceneSpec {
+    AtomData::Type t;
+    Vec3f p;
+};
+
+// O центр + 2 H плеча. r0(O-H)≈0.957 — ставим плечи РОВНО на r0, чтобы Morse-сила
+// была ~0, а двигал атомы угловой член (угол 90° != theta_0 60°). Порядок атомов
+// детерминирован: 0=O, 1=H, 2=H.
+std::vector<AngleSceneSpec> angleSpecs() {
+    constexpr float r = 0.957f; // ~r0 O-H (BondTable.cpp:8) → Morse≈0, изолируем угол
+    const Vec3f o{12.0f, 12.0f, 12.0f};
+    return {
+        {AtomData::Type::O, o},
+        {AtomData::Type::H, Vec3f{o.x + r, o.y, o.z}},      // плечо вдоль +X
+        {AtomData::Type::H, Vec3f{o.x, o.y + r, o.z}},      // плечо вдоль +Y → угол ≈90°
+    };
+}
+
+void fillAngleScene(Simulation& sim, const std::vector<AngleSceneSpec>& specs) {
+    for (const AngleSceneSpec& s : specs) {
+        sim.appendAtomFast(s.p, Vec3f{0.0f, 0.0f, 0.0f}, s.t, false);
+    }
+    sim.finalizeAtomBatch();
+}
+
+struct AngleParityResult {
+    double cpuSelfDisplacement; // CPU двинулся от стартовых позиций — angle НЕнулева
+    double maxAbs;              // GPU vs CPU
+    uint32_t centerDegree;      // степень центра O в резидентном CSR (должна быть 2)
+    size_t cpuBondCountStart;
+    size_t cpuBondCountEnd;     // статичная топология (== start)
+};
+
+AngleParityResult runAngleParity() {
+    constexpr int kSteps = 50;
+    const std::vector<AngleSceneSpec> specs = angleSpecs();
+    const size_t atomCount = specs.size();
+
+    std::vector<Vec3f> startPos;
+    startPos.reserve(atomCount);
+    for (const AngleSceneSpec& s : specs) {
+        startPos.push_back(s.p);
+    }
+
+    // Две связи от центра O(0): O-H(0,1) и O-H(0,2). degree(O)=2 → угол существует.
+    auto addAngleBonds = [](Simulation& sim) {
+        sim.addBond(0, 1);
+        sim.addBond(0, 2);
+    };
+
+    // --- CPU reference ---
+    Simulation cpu;
+    configureSim(cpu);
+    fillAngleScene(cpu, specs);
+    addAngleBonds(cpu);
+    const size_t cpuBondCountStart = cpu.bonds().size();
+
+    // --- GPU через реальный путь ---
+    Simulation gpu;
+    configureSim(gpu);
+    fillAngleScene(gpu, specs);
+    addAngleBonds(gpu);
+    gpu.setGpuMode(true);
+
+    // Резидентный CSR == CPU-adjacency сразу после входа (и центр имеет degree 2).
+    uint32_t centerDegree = 0;
+    {
+        const GpuResidentPhysics* res = gpu.activeGpuResident();
+        if (res == nullptr) {
+            throw std::runtime_error("AngleParity: GPU resident missing after setGpuMode");
+        }
+        assertCsrMatches(*res, gpu.bonds(), atomCount, "angle: after setGpuMode");
+        const std::vector<uint32_t> off = res->readbackBondOffsets();
+        centerDegree = off[1] - off[0]; // окно центра O (атом 0)
+    }
+
+    for (int s = 0; s < kSteps; ++s) {
+        cpu.updateAll();
+        gpu.updateAll();
+    }
+    gpu.syncFromGpuIfNeeded();
+
+    // CPU реально двинулся от старта (angle-сила НЕнулева — гейт не слеп). Старт на
+    // r0 → Morse≈0, так что это смещение несёт именно угловой член.
+    double cpuSelfDisplacement = 0.0;
+    {
+        const AtomStorage& a = cpu.atoms();
+        for (size_t i = 0; i < atomCount; ++i) {
+            const Vec3f sp = startPos[i];
+            cpuSelfDisplacement = std::max(cpuSelfDisplacement, std::abs(static_cast<double>(a.posX(i)) - sp.x));
+            cpuSelfDisplacement = std::max(cpuSelfDisplacement, std::abs(static_cast<double>(a.posY(i)) - sp.y));
+            cpuSelfDisplacement = std::max(cpuSelfDisplacement, std::abs(static_cast<double>(a.posZ(i)) - sp.z));
+        }
+    }
+
+    const size_t cpuBondCountEnd = cpu.bonds().size();
+    const double maxAbs = maxAbsPositionDiff(cpu.atoms(), gpu.atoms());
+
+    AngleParityResult r{cpuSelfDisplacement, maxAbs, centerDegree, cpuBondCountStart, cpuBondCountEnd};
+    std::printf("[ BONDPAR  ] angle H-O-H: steps=%d CPU-self-disp=%.3e max|dCPU-GPU|=%.3e abs "
+                "(center-degree=%u, bonds %zu->%zu)\n",
+                kSteps, r.cpuSelfDisplacement, r.maxAbs, r.centerDegree, r.cpuBondCountStart, r.cpuBondCountEnd);
+    return r;
+}
+
 // Регрессия на доставку РАНТАЙМ-смены setLJEnabled в GPU-режим. GPU-шаг диспатчит
 // LJ под флагом ljEnabled_, снятым на upload (GpuResidentPhysics.cpp). Если
 // setLJEnabled НЕ бампит cpuSceneVersion, выключение LJ ПОСЛЕ setGpuMode(true) не
@@ -379,6 +497,7 @@ void runBondParityGate(benchmark::State& state) {
 
     for (auto _ : state) {
         const BondParityResult r = runBondParity();
+        const AngleParityResult ang = runAngleParity();
         const LJToggleResult lj = runLJToggleDelivery();
 
         state.counters["max_abs"] = r.maxAbs;
@@ -405,6 +524,39 @@ void runBondParityGate(benchmark::State& state) {
         constexpr double kTol = 1e-2;
         if (r.maxAbs > kTol) {
             throw std::runtime_error("GPU Morse-bond trajectory diverged from CPU beyond tolerance");
+        }
+
+        // --- ANGLE sub-case (2.2b) ---
+        state.counters["angle_max_abs"] = ang.maxAbs;
+        state.counters["angle_cpu_self_disp"] = ang.cpuSelfDisplacement;
+        state.counters["angle_center_degree"] = ang.centerDegree;
+
+        // Центр O имеет РОВНО 2 bonded-соседа в резидентном CSR (две O-H связи) →
+        // угловой триплет существует (BondForceField.cpp:138 требует degree>=2).
+        if (ang.centerDegree != 2u) {
+            throw std::runtime_error("AngleParity: center degree != 2 in resident CSR — no angle triplet exercised");
+        }
+        // CPU реально двинулся → угловая сила НЕнулева (старт на r0 → Morse≈0, так что
+        // это смещение несёт именно угловой член). Без этого 0==0 «прошло» бы слепо.
+        constexpr double kAngleNonZeroDisp = 1e-4;
+        if (ang.cpuSelfDisplacement <= kAngleNonZeroDisp) {
+            throw std::runtime_error("AngleParity: CPU angle produced ~0 displacement — gate is blind (force is zero)");
+        }
+        // Статичная топология: связи не порвались за прогон.
+        if (ang.cpuBondCountEnd != ang.cpuBondCountStart) {
+            throw std::runtime_error("AngleParity: CPU broke a bond during run — scene invalid (topology changed)");
+        }
+        // GPU vs CPU. Tolerance ШИРЕ Morse-only (тот бит-в-бит 0): угол CPU считает ВЕСЬ
+        // в double + acos + 1/sin (Bond.cpp:108-122), GPU всё в f32 → дрейф усилен (acos/
+        // деление на sin не бит-в-бит между double и f32). Порог ПО ИЗМЕРЕНИЮ, провенанс
+        // в RESULTS.md. ИЗМЕРЕНО: max|Δpos| = 2.861e-06 за 50 шагов на H-O-H @90° (угол
+        // далёк от sin≈0-сингулярности → acos/1/sin хорошо обусловлены, дрейф мал; НЕ
+        // потребовался широкий ~1e-1 из дизайна §4.4). Порог 1e-5 (~3.5× запас над
+        // измеренным под run-to-run f32-недетерминизм). Форма с НЕнулевым self-disp выше
+        // гарантирует, что это РЕАЛЬНЫЙ паритет, а не 0==0.
+        constexpr double kAngleTol = 1e-5;
+        if (ang.maxAbs > kAngleTol) {
+            throw std::runtime_error("GPU angle-bond trajectory diverged from CPU beyond tolerance");
         }
 
         state.counters["lj_toggle_parity"] = lj.parity;
