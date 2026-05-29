@@ -156,7 +156,10 @@ public:
     // прогресс GPU с последнего синка. В CPU-режиме no-op.
     void syncGpuBeforeEdit();
 
-    void setLJEnabled(bool enabled) { world().setLJEnabled(enabled); }
+    void setLJEnabled(bool enabled) {
+        world().setLJEnabled(enabled);
+        notifySceneEdited(); // GPU-шаг диспатчит LJ под флагом ljEnabled_, снятым на upload — рантайм-смена требует re-upload (иначе toggle не долетит до GPU)
+    }
     bool isLJEnabled() const { return world().isLJEnabled(); }
     void setCoulombEnabled(bool enabled) { world().setCoulombEnabled(enabled); }
     bool isCoulombEnabled() const { return world().isCoulombEnabled(); }

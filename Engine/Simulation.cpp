@@ -256,7 +256,13 @@ void Simulation::uploadSceneToGpu(WorldState& state) {
     const Vec3f gravity = state.world.getGravity();
     state.gpu->uploadFromCpu(state.world.getAtomStorage(), nl, state.forceField_.ljForceField(),
                              static_cast<float>(size.x), static_cast<float>(size.y), static_cast<float>(size.z),
-                             static_cast<float>(gravity.x), static_cast<float>(gravity.y), static_cast<float>(gravity.z));
+                             static_cast<float>(gravity.x), static_cast<float>(gravity.y), static_cast<float>(gravity.z),
+                             state.world.isLJEnabled());
+    // Bond-adjacency (CSR) заливаем рядом с позициями/NL: статичная топология
+    // существующих связей получает Morse-силы на GPU (2.2a). uploadFromCpu уже
+    // выставил totalCount_, на который uploadBonds строит CSR (offsets длины
+    // totalCount+1). Сцена без связей → пустой CSR (силы 0, LJ-only паритет цел).
+    state.gpu->uploadBonds(state.world.getBonds(), state.world.getAtomStorage());
     state.cpuPositionsDirty = false;
     state.stepsSinceDispCheck = 0;
     state.gpuUploadedSceneVersion = state.cpuSceneVersion; // VRAM теперь соответствует CPU-сцене
@@ -363,7 +369,21 @@ void Simulation::removeAtom(size_t atomIndex) {
     notifySceneEdited();
 }
 
-void Simulation::addBond(size_t aIndex, size_t bIndex) { Bond::CreateBond(world().getBonds(), aIndex, bIndex, world().getAtomStorage()); }
+void Simulation::addBond(size_t aIndex, size_t bIndex) {
+    const Bond* created = Bond::CreateBond(world().getBonds(), aIndex, bIndex, world().getAtomStorage());
+    if (created == nullptr) {
+        // Связь НЕ создана (невалидные индексы / само-связь / исчерпана валентность /
+        // дубликат / нулевые params): топология не изменилась — бампить версию и гнать
+        // дорогой re-upload bond-CSR незачем.
+        return;
+    }
+    // Связь добавлена → топология изменилась. Бамп версии сцены заставит ближайший
+    // updateStateGpu перезалить bond-CSR в VRAM (uploadSceneToGpu → uploadBonds),
+    // иначе добавленная в GPU-режиме связь молча не получала бы Morse-силы. addBond
+    // не трогает позиции, поэтому syncGpuBeforeEdit не нужен (re-upload несёт текущие
+    // VRAM-позиции через downloadToCpu при cpuPositionsDirty).
+    notifySceneEdited();
+}
 
 void Simulation::clear() {
     WorldState& state = activeState();

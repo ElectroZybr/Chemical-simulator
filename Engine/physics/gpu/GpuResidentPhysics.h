@@ -10,6 +10,8 @@
 #include <webgpu/webgpu-raii.hpp>
 #include <webgpu/webgpu.hpp>
 
+#include "Engine/physics/Bond.h" // Bond::List (nested typedef — forward-decl недостаточно)
+
 class AtomStorage;
 class NeighborList;
 class LJForceField;
@@ -19,15 +21,18 @@ class GpuNeighborListBuilder;
 // CPU их не качает в hot loop. Это и есть «физика на GPU» (в отличие от
 // GpuPairForceCompute, который оффлоадит одну операцию с readback каждый раз).
 //
-// Что считается на GPU: LJ + soft-wall + gravity. Ограничения GPU-режима:
-// bond/Coulomb выключены, NeighborList в режиме Full (каждая пара дважды, force
-// loop пишет только в свой forceX — нет race). Эти ограничения — следствие
+// Что считается на GPU: LJ + soft-wall + gravity + Morse-силы статичных связей.
+// Ограничения GPU-режима: Coulomb выключен; bonds — Morse-силы считаются по
+// статичной топологии (формация/разрыв заморожены, пока активен GPU-режим),
+// угловые силы пока на CPU (2.2b); NeighborList в режиме Full (каждая пара дважды,
+// force loop пишет только в свой forceX — нет race). Эти ограничения — следствие
 // резидентности: если бы силы читал CPU, пришлось бы качать позиции каждый шаг.
 // (Soft-wall/gravity — per-atom-силы без neighbor-чтения, поэтому легли на GPU
-// без CPU round-trip: зеркалят WallForceField, паритет проверяет BM_GpuWallGravityParity.)
+// без CPU round-trip: зеркалят WallForceField, паритет проверяет BM_GpuWallGravityParity.
+// Morse — per-atom gather по bond-CSR, зеркалит Bond::forceBond, паритет — BM_GpuBondParity.)
 //
 // Шаг повторяет CPU velocity Verlet (VerletScheme + StepOps::confineToBox):
-//   predict -> confine -> swap(pf<->f, parity) -> zero(f, total) -> wall+gravity -> LJ -> correct
+//   predict -> confine -> swap(pf<->f, parity) -> zero(f, total) -> wall+gravity -> LJ -> bond_morse -> correct
 // swap реализован ping-pong'ом двух force-буферов через parity-бит и две
 // пред-собранные bind-группы (не копирование).
 class GpuResidentPhysics {
@@ -44,12 +49,28 @@ public:
     // wallUniform_. Полная перезаливка несёт текущую gravity, поэтому рантайм-смена
     // gravity (через cpuSceneVersion-бамп в Simulation::setGravity) подхватывается
     // ближайшим re-upload'ом.
+    // ljEnabled — world.isLJEnabled(): если false, step() ПРОПУСКАЕТ диспатч
+    // compute_lj (как CPU ForceField::compute чекает isLJEnabled, ForceField.cpp:147-150).
+    // Раньше GPU-шаг диспатчил LJ безусловно — setLJEnabled(false) молча игнорился
+    // (тихая дивергенция). Полная перезаливка несёт текущий флаг, поэтому рантайм-
+    // смена (через cpuSceneVersion-бамп) подхватывается ближайшим re-upload'ом.
     void uploadFromCpu(const AtomStorage& atoms, const NeighborList& neighborList, const LJForceField& ljForceField,
-                       float worldSizeX, float worldSizeY, float worldSizeZ, float gravityX, float gravityY, float gravityZ);
+                       float worldSizeX, float worldSizeY, float worldSizeZ, float gravityX, float gravityY, float gravityZ,
+                       bool ljEnabled);
 
     // Только NL (offsets+neighbors) + refPos для displacement-проверки. Вызывается
     // после CPU NeighborList::build, без перезаливки позиций/скоростей.
     void uploadNeighborList(const NeighborList& neighborList);
+
+    // Заливает резидентную bond-adjacency (CSR) из CPU-списка связей. Каждая связь
+    // (a,b) → ДВА directed edge (a→b и b→a) с per-edge Morse-параметрами из
+    // bond.params (Bond.h:40). Зеркалит порядок CPU-построения adjacency
+    // (BondForceField.cpp:129-134): для bond (a,b) сосед b добавляется атому a,
+    // сосед a — атому b, в порядке обхода списка bonds. Буфера растут в
+    // ensureCapacity под 2*bondCount рёбер ДО writeBuffer (fail-closed). Вызывается
+    // из Simulation::uploadSceneToGpu рядом с uploadFromCpu. Статичная топология:
+    // связи неизменны, пока активен GPU-режим (формация/разрыв заморожены).
+    void uploadBonds(const Bond::List& bonds, const AtomStorage& atoms);
 
     // Шаг 2c: пересобирает Full NeighborList ЦЕЛИКОМ на GPU из резидентных
     // positions_ и оставляет результат в резидентных nlOffsets_/nlNeighbors_, что
@@ -88,6 +109,14 @@ public:
     //   readbackNlNeighbors(n): ровно n элементов (n = offsets[totalCount]).
     [[nodiscard]] std::vector<uint32_t> readbackNlOffsets() const;
     [[nodiscard]] std::vector<uint32_t> readbackNlNeighbors(uint32_t total) const;
+
+    // Блокирующий readback РЕЗИДЕНТНЫХ bond-CSR буферов (bench/диагностика — как
+    // readbackNl*). Доказывает, что bond-adjacency реально доставлена в VRAM
+    // (а не молча пуста → 0 bond-сил → ложный pass гейта, как устаревшая gravity).
+    //   readbackBondOffsets():    totalCount()+1 элементов (CSR; [totalCount]=2*bondCount).
+    //   readbackBondNeighbors(n): ровно n directed-рёбер (n = bondOffsets[totalCount]).
+    [[nodiscard]] std::vector<uint32_t> readbackBondOffsets() const;
+    [[nodiscard]] std::vector<uint32_t> readbackBondNeighbors(uint32_t total) const;
 
     // Один резидентный шаг (dt, accelDamping как у CPU Integrator). Ничего не
     // качает CPU<->GPU. Допускает батчинг (несколько step() подряд до sync).
@@ -175,6 +204,13 @@ private:
     // сравнивает его, чтобы пере-биндить чужой буфер. См. renderBufferGeneration().
     uint64_t bufferGeneration_ = 0;
     int parity_ = 0; // какой из forces_[2] сейчас «current»
+    // LJ on/off (world.isLJEnabled()): step() пропускает диспатч compute_lj когда
+    // false. Доставляется на uploadFromCpu (полная перезаливка несёт текущий флаг).
+    // По умолчанию true — дефолтное поведение (LJ включён) не меняется.
+    bool ljEnabled_ = true;
+    // Число directed-рёбер в bond-CSR (= 2*bondCount), залитых в bondNeighbors_.
+    // 0 при сцене без связей → bond-kernel при пустых offsets прибавляет ровно 0.
+    uint32_t bondNeighborCount_ = 0;
 
     float cutoffSqr_ = 0.0f;
     float worldMax_[3] = {0, 0, 0};
@@ -187,6 +223,7 @@ private:
     // Pipelines
     wgpu::raii::ComputePipeline ljPipeline_;
     wgpu::raii::ComputePipeline wallPipeline_;
+    wgpu::raii::ComputePipeline bondMorsePipeline_; // 2.2a: Morse-силы статичных связей
     wgpu::raii::ComputePipeline predictPipeline_;
     wgpu::raii::ComputePipeline confinePipeline_;
     wgpu::raii::ComputePipeline zeroPipeline_;
@@ -195,6 +232,7 @@ private:
 
     wgpu::raii::BindGroupLayout ljLayout_;
     wgpu::raii::BindGroupLayout wallLayout_;
+    wgpu::raii::BindGroupLayout bondMorseLayout_; // 2.2a
     wgpu::raii::BindGroupLayout intLayout_;
     wgpu::raii::BindGroupLayout dispLayout_;
 
@@ -207,6 +245,12 @@ private:
     wgpu::raii::Buffer nlOffsets_;
     wgpu::raii::Buffer nlNeighbors_;
     wgpu::raii::Buffer ljPairs_;
+    // Bond-adjacency CSR (2.2a, зеркалит nlOffsets_/nlNeighbors_): bondOffsets_
+    // (totalCount+1), bondNeighbors_ (2*bondCount directed-рёбер), bondParams_
+    // (vec4 r0/De/a/_ на ребро, параллельно bondNeighbors_). Заливаются в uploadBonds.
+    wgpu::raii::Buffer bondOffsets_;
+    wgpu::raii::Buffer bondNeighbors_;
+    wgpu::raii::Buffer bondParams_;
     wgpu::raii::Buffer refPos_;          // позиции на момент последнего NL build
     wgpu::raii::Buffer dispFlag_;        // 1×u32, atomicMax bitcast displacement^2
     wgpu::raii::Buffer dispReadback_;    // MapRead для dispFlag_
@@ -215,12 +259,14 @@ private:
 
     wgpu::raii::Buffer ljUniform_;
     wgpu::raii::Buffer wallUniform_;
+    wgpu::raii::Buffer bondUniform_; // 2.2a: {totalCount, thetaZero, kAngle, pad}
     wgpu::raii::Buffer intUniform_;
     wgpu::raii::Buffer dispUniform_;
 
     // Bind-группы для parity 0 и 1 (current/prev меняются местами).
     wgpu::raii::BindGroup ljBindGroup_[2];
     wgpu::raii::BindGroup wallBindGroup_[2]; // wall+gravity: forces -> forces_[p]
+    wgpu::raii::BindGroup bondMorseBindGroup_[2]; // 2.2a: forces -> forces_[p]
     wgpu::raii::BindGroup intBindGroup_[2];
     wgpu::raii::BindGroup zeroBindGroup_[2];
     wgpu::raii::BindGroup dispBindGroup_;
@@ -247,6 +293,11 @@ private:
     uint64_t dispDiscardCount_ = 0;
     size_t nlOffsetsCapacity_ = 0;
     size_t nlNeighborsCapacity_ = 0;
+    // Ёмкости bond-CSR буферов (2.2a). bondOffsets_ растёт под totalCount+1 (тот же
+    // размер, что nlOffsets_, но отдельный буфер); bondNeighbors_/bondParams_ — под
+    // 2*bondCount directed-рёбер. Растут в ensureCapacity, fail-closed до writeBuffer.
+    size_t bondOffsetsCapacity_ = 0;
+    size_t bondNeighborsCapacity_ = 0;
 
     // Шаг 2c: внутренний GPU NL builder (cell-list+scan+Full NL целиком на GPU).
     // Lazy-инициализируется при первом rebuildNeighborListOnGpu (резидентные

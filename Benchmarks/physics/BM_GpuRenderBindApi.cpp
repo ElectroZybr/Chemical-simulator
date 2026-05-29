@@ -67,7 +67,7 @@ void uploadScene(GpuResidentPhysics& grp, uint32_t atomCount, float box) {
     nl.build(atoms, world);
 
     LJForceField lj;
-    grp.uploadFromCpu(atoms, nl, lj, box, box, box, 0.0f, 0.0f, 0.0f); // gravity=0 (render-bind API контракт, не траектория)
+    grp.uploadFromCpu(atoms, nl, lj, box, box, box, 0.0f, 0.0f, 0.0f, /*ljEnabled=*/true); // gravity=0 (render-bind API контракт, не траектория)
 }
 
 // Контракт буферов после upload под atomCount атомов.

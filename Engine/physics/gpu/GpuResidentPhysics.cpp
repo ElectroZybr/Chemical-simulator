@@ -15,6 +15,7 @@
 
 #include "generated/shaders/integrate_verlet.wgsl.h"
 #include "generated/shaders/nl_displacement.wgsl.h"
+#include "generated/shaders/physics_bond.wgsl.h"
 #include "generated/shaders/physics_lj.wgsl.h"
 #include "generated/shaders/physics_wall.wgsl.h"
 
@@ -54,6 +55,17 @@ struct IntegratorUniforms {
 struct DispUniforms {
     uint32_t mobileCount;
 };
+
+// Раскладка ОБЯЗАНА совпадать с BondUniforms в physics_bond.wgsl (порядок полей +
+// хвостовой паддинг до кратного 16 байт под uniform-binding). thetaZero/kAngle —
+// резерв под угловые силы (2.2b); Morse-kernel их не читает.
+struct BondUniforms {
+    uint32_t totalCount;
+    float thetaZero; // == Bond.cpp:116 (60° в радианах)
+    float kAngle;    // == Bond.cpp:121 (50.0)
+    uint32_t pad0;   // выравнивание до 16 байт
+};
+static_assert(sizeof(BondUniforms) == 16, "BondUniforms != 16 байт: разошёлся контракт с physics_bond.wgsl");
 
 wgpu::ShaderModule makeModule(std::string_view wgsl) {
     WGPUShaderSourceWGSL d{};
@@ -133,6 +145,24 @@ void GpuResidentPhysics::ensureInitialized() {
         e[2].buffer.type = wgpu::BufferBindingType::Storage;
         wallLayout_ = WGPUContext::instance().createBindGroupLayout(e, "GRP_Wall_BGL");
     }
+    // Bond Morse layout (6): uniform + positions/bondOffsets/bondNeighbors/bondParams(read)
+    // + forces(rw). Per-atom gather по bond-CSR (как LJ по NL, но топология вместо
+    // пространственных соседей).
+    {
+        std::array<wgpu::BindGroupLayoutEntry, 6> e{};
+        e[0].binding = 0;
+        e[0].visibility = wgpu::ShaderStage::Compute;
+        e[0].buffer.type = wgpu::BufferBindingType::Uniform;
+        for (uint32_t i = 1; i <= 4; ++i) {
+            e[i].binding = i;
+            e[i].visibility = wgpu::ShaderStage::Compute;
+            e[i].buffer.type = wgpu::BufferBindingType::ReadOnlyStorage;
+        }
+        e[5].binding = 5;
+        e[5].visibility = wgpu::ShaderStage::Compute;
+        e[5].buffer.type = wgpu::BufferBindingType::Storage;
+        bondMorseLayout_ = WGPUContext::instance().createBindGroupLayout(e, "GRP_BondMorse_BGL");
+    }
     // Integrator layout (6): uniform + pos/vel/forces(rw) + prevForces/invMass(read)
     {
         std::array<wgpu::BindGroupLayoutEntry, 6> e{};
@@ -178,6 +208,8 @@ void GpuResidentPhysics::ensureInitialized() {
     ljPipeline_ = makePipeline(*ljLayout_, ljMod, "compute_lj");
     wgpu::ShaderModule wallMod = makeModule(physics_wallWGSL);
     wallPipeline_ = makePipeline(*wallLayout_, wallMod, "compute_wall");
+    wgpu::ShaderModule bondMod = makeModule(physics_bondWGSL);
+    bondMorsePipeline_ = makePipeline(*bondMorseLayout_, bondMod, "compute_bond_morse");
     wgpu::ShaderModule iMod = makeModule(integrate_verletWGSL);
     predictPipeline_ = makePipeline(*intLayout_, iMod, "predict");
     confinePipeline_ = makePipeline(*intLayout_, iMod, "confine");
@@ -190,6 +222,8 @@ void GpuResidentPhysics::ensureInitialized() {
                                                       "GRP_LJU");
     wallUniform_ = WGPUContext::instance().createBuffer(sizeof(WallUniforms), wgpu::BufferUsage::Uniform | wgpu::BufferUsage::CopyDst,
                                                         "GRP_WallU");
+    bondUniform_ = WGPUContext::instance().createBuffer(sizeof(BondUniforms), wgpu::BufferUsage::Uniform | wgpu::BufferUsage::CopyDst,
+                                                        "GRP_BondU");
     intUniform_ = WGPUContext::instance().createBuffer(sizeof(IntegratorUniforms),
                                                        wgpu::BufferUsage::Uniform | wgpu::BufferUsage::CopyDst, "GRP_IntU");
     dispUniform_ = WGPUContext::instance().createBuffer(sizeof(DispUniforms), wgpu::BufferUsage::Uniform | wgpu::BufferUsage::CopyDst,
@@ -264,6 +298,23 @@ void GpuResidentPhysics::ensureCapacity(size_t totalCount, size_t mobileCount, s
         nlOffsetsCapacity_ = cap;
         grew = true;
     }
+    // Bond-CSR (2.2a): bondOffsets_ зеркалит nlOffsets_ (totalCount+1). Растёт здесь,
+    // т.к. зависит только от totalCount (известен на каждом ensureCapacity).
+    // bondNeighbors_/bondParams_ зависят от числа рёбер (известно лишь в uploadBonds)
+    // — здесь резервируем минимум 1 (как nlNeighbors), чтобы первый rebuildBindGroups
+    // не получил null-ресурс; реальный рост — в uploadBonds (fail-closed до заливки).
+    if (totalCount + 1 > bondOffsetsCapacity_) {
+        const size_t cap = kHeadroom(totalCount + 1);
+        bondOffsets_ = WGPUContext::instance().createBuffer(cap * 4, stSrc, "GRP_BondOff");
+        bondOffsetsCapacity_ = cap;
+        grew = true;
+    }
+    if (bondNeighborsCapacity_ == 0) {
+        bondNeighbors_ = WGPUContext::instance().createBuffer(4, stSrc, "GRP_BondNbr");
+        bondParams_ = WGPUContext::instance().createBuffer(16, stSrc, "GRP_BondParams");
+        bondNeighborsCapacity_ = 1;
+        grew = true;
+    }
     if (grew) {
         rebuildBindGroups();
     }
@@ -318,6 +369,33 @@ void GpuResidentPhysics::rebuildBindGroups() {
         wallBindGroup_[p] = WGPUContext::instance().createBindGroup(*wallLayout_, b, "GRP_Wall_BG");
     }
 
+    // Bond Morse bind groups (forces -> forces_[p]) для p=0,1 — тот же ping-pong.
+    // positions/bondOffsets/bondNeighbors/bondParams — НЕ ping-pong (одни на оба
+    // parity, как ljPairs/positions у LJ). bondOffsets биндим под totalCount+1 (его
+    // активная длина), bondNeighbors/bondParams — под полную ёмкость.
+    for (int p = 0; p < 2; ++p) {
+        std::array<wgpu::BindGroupEntry, 6> b{};
+        b[0].binding = 0;
+        b[0].buffer = *bondUniform_;
+        b[0].size = sizeof(BondUniforms);
+        b[1].binding = 1;
+        b[1].buffer = *positions_;
+        b[1].size = vec4Bytes;
+        b[2].binding = 2;
+        b[2].buffer = *bondOffsets_;
+        b[2].size = bondOffsetsCapacity_ * 4;
+        b[3].binding = 3;
+        b[3].buffer = *bondNeighbors_;
+        b[3].size = bondNeighborsCapacity_ * 4;
+        b[4].binding = 4;
+        b[4].buffer = *bondParams_;
+        b[4].size = bondNeighborsCapacity_ * 16;
+        b[5].binding = 5;
+        b[5].buffer = *forces_[p];
+        b[5].size = vec4Bytes;
+        bondMorseBindGroup_[p] = WGPUContext::instance().createBindGroup(*bondMorseLayout_, b, "GRP_BondMorse_BG");
+    }
+
     // Integrator bind groups: forces=forces_[p], prevForces=forces_[1-p].
     for (int p = 0; p < 2; ++p) {
         std::array<wgpu::BindGroupEntry, 6> b{};
@@ -363,7 +441,7 @@ void GpuResidentPhysics::rebuildBindGroups() {
 
 void GpuResidentPhysics::uploadFromCpu(const AtomStorage& atoms, const NeighborList& neighborList, const LJForceField& ljForceField,
                                        float worldSizeX, float worldSizeY, float worldSizeZ, float gravityX, float gravityY,
-                                       float gravityZ) {
+                                       float gravityZ, bool ljEnabled) {
     ensureInitialized();
 
     const size_t n = atoms.size();
@@ -380,6 +458,7 @@ void GpuResidentPhysics::uploadFromCpu(const AtomStorage& atoms, const NeighborL
     gravity_[0] = gravityX;
     gravity_[1] = gravityY;
     gravity_[2] = gravityZ;
+    ljEnabled_ = ljEnabled; // step() пропустит compute_lj если false (паритет с CPU isLJEnabled)
     parity_ = 0;
 
     std::vector<float> pos(n * 4), vel(n * 4), im(n);
@@ -447,6 +526,15 @@ void GpuResidentPhysics::uploadFromCpu(const AtomStorage& atoms, const NeighborL
     wu.border = 2.0f;  // == WallForceField.cpp:29
     wu.mobileCount = mobileCount_;
     q->writeBuffer(*wallUniform_, 0, &wu, sizeof(wu));
+
+    // Bond uniform: totalCount (гард kernel'а i >= totalCount при gTotal-диспатче).
+    // thetaZero/kAngle — глобальные хардкод-инварианты угловой модели (== Bond.cpp:116,121),
+    // резерв под угловые силы (2.2b); Morse-kernel их не читает. 60°·π/180 = 1.04719755.
+    BondUniforms bu{};
+    bu.totalCount = totalCount_;
+    bu.thetaZero = 60.0f / 180.0f * 3.14159265358979323846f; // == Bond.cpp:116
+    bu.kAngle = 50.0f;                                        // == Bond.cpp:121
+    q->writeBuffer(*bondUniform_, 0, &bu, sizeof(bu));
 }
 
 void GpuResidentPhysics::uploadNeighborList(const NeighborList& neighborList) {
@@ -470,6 +558,86 @@ void GpuResidentPhysics::uploadNeighborList(const NeighborList& neighborList) {
     enc.copyBufferToBuffer(*positions_, 0, *refPos_, 0, static_cast<uint64_t>(totalCount_) * 16);
     wgpu::CommandBuffer cmd = enc.finish({});
     q->submit(1, &cmd);
+}
+
+void GpuResidentPhysics::uploadBonds(const Bond::List& bonds, const AtomStorage& atoms) {
+    ensureInitialized();
+    const size_t n = static_cast<size_t>(totalCount_);
+
+    // CSR строим в CPU-векторах, зеркаля порядок BondForceField (degree → prefix
+    // sum → fill двусторонним обходом). totalCount_ уже выставлен uploadFromCpu
+    // (вызывается до uploadBonds в uploadSceneToGpu).
+    std::vector<uint32_t> bondOffsets(n + 1, 0u);
+
+    // 1) Степени per-atom: каждый bond инкрементит оба конца (== degreeScratch_,
+    //    BondForceField.cpp:109-115). Out-of-range конец пропускаем (как CPU-гард
+    //    bond.aIndex<n && bond.bIndex<n) — иначе degree/fill разъедутся.
+    for (const Bond& bond : bonds) {
+        if (bond.aIndex < n && bond.bIndex < n) {
+            ++bondOffsets[bond.aIndex];
+            ++bondOffsets[bond.bIndex];
+        }
+    }
+
+    // 2) Prefix sum → offsets (CSR): bondOffsets[i] = начало окна атома i,
+    //    bondOffsets[n] = суммарное число directed-рёбер (= 2*validBondCount).
+    uint32_t running = 0u;
+    for (size_t i = 0; i < n; ++i) {
+        const uint32_t deg = bondOffsets[i];
+        bondOffsets[i] = running;
+        running += deg;
+    }
+    bondOffsets[n] = running;
+    const uint32_t directedEdges = running; // 2 * число валидных связей
+
+    // 3) Fill neighbors + params двусторонним обходом в порядке списка bonds (==
+    //    BondForceField.cpp:129-134: для bond (a,b) сосед b кладётся атому a, сосед
+    //    a — атому b). Бегущий курсор per-atom сохраняет ТОТ ЖЕ порядок соседей,
+    //    что CPU emplace_back. Params каждого ребра — из bond.params (Bond.h:40),
+    //    зафиксированы при создании связи; kernel НЕ лезет в type-таблицу.
+    std::vector<uint32_t> bondNeighbors(std::max<uint32_t>(directedEdges, 1u), 0u);
+    std::vector<float> bondParams(std::max<uint32_t>(directedEdges, 1u) * 4u, 0.0f);
+    std::vector<uint32_t> cursor(n, 0u);
+    for (size_t i = 0; i < n; ++i) {
+        cursor[i] = bondOffsets[i];
+    }
+    auto writeEdge = [&](uint32_t from, uint32_t to, const BondParams& p) {
+        const uint32_t slot = cursor[from]++;
+        bondNeighbors[slot] = to;
+        bondParams[slot * 4 + 0] = p.r0;
+        bondParams[slot * 4 + 1] = p.De;
+        bondParams[slot * 4 + 2] = p.a;
+        bondParams[slot * 4 + 3] = 0.0f;
+    };
+    for (const Bond& bond : bonds) {
+        if (bond.aIndex < n && bond.bIndex < n) {
+            writeEdge(static_cast<uint32_t>(bond.aIndex), static_cast<uint32_t>(bond.bIndex), bond.params);
+            writeEdge(static_cast<uint32_t>(bond.bIndex), static_cast<uint32_t>(bond.aIndex), bond.params);
+        }
+    }
+
+    // 4) Рост резидентных буферов ДО writeBuffer (fail-closed, как NL overflow в
+    //    rebuildNeighborListOnGpu): bondOffsets_ уже >= totalCount+1 после
+    //    ensureCapacity в uploadFromCpu; bondNeighbors_/bondParams_ растим под
+    //    directedEdges, если прежней ёмкости мало (re-upload с бо́льшим числом связей).
+    if (static_cast<size_t>(directedEdges) > bondNeighborsCapacity_) {
+        const size_t cap = kHeadroom(directedEdges);
+        const wgpu::BufferUsage stSrc =
+            wgpu::BufferUsage::Storage | wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::CopySrc;
+        bondNeighbors_ = WGPUContext::instance().createBuffer(cap * 4, stSrc, "GRP_BondNbr");
+        bondParams_ = WGPUContext::instance().createBuffer(cap * 16, stSrc, "GRP_BondParams");
+        bondNeighborsCapacity_ = cap;
+        rebuildBindGroups(); // буфера пересозданы — перепривязать bond-группы (и все прочие)
+    }
+
+    bondNeighborCount_ = directedEdges;
+
+    auto q = WGPUContext::instance().queue();
+    q->writeBuffer(*bondOffsets_, 0, bondOffsets.data(), bondOffsets.size() * 4);
+    // bondNeighbors/bondParams всегда непусты (min 1 элемент при отсутствии связей —
+    // offsets все равны 0, gather по пустому окну даёт 0). Заливаем активную длину.
+    q->writeBuffer(*bondNeighbors_, 0, bondNeighbors.data(), bondNeighbors.size() * 4);
+    q->writeBuffer(*bondParams_, 0, bondParams.data(), bondParams.size() * 4);
 }
 
 void GpuResidentPhysics::rebuildNeighborListOnGpu(uint32_t gridSizeX, uint32_t gridSizeY, uint32_t gridSizeZ, float cellSize,
@@ -587,6 +755,17 @@ std::vector<uint32_t> GpuResidentPhysics::readbackNlNeighbors(uint32_t total) co
     return readU32Blocking(nlNeighbors_, total, 0u);
 }
 
+std::vector<uint32_t> GpuResidentPhysics::readbackBondOffsets() const {
+    return readU32Blocking(bondOffsets_, totalCount_ + 1u, 0u);
+}
+
+std::vector<uint32_t> GpuResidentPhysics::readbackBondNeighbors(uint32_t total) const {
+    if (total == 0u) {
+        return {};
+    }
+    return readU32Blocking(bondNeighbors_, total, 0u);
+}
+
 void GpuResidentPhysics::step(float dt, float accelDamping) {
     IntegratorUniforms iu{dt, accelDamping, worldMax_[0], worldMax_[1], worldMax_[2], 0.8f, mobileCount_, totalCount_};
     WGPUContext::instance().queue()->writeBuffer(*intUniform_, 0, &iu, sizeof(iu));
@@ -621,9 +800,24 @@ void GpuResidentPhysics::step(float dt, float accelDamping) {
     pass.setPipeline(*wallPipeline_);
     pass.dispatchWorkgroups(gMobile, 1, 1);
 
-    pass.setBindGroup(0, *ljBindGroup_[out], 0, nullptr);
-    pass.setPipeline(*ljPipeline_);
-    pass.dispatchWorkgroups(gMobile, 1, 1);
+    // LJ (mobile) — ПРОПУСКАЕМ диспатч, если LJ выключен (паритет с CPU
+    // ForceField::compute, который чекает isLJEnabled, ForceField.cpp:147-150).
+    // Раньше диспатч был безусловным → setLJEnabled(false) молча игнорился на GPU.
+    if (ljEnabled_) {
+        pass.setBindGroup(0, *ljBindGroup_[out], 0, nullptr);
+        pass.setPipeline(*ljPipeline_);
+        pass.dispatchWorkgroups(gMobile, 1, 1);
+    }
+
+    // Morse-силы связей (gTotal) ПОСЛЕ LJ, ПЕРЕД correct — зеркалит CPU-порядок
+    // wall→LJ→bonds (ForceField.cpp:136-138; bonds последними). gTotal (а не gMobile):
+    // Bond::forceBond пишет силу по индексам концов без mobile-фильтра (Bond.cpp:51-57);
+    // запись в fixed-слот безвредна (correct по gMobile её игнорит). Аккумулятивно
+    // прибавляет к forces_[out].xyz; .w (PE) не трогает. При пустой adjacency
+    // (сцена без связей) gather по пустым окнам даёт ровно 0 → LJ-only паритет цел.
+    pass.setBindGroup(0, *bondMorseBindGroup_[out], 0, nullptr);
+    pass.setPipeline(*bondMorsePipeline_);
+    pass.dispatchWorkgroups(gTotal, 1, 1);
 
     pass.setBindGroup(0, *intBindGroup_[out], 0, nullptr);
     pass.setPipeline(*correctPipeline_);

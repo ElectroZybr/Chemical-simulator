@@ -245,6 +245,47 @@ bind-group не переиспользует ссылку на освобожд�
 ./build/bench/benchmarks.exe --benchmark_filter='BM_GpuWallGravityParity|BM_GpuCorrectness'
 ```
 
+## Фаза 2.2a — Morse-силы связей на GPU (статичная топология)
+
+Расширение функционала: резидентный GPU-шаг раньше МОЛЧА игнорировал связи (в GPU-режиме
+у сцены со связями не было ни Morse-, ни угловых сил, в отличие от CPU). Теперь GPU считает
+**Morse pair-силы** статичных связей, паритетно CPU `Bond::forceBond`. Угловые силы — отдельная
+под-стадия 2.2b. Топология **статична** в GPU-режиме (формация/разрыв заморожены — иначе нужен
+per-step download→решение→upload round-trip, который убрал Шаг 2; динамическая формация вынесена
+в 2.2c как отдельное исследование).
+
+Реализация: новый kernel `Rendering/shaders/physics_bond.wgsl` (`compute_bond_morse`, per-atom
+gather по резидентной bond-adjacency CSR `bondOffsets_`/`bondNeighbors_`/`bondParams_`, зеркаля
+NL-структуру; каждая связь — два directed-ребра, как Full NL → Newton-3 без f32-атомиков).
+Диспатч после LJ, перед correct (CPU-порядок `wall→LJ→bonds`). Топология заливается в `uploadBonds`
+из `world.getBonds()`; `Simulation::addBond` бампит версию сцены (рантайм-связь долетает до VRAM).
+
+Побочный фикс латентной дивергенции: GPU-шаг теперь чекает `isLJEnabled()` и пропускает диспатч
+`compute_lj`, когда LJ выключен (раньше игнорировал — выключил LJ на CPU, перешёл в GPU → LJ молча
+возвращался). `setLJEnabled` бампит версию → рантайм-смена долетает.
+
+### Гейт паритета: `BM_GpuBondParity` (Morse-only)
+
+| Проверка | Результат | Примечание |
+|---|---|---|
+| Morse-сила, GPU vs CPU | **0.000e+00** (бит-в-бит) | 3 изолированные пары степени-1 (C-C@1.1, O-H@0.9, C-C@1.1), off-equilibrium → Morse≠0; LJ/Кулон ВЫКЛ; смешанные массы O/C/H |
+| CPU реально двинулся (не слеп) | self-disp **3.199e-02** | assert > 1e-4 до сверки: Morse активна |
+| резидентный CSR == CPU-adjacency | точное совпадение | readback offsets/neighbors после `setGpuMode` + после рантайм-add |
+| рантайм-add связи | edges **6→8** (+2) | `addBond` в GPU-режиме → re-upload → новые directed-рёбра |
+| топология статична | bonds **3→3** | assert: CPU не порвал связь за прогон (иначе сцена невалидна) |
+| рантайм setLJEnabled(false) долетает | parity **5.9e-05** vs stale-gap **1.84e-03** | GPU(LJ выкл) ≈31× ближе к CPU(LJ выкл), чем масштаб эффекта toggle → доставлено |
+| регрессия LJ-only | `BM_GpuCorrectness` **max_abs=0** | пустой bond-CSR прибавляет ровно 0 |
+
+Провенанс: формула — `Bond::MorseForce`/`forceBond` (`Bond.cpp:30-75`, dt отброшен, PE не пишется);
+код GPU — `physics_bond.wgsl` + `GpuResidentPhysics.cpp` (диспатч после LJ); входы — сцена в
+`BM_GpuBondParity.cpp`. Tolerance 1e-2; Morse-only бит-в-бит на осе-выровненных парах (CPU `MorseForce`
+сам f32). Гейт прогоняется через реальный путь `Simulation::setGpuMode(true)`+`updateAll()`.
+
+Воспроизведение:
+```sh
+./build/bench/benchmarks.exe --benchmark_filter='BM_GpuBondParity|BM_GpuCorrectness'
+```
+
 ## C1 — force loop фильтрует по физическому cutoff
 
 `a72aff1 fix: pair-силы фильтруются по физическому cutoff, не listRadius`
