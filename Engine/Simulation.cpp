@@ -158,23 +158,44 @@ void Simulation::updateStateGpu(WorldState& state) {
         uploadSceneToGpu(state);
     }
 
-    // NL-rebuild решается по GPU-редукции смещения, проверяемой не каждый шаг
-    // (poll — это sync), а батчем раз в kDispCheckCadence шагов. Кадэнс должен
-    // быть меньше интервала реального rebuild, чтобы не пропустить (skin=1 даёт
-    // запас: пара видна пока атом не уехал на skin от reference).
+    // NL-rebuild решается по GPU-редукции смещения. Раньше disp-check блокировал
+    // (dev.poll каждые kDispCheckCadence шагов дренил GPU-очередь — главный sync,
+    // сериализующий CPU+GPU). Теперь АСИНХРОННО: редукция запускается, результат
+    // читается неблокирующе на следующих шагах; rebuild по готовому (на 1-2 шага
+    // устаревшему) значению. Hard backstop: pending старше kDispReadbackMaxLagSteps
+    // дожидается форс-синком ПЕРЕД шагом — безопасная граница для mobile-mobile пар
+    // именно 0.5*skin (два атома идут навстречу), поэтому latency нельзя отпускать.
     constexpr int kDispCheckCadence = 4;
-    if (state.stepsSinceDispCheck >= kDispCheckCadence) {
-        state.stepsSinceDispCheck = 0;
-        const float skin = state.world.getNeighborList().skin();
-        const float threshold = 0.5f * skin;
-        if (state.gpu->maxDisplacementSqr() > threshold * threshold) {
-            // Реальный rebuild: скачиваем позиции на CPU, перестраиваем grid+NL
-            // на CPU (канонический путь), заливаем новый NL обратно в VRAM.
-            state.gpu->downloadToCpu(state.world.getAtomStorage(), /*withVelocities=*/true);
-            state.cpuPositionsDirty = false;
-            state.world.getNeighborList().rebuildPipeline(state.world.getAtomStorage(), state.world, state.sim_step);
-            state.gpu->uploadNeighborList(state.world.getNeighborList());
+    constexpr int kDispReadbackMaxLagSteps = 2;
+    const float skin = state.world.getNeighborList().skin();
+    const float threshold = 0.5f * skin;
+    const float thresholdSqr = threshold * threshold;
+
+    auto rebuildNeighborList = [&]() {
+        // Канонический путь: скачать позиции, перестроить grid+NL на CPU, залить NL
+        // обратно (uploadNeighborList обновляет refPos — pending уже снят выше).
+        state.gpu->downloadToCpu(state.world.getAtomStorage(), /*withVelocities=*/true);
+        state.cpuPositionsDirty = false;
+        state.world.getNeighborList().rebuildPipeline(state.world.getAtomStorage(), state.world, state.sim_step);
+        state.gpu->uploadNeighborList(state.world.getNeighborList());
+    };
+
+    if (auto disp = state.gpu->tryConsumeMaxDisplacementSqr(); disp.has_value()) {
+        // Готовый результат забран без столла.
+        if (*disp > thresholdSqr) {
+            rebuildNeighborList();
         }
+    }
+    else if (state.gpu->dispCheckPending() && state.gpu->dispCheckAgeSteps() >= kDispReadbackMaxLagSteps) {
+        // Backstop: дольше лимита нельзя ждать — дождаться сейчас, до шага со старым NL.
+        if (state.gpu->finishMaxDisplacementSqrBlocking() > thresholdSqr) {
+            rebuildNeighborList();
+        }
+    }
+    if (!state.gpu->dispCheckPending() && state.stepsSinceDispCheck >= kDispCheckCadence) {
+        // Нет pending и каденция истекла — запустить новую async-редукцию.
+        state.stepsSinceDispCheck = 0;
+        state.gpu->beginMaxDisplacementSqrAsync();
     }
 
     state.gpu->step(state.Dt, state.integrator.accelDamping());
@@ -186,6 +207,10 @@ void Simulation::updateStateGpu(WorldState& state) {
 }
 
 void Simulation::uploadSceneToGpu(WorldState& state) {
+    // Любой pending async disp-check считался против старого refPos — после
+    // перезаливки он устареет, а его буфер сейчас mid-map. Безопасно снести.
+    state.gpu->discardPendingDisplacementCheck();
+
     // Если GPU ушёл вперёд (CPU-копия устарела), сперва слить его прогресс в CPU,
     // иначе полный upload откатил бы существующие атомы к последнему CPU-снимку.
     // Усечённая выгрузка (downloadToCpu clamp) трогает только старый префикс —
@@ -239,6 +264,7 @@ void Simulation::setGpuMode(bool enable) {
     else {
         // GPU -> CPU: вернуть актуальное состояние в AtomStorage, снести GPU,
         // пометить NL на перестройку (позиции изменились).
+        state.gpu->discardPendingDisplacementCheck(); // буфер не должен остаться mid-map при сносе
         state.gpu->downloadToCpu(state.world.getAtomStorage(), /*withVelocities=*/true);
         state.gpu.reset();
         state.cpuPositionsDirty = false;
@@ -248,6 +274,14 @@ void Simulation::setGpuMode(bool enable) {
 }
 
 bool Simulation::isGpuMode() const { return static_cast<bool>(activeState().gpu); }
+
+Simulation::GpuDispCounts Simulation::activeGpuDispCounts() const {
+    const WorldState& state = activeState();
+    if (!state.gpu) {
+        return {};
+    }
+    return {state.gpu->dispBeginCount(), state.gpu->dispConsumeCount(), state.gpu->dispBackstopCount()};
+}
 
 void Simulation::syncFromGpuIfNeeded() {
     // Синкаем ВСЕ GPU-миры, а не только активный: updateAll() шагает каждый мир,

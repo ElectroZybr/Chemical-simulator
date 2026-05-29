@@ -65,7 +65,17 @@ constexpr size_t kHeadroom(size_t n) { return n + n / 2 + 1; }
 } // namespace
 
 GpuResidentPhysics::GpuResidentPhysics() = default;
-GpuResidentPhysics::~GpuResidentPhysics() = default;
+
+GpuResidentPhysics::~GpuResidentPhysics() {
+    // Pending async map не должен пережить объект: его callback (произвольный
+    // поток) пишет в член dispMap_, а буфер dispReadback_ освобождается ниже
+    // member-деструкторами. Дренируем здесь (singleton WGPUContext переживает
+    // нас, device ещё валиден при рантайм-сносе мира removeWorld). Иначе callback
+    // ударил бы по освобождённой памяти.
+    if (dispCheckPending_ && initialized_) {
+        discardPendingDisplacementCheck();
+    }
+}
 
 void GpuResidentPhysics::ensureInitialized() {
     if (initialized_) {
@@ -358,6 +368,11 @@ void GpuResidentPhysics::uploadFromCpu(const AtomStorage& atoms, const NeighborL
 }
 
 void GpuResidentPhysics::uploadNeighborList(const NeighborList& neighborList) {
+    // Этот метод перезаписывает refPos (база displacement-проверки), поэтому любой
+    // pending async disp-check против старого refPos становится недействителен.
+    // Сносим его здесь, в самом владельце refPos — не полагаемся на вызывающего.
+    discardPendingDisplacementCheck();
+
     const auto& offsets = neighborList.offsets();
     const auto& neighbors = neighborList.neighbors();
     ensureCapacity(totalCount_, mobileCount_, neighbors.size());
@@ -413,6 +428,10 @@ void GpuResidentPhysics::step(float dt, float accelDamping) {
     WGPUContext::instance().queue()->submit(1, &cmd);
 
     parity_ = out; // следующий шаг: in = эта сила
+
+    if (dispCheckPending_) {
+        ++dispCheckAgeSteps_; // возраст async disp-check для hard backstop
+    }
 }
 
 void GpuResidentPhysics::downloadToCpu(AtomStorage& atoms, bool withVelocities) {
@@ -480,9 +499,9 @@ void GpuResidentPhysics::downloadToCpu(AtomStorage& atoms, bool withVelocities) 
     }
 }
 
-float GpuResidentPhysics::maxDisplacementSqr() {
+void GpuResidentPhysics::submitDisplacementReductionAndMap() {
     wgpu::Device dev = *WGPUContext::instance().device();
-    // reset flag (CPU write 0), затем max_displacement kernel, затем readback.
+    // reset флага (CPU write 0), max_displacement kernel, copy в readback.
     const uint32_t zero = 0;
     WGPUContext::instance().queue()->writeBuffer(*dispFlag_, 0, &zero, sizeof(zero));
 
@@ -496,31 +515,94 @@ float GpuResidentPhysics::maxDisplacementSqr() {
     wgpu::CommandBuffer cmd = enc.finish({});
     WGPUContext::instance().queue()->submit(1, &cmd);
 
-    struct MapCtx {
-        bool done;
-        bool ok;
-    } ctx{false, true};
+    // mapAsync без блокировки. Callback может прийти с произвольного потока
+    // (AllowSpontaneous) — пишем атомарно и больше ничего (без webgpu-вызовов).
+    // ok store ДО done store: main-thread, увидев done==true, гарантированно видит
+    // актуальный ok (seq_cst total order).
+    dispMap_.done.store(false);
+    dispMap_.ok.store(true);
     auto cb = [](WGPUMapAsyncStatus s, WGPUStringView, void* u1, void*) {
-        auto* c = static_cast<MapCtx*>(u1);
-        c->done = true;
-        c->ok = (s == WGPUMapAsyncStatus_Success);
+        auto* m = static_cast<DispMapState*>(u1);
+        m->ok.store(s == WGPUMapAsyncStatus_Success);
+        m->done.store(true);
     };
     wgpu::BufferMapCallbackInfo ci{};
     ci.mode = wgpu::CallbackMode::AllowSpontaneous;
     ci.callback = cb;
-    ci.userdata1 = &ctx;
+    ci.userdata1 = &dispMap_;
     dispReadback_->mapAsync(wgpu::MapMode::Read, 0, sizeof(uint32_t), ci);
-    while (!ctx.done) {
-        dev.poll(true, nullptr);
-    }
-    if (!ctx.ok) {
+}
+
+float GpuResidentPhysics::readDisplacementResultAndClear() {
+    if (!dispMap_.ok.load()) {
+        dispCheckPending_ = false;
         throw std::runtime_error("GpuResidentPhysics: displacement map failed");
     }
     const uint32_t* bits = static_cast<const uint32_t*>(dispReadback_->getConstMappedRange(0, sizeof(uint32_t)));
     uint32_t maxBits = *bits;
     dispReadback_->unmap();
-
+    dispCheckPending_ = false;
     float result;
     std::memcpy(&result, &maxBits, sizeof(result));
     return result;
+}
+
+void GpuResidentPhysics::beginMaxDisplacementSqrAsync() {
+    if (dispCheckPending_) {
+        return; // single-in-flight: предыдущий ещё не завершён
+    }
+    submitDisplacementReductionAndMap();
+    dispCheckPending_ = true;
+    dispCheckAgeSteps_ = 0;
+    ++dispBeginCount_;
+}
+
+std::optional<float> GpuResidentPhysics::tryConsumeMaxDisplacementSqr() {
+    if (!dispCheckPending_) {
+        return std::nullopt;
+    }
+    wgpu::Device dev = *WGPUContext::instance().device();
+    dev.poll(false, nullptr); // неблокирующе прокрутить spontaneous-callbacks
+    if (!dispMap_.done.load()) {
+        return std::nullopt; // результат ещё не готов — без столла
+    }
+    const float result = readDisplacementResultAndClear();
+    ++dispConsumeCount_; // забрали async без столла
+    return result;
+}
+
+float GpuResidentPhysics::finishMaxDisplacementSqrBlocking() {
+    wgpu::Device dev = *WGPUContext::instance().device();
+    while (!dispMap_.done.load()) {
+        dev.poll(true, nullptr); // hard backstop: дождаться pending-результата
+    }
+    const float result = readDisplacementResultAndClear();
+    ++dispBackstopCount_; // пришлось блокирующе дождаться
+    return result;
+}
+
+void GpuResidentPhysics::discardPendingDisplacementCheck() {
+    if (!dispCheckPending_) {
+        return;
+    }
+    // Буфер mid-map после reupload (refPos устарел) / при сносе объекта: нельзя
+    // бросить — дождаться callback, unmap, отбросить значение.
+    wgpu::Device dev = *WGPUContext::instance().device();
+    while (!dispMap_.done.load()) {
+        dev.poll(true, nullptr);
+    }
+    if (dispMap_.ok.load()) {
+        dispReadback_->unmap();
+    }
+    dispCheckPending_ = false;
+    ++dispDiscardCount_;
+}
+
+float GpuResidentPhysics::maxDisplacementSqr() {
+    // Блокирующий вариант (совместимость/тесты): отбросить pending async, запустить
+    // свежую редукцию и дождаться. Дренит GPU-очередь — не для hot loop.
+    discardPendingDisplacementCheck();
+    submitDisplacementReductionAndMap();
+    dispCheckPending_ = true;
+    return finishMaxDisplacementSqrBlocking();
 }

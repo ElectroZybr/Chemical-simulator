@@ -106,6 +106,17 @@ public:
     // редкие точки синхронизации, не каждый физический шаг. В CPU-режиме no-op.
     void syncFromGpuIfNeeded();
 
+    // Диагностика async disp-check активного GPU-мира (для бенч-матрицы): сколько
+    // disp-check'ов забрано async без столла vs ушло в блокирующий backstop. Доля
+    // backstop≈1 => текущая каденция сабмита глушит async (rapid-submit), ≈0 =>
+    // async работает (app-like per-frame pacing). Нули если GPU-режим выключен.
+    struct GpuDispCounts {
+        uint64_t begins = 0;
+        uint64_t consumes = 0;
+        uint64_t backstops = 0;
+    };
+    [[nodiscard]] GpuDispCounts activeGpuDispCounts() const;
+
     // Сообщить резидентному GPU, что CPU-сцена изменена вне обычного шага (правка
     // скоростей/позиций тулом, resize, cutoff, add/remove): инкремент версии
     // сцены заставит ближайший updateState залить CPU-сцену в VRAM заново, даже
@@ -192,7 +203,7 @@ private:
         // GPU-режим (opt-in). gpu == nullptr → CPU-путь.
         std::unique_ptr<GpuResidentPhysics> gpu;
         bool cpuPositionsDirty = false; // VRAM новее AtomStorage, нужен download
-        int stepsSinceDispCheck = 0;    // батчинг NL-displacement проверки
+        int stepsSinceDispCheck = 0;    // шагов с момента ПОСЛЕДНЕГО запуска (kick) async disp-check; каденция запуска
         // Версия CPU-сцены против версии, залитой в VRAM. Расхождение → re-upload.
         // Ловит правки контента при неизменном числе атомов (скорости тулом, load
         // той же длины, resize, cutoff), которые проверка по size пропускает.

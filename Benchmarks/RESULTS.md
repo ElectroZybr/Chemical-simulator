@@ -47,12 +47,49 @@ readback, `BM_GpuFullStep`, per-step = wall / 20):
 | 15 625 | ~205 μs | ~25 μs (~8×) |
 | 103 823 | ~1 040 μs | ~107 μs (~9×) |
 
+Полный per-frame GPU-замер с rebuild-каденцией (`BM_GpuFullStep_WithRebuild`,
+реальный путь `Simulation` в GPU-режиме, та же методология 20 шагов + drain;
+горячая сцена — когерентный дрейф vx=5, та же машина RTX 4070 SUPER):
+
+| N атомов | GPU резидентный (без rebuild) | GPU реальный (с rebuild-round-trip) | каденция rebuild |
+|---|---|---|---|
+| 15 625 | ~25 μs | ~1000-1250 μs (**~40-50× медленнее**) | каждые ~7.5-8.5 шагов |
+| 103 823 | ~107 μs | ~2150 μs (**~20× медленнее**) | каждые ~12 шагов |
+
+Это и есть perf-корень «CPU отъедает у GPU»: резидентный пайплайн рвут две
+CPU-синхронизации — disp-check (`maxDisplacementSqr` делает GPU-dispatch +
+блокирующий poll КАЖДЫЕ 4 шага, даже без rebuild) и сам rebuild-round-trip
+(downloadToCpu poll + CPU `rebuildPipeline` + uploadNeighborList при превышении
+порога смещения). На динамичной сцене это съедает 20-50× чистого GPU-выигрыша.
+Лечение — перенос disp-check и построения NL/сетки на GPU (cell-list/prefix-sum)
+без poll'а. Замер sync-dominated и шумный (cv высокий), числа порядковые.
+
+Шаг 1 оптимизации — disp-check сделан асинхронным (неблокирующий readback +
+hard backstop вместо `dev.poll(true)` каждые 4 шага). `BM_GpuFullStep_WithRebuild`
+параметризован числом шагов на кадр (steps_per_frame), публикует счётчики
+async-consume / backstop (RTX 4070 SUPER):
+
+| N / шагов-на-кадр | per-step | backstop / begins |
+|---|---|---|
+| 15 625 / 1 | ~804 μs | 0 / 186 |
+| 15 625 / 2 | ~836 μs | 0 / 224 |
+| 15 625 / 8 | ~739 μs | 109 / 201 |
+| 15 625 / 20 | ~1123 μs | 295 / 379 |
+| 103 823 / 2 | ~2562 μs | 0 / 50 |
+| 103 823 / 8 | ~2244 μs | 44 / 51 |
+
+При пейсинге приложения (1-2 шага на синк) backstop нулевой — disp-check
+полностью асинхронен, stall'а нет. Прежний фиксированный замер 20-шагов-на-синк
+загонял ~78% disp-check'ов в блокирующий backstop (GPU не успевал между шагами),
+из-за чего async казался безвыигрышным — артефакт методики, не свойство фикса.
+Чистый выигрыш от снятия disp-poll скромен на горячих сценах (доминирует
+rebuild-round-trip), заметнее на спокойных, где перестройка редка. Сам
+rebuild-round-trip (доминанта) — цель Шага 2 (построение NL на GPU).
+
 Оговорки:
-- GPU-числа — чистое вычисление, БЕЗ NL rebuild. CPU `ComputeForces` тоже без
-  rebuild — сравнение apples-to-apples. Полный per-frame GPU-замер с
-  rebuild-каденцией (`BM_GpuFullStepWithRebuild`) ещё не сделан; на «горячих»
-  сценах rebuild-round-trip CPU↔GPU съедает часть выигрыша (бенч CPU FullStep
-  @ 103k = 16 ms при rebuild каждые ~5 шагов).
+- GPU резидентные числа — чистое вычисление, БЕЗ NL rebuild. CPU `ComputeForces`
+  тоже без rebuild — сравнение apples-to-apples (верхняя граница). CPU FullStep
+  с rebuild @ 103k ~16 ms.
 - GPU full-step замер шумный (cv 53-119%) — launch jitter на батч-нагрузке.
 - N=1000: GPU не выигрывает (launch overhead > вычисление); GPU полезен от ~10k.
 - Корректность: GPU-траектория бит-в-бит == CPU (`BM_GpuCorrectness`).

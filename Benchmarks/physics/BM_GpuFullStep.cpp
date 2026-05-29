@@ -23,6 +23,7 @@
 
 #include "Benchmarks/fixtures/RendererFixture.h" // benchmarkDevice()
 #include "Engine/NeighborSearch/NeighborList.h"
+#include "Engine/metrics/NeighborListStats.h"
 #include "Engine/Simulation.h"
 #include "Engine/math/Vec3.h"
 #include "Engine/physics/AtomData.h"
@@ -325,9 +326,97 @@ void runFullStep(benchmark::State& state) {
     state.counters["steps_per_iter"] = kStepsPerSubmit;
 }
 
+// Полный GPU-шаг ЧЕРЕЗ реальный путь Simulation (GpuResidentPhysics), включающий
+// rebuild-round-trip (downloadToCpu + CPU rebuildPipeline NL/сетки +
+// uploadNeighborList) по disp-каденции — в отличие от BM_GpuFullStep_Resident
+// (чистый resident, без rebuild). Та же методология (kStepsPerSubmit шагов +
+// один drain-sync на итерацию), поэтому per-step напрямую сравним: разница =
+// амортизированная цена round-trip. Это и есть недостающий замер perf-корня
+// «CPU отъедает у GPU» (RESULTS.md помечал BM_GpuFullStepWithRebuild как TODO).
+//
+// Сцена держится "горячей" когерентным дрейфом (все атомы vx>0): надёжно
+// триггерит disp-каденцию (абсолютное смещение от reference), но без
+// относительного движения, поэтому LJ не взрывается на длинном прогоне.
+void runFullStepWithRebuild(benchmark::State& state) {
+    benchmarkDevice();
+    const int atomCount = static_cast<int>(state.range(0));
+    const int side = static_cast<int>(std::cbrt(static_cast<double>(atomCount))) + 1;
+    const float spacing = 3.0f;
+    const float worldSize = side * spacing + 20.0f;
+
+    Simulation sim;
+    sim.createWorld(Vec3f{worldSize, worldSize, worldSize});
+    sim.setSizeBox(sim.world().getWorldSize(), 6);
+    sim.setLJEnabled(true);
+    sim.setCoulombEnabled(false);
+    sim.setBondFormationEnabled(false);
+    sim.setDt(0.01f);
+    int placed = 0;
+    for (int z = 0; z < side && placed < atomCount; ++z) {
+        for (int y = 0; y < side && placed < atomCount; ++y) {
+            for (int x = 0; x < side && placed < atomCount; ++x) {
+                sim.appendAtomFast(Vec3f{10.0f + x * spacing, 10.0f + y * spacing, 10.0f + z * spacing},
+                                   Vec3f{5.0f, 0.0f, 0.0f}, AtomData::Type::H, false); // когерентный дрейф
+                ++placed;
+            }
+        }
+    }
+    sim.finalizeAtomBatch();
+    sim.setGpuMode(true);
+
+    // steps_per_frame (range(1)): сколько physics-шагов между sync. Моделирует app
+    // pacing — spf=1-2 (per-frame render-sync) даёт GPU время завершить async
+    // disp-редукцию до consume (backstop≈0, async работает); spf=20 (batch) копит
+    // очередь, async не успевает → backstop срабатывает (async деградирует).
+    // range(1)=0 → дефолт kStepsPerSubmit (совместимость с одиночным Arg).
+    const int spf = state.range(1) > 0 ? static_cast<int>(state.range(1)) : kStepsPerSubmit;
+
+    for (int s = 0; s < spf; ++s) {
+        sim.update(); // warmup + установить NL reference
+    }
+    sim.syncFromGpuIfNeeded();
+    sim.neighborList().resetStats();
+
+    for (auto _ : state) {
+        for (int s = 0; s < spf; ++s) {
+            sim.update(); // реальный путь: disp-каденция + периодический rebuild-round-trip
+        }
+        sim.syncFromGpuIfNeeded(); // per-"frame" drain (аналог render-sync)
+    }
+
+    // Per-step wall vs BM_GpuFullStep_Resident показывает совокупную цену
+    // round-trip. disp_backstops/disp_begins — доля, в которой async деградировал
+    // в блокирующий backstop: высокая при spf=20 (бенч глушит async), ≈0 при
+    // spf=1-2 (async работает, как в реальном per-frame приложении).
+    const NeighborListStats& st = sim.neighborList().stats();
+    const Simulation::GpuDispCounts dc = sim.activeGpuDispCounts();
+    state.counters["steps_per_frame"] = spf;
+    state.counters["rebuilds"] = static_cast<double>(st.rebuildCount());
+    state.counters["avg_steps_between_rebuilds"] = st.averageStepsBetweenRebuilds();
+    state.counters["disp_begins"] = static_cast<double>(dc.begins);
+    state.counters["disp_consumes"] = static_cast<double>(dc.consumes);   // async без столла
+    state.counters["disp_backstops"] = static_cast<double>(dc.backstops); // блокирующий fallback
+    sim.setGpuMode(false);
+    state.SetItemsProcessed(state.iterations() * static_cast<int64_t>(spf) * atomCount);
+}
+
 } // namespace
 
 // @bench_meta {"id":"GpuFullStep/Resident","ru":"Резидентный GPU full step (без readback)","group":"Симуляция/GPU"}
 void BM_GpuFullStep_Resident(benchmark::State& state) { runFullStep(state); }
 
+// @bench_meta {"id":"GpuFullStep/WithRebuild","ru":"GPU full step с rebuild-round-trip (perf-корень)","group":"Симуляция/GPU"}
+void BM_GpuFullStep_WithRebuild(benchmark::State& state) { runFullStepWithRebuild(state); }
+
 BENCHMARK(BM_GpuFullStep_Resident)->Arg(15625)->Arg(103823)->Unit(benchmark::kMicrosecond);
+// Матрица {N, steps_per_frame}: spf=1,2 моделируют per-frame app pacing (async
+// работает), spf=8 — потолок App (maxStepsPerFrame), spf=20 — batch (бенч глушит
+// async). disp_backstops/disp_begins показывает деградацию async по каденции.
+BENCHMARK(BM_GpuFullStep_WithRebuild)
+    ->Args({15625, 1})
+    ->Args({15625, 2})
+    ->Args({15625, 8})
+    ->Args({15625, 20})
+    ->Args({103823, 2})
+    ->Args({103823, 8})
+    ->Unit(benchmark::kMicrosecond);

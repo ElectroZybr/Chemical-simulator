@@ -1,7 +1,9 @@
 #pragma once
 
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 
 #include <webgpu/webgpu-raii.hpp>
 #include <webgpu/webgpu.hpp>
@@ -49,8 +51,30 @@ public:
     void downloadToCpu(AtomStorage& atoms, bool withVelocities = true);
 
     // Возвращает максимум |pos - refPos|^2 по mobile-атомам через GPU-редукцию
-    // (для решения нужен ли NL rebuild). Читает 4 байта, не все позиции.
+    // (для решения нужен ли NL rebuild). Читает 4 байта, но БЛОКИРУЕТ (dev.poll)
+    // — дренит GPU-очередь. Оставлен для совместимости/backstop.
     float maxDisplacementSqr();
+
+    // Асинхронный disp-check без блокирующего poll'а (резидентный пайплайн не
+    // сериализуется). begin запускает редукцию + неблокирующий mapAsync;
+    // tryConsume неблокирующе прокручивает callback и отдаёт результат когда
+    // готов; finishBlocking форсирует завершение (hard backstop по возрасту);
+    // discard безопасно сносит pending (после reupload refPos устарел).
+    // Single-in-flight: begin — no-op пока предыдущий не завершён.
+    void beginMaxDisplacementSqrAsync();
+    [[nodiscard]] std::optional<float> tryConsumeMaxDisplacementSqr();
+    // Дождаться pending-результата блокирующе. PRECONDITION: вызывать только когда
+    // dispCheckPending() — иначе dispMap_.done может быть stale-true от прошлого
+    // и read пойдёт по unmapped-буферу. Все вызовы охраняются dispCheckPending().
+    float finishMaxDisplacementSqrBlocking();
+    void discardPendingDisplacementCheck();
+    [[nodiscard]] bool dispCheckPending() const noexcept { return dispCheckPending_; }
+    [[nodiscard]] int dispCheckAgeSteps() const noexcept { return dispCheckAgeSteps_; }
+    // Телеметрия (бенч/диагностика): сколько disp-check'ов забрано async без столла
+    // против сколько ушло в блокирующий backstop. Доля backstop≈1 => бенч глушит async.
+    [[nodiscard]] uint64_t dispConsumeCount() const noexcept { return dispConsumeCount_; }
+    [[nodiscard]] uint64_t dispBackstopCount() const noexcept { return dispBackstopCount_; }
+    [[nodiscard]] uint64_t dispBeginCount() const noexcept { return dispBeginCount_; }
 
     [[nodiscard]] bool isInitialized() const noexcept { return initialized_; }
     // Число атомов, под которое сейчас залиты резидентные буфера. Сравнивается
@@ -61,6 +85,12 @@ private:
     void ensureInitialized();
     void ensureCapacity(size_t totalCount, size_t mobileCount, size_t neighborCount);
     void rebuildBindGroups();
+    // Запуск GPU-редукции смещения + mapAsync (без блокировки). Общий для async-
+    // begin и блокирующего maxDisplacementSqr.
+    void submitDisplacementReductionAndMap();
+    // Чтение готового результата dispReadback_ (mapped), unmap, снятие pending.
+    // Вызывать только когда dispMap_.done. Возвращает max|disp|^2.
+    float readDisplacementResultAndClear();
 
     bool initialized_ = false;
     bool ljTableUploaded_ = false;
@@ -110,6 +140,25 @@ private:
     wgpu::raii::BindGroup dispBindGroup_;
 
     size_t atomCapacity_ = 0;
+
+    // Состояние async disp-check (single-in-flight). Callback (mapAsync,
+    // AllowSpontaneous) по контракту webgpu.h может сработать на ПРОИЗВОЛЬНОМ
+    // потоке — поэтому флаги атомарные (callback store, main-thread load); сам
+    // callback больше ничего не делает (без re-entrant webgpu-вызовов). dispMap_
+    // — член (стабильный адрес, переживает begin); read/unmap на main-thread.
+    struct DispMapState {
+        std::atomic<bool> done{false};
+        std::atomic<bool> ok{false};
+    };
+    DispMapState dispMap_{};
+    bool dispCheckPending_ = false; // readback запущен, ещё не consume/finish
+    int dispCheckAgeSteps_ = 0;     // physics-шагов с момента begin (для backstop)
+
+    // Телеметрия async disp-check (для бенч-матрицы: доля backstop vs async-consume).
+    uint64_t dispBeginCount_ = 0;
+    uint64_t dispConsumeCount_ = 0;   // async-результат забран без столла
+    uint64_t dispBackstopCount_ = 0;  // пришлось блокирующе дождаться (finishBlocking)
+    uint64_t dispDiscardCount_ = 0;
     size_t nlOffsetsCapacity_ = 0;
     size_t nlNeighborsCapacity_ = 0;
 };
