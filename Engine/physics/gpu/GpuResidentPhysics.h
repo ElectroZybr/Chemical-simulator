@@ -3,7 +3,9 @@
 #include <atomic>
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <optional>
+#include <vector>
 
 #include <webgpu/webgpu-raii.hpp>
 #include <webgpu/webgpu.hpp>
@@ -11,6 +13,7 @@
 class AtomStorage;
 class NeighborList;
 class LJForceField;
+class GpuNeighborListBuilder;
 
 // Резидентная GPU-физика: позиции/скорости/силы живут в VRAM между шагами,
 // CPU их не качает в hot loop. Это и есть «физика на GPU» (в отличие от
@@ -41,6 +44,44 @@ public:
     // Только NL (offsets+neighbors) + refPos для displacement-проверки. Вызывается
     // после CPU NeighborList::build, без перезаливки позиций/скоростей.
     void uploadNeighborList(const NeighborList& neighborList);
+
+    // Шаг 2c: пересобирает Full NeighborList ЦЕЛИКОМ на GPU из резидентных
+    // positions_ и оставляет результат в резидентных nlOffsets_/nlNeighbors_, что
+    // читает LJ-ядро. БЕЗ CPU rebuild и БЕЗ скачивания позиций. Внутренний
+    // GpuNeighborListBuilder строит NL в свои shadow-буфера (GPU-fed позиции через
+    // GPU->GPU copy), затем GPU->GPU копируем offsets/neighbors в резидентные.
+    // Параметры сетки приходят от вызывающего (как worldSize в uploadFromCpu) и
+    // обязаны совпадать с CPU SpatialGrid: sizeX/Y/Z, cellSize, cellCount, и
+    // listRadiusSqr = r_list^2 (cutoff+skin)^2 (== NeighborList::listRadiusSqr_).
+    //
+    // Overflow fail-closed: total соседей известен после count+scan (скалярный
+    // readback в builder). Если он превышает резидентную ёмкость nlNeighbors_ —
+    // РАСТИМ резидентный буфер (rebuildBindGroups перепривязывает LJ-группу) ДО
+    // GPU->GPU copy; частичный/усечённый NL в LJ-ядро не попадает никогда.
+    // refPos_ обновляется (база displacement-проверки), как в uploadNeighborList.
+    //
+    // ВНИМАНИЕ (2c): метод НЕ вызывается из step()/updateStateGpu — hot loop пока
+    // на CPU rebuild (swap — задача 2d). Добавлен и верифицируется bench-гейтом.
+    void rebuildNeighborListOnGpu(uint32_t gridSizeX, uint32_t gridSizeY, uint32_t gridSizeZ, float cellSize, uint32_t cellCount,
+                                  float listRadiusSqr);
+
+    // Телеметрия 2c: сколько раз резидентный nlNeighbors_ пришлось вырастить под
+    // GPU-NL total (overflow относительно прежней ёмкости). Для bench/диагностики.
+    [[nodiscard]] uint64_t nlCapacityGrows() const noexcept { return nlCapacityGrows_; }
+
+    // Телеметрия 2e: сколько GPU-перестроек NL случилось (по разу на каждый
+    // rebuildNeighborListOnGpu). GPU-аналог CPU NeighborList::stats().rebuildCount()
+    // — после 2d hot loop перестраивает NL на GPU, а не на CPU, поэтому CPU-счётчик
+    // в GPU-режиме всегда 0 и вводит в заблуждение. Этот счётчик его замещает.
+    [[nodiscard]] uint64_t nlRebuildCount() const noexcept { return nlRebuilds_; }
+
+    // Блокирующий readback РЕЗИДЕНТНЫХ NL-буферов (bench/диагностика — дренит
+    // очередь, не для hot loop). Доказывает, что именно резидентные nlOffsets_/
+    // nlNeighbors_ (которые читает LJ-ядро) держат корректный NL после GPU-rebuild.
+    //   readbackNlOffsets():    totalCount()+1 элементов (CSR; [totalCount]=total).
+    //   readbackNlNeighbors(n): ровно n элементов (n = offsets[totalCount]).
+    [[nodiscard]] std::vector<uint32_t> readbackNlOffsets() const;
+    [[nodiscard]] std::vector<uint32_t> readbackNlNeighbors(uint32_t total) const;
 
     // Один резидентный шаг (dt, accelDamping как у CPU Integrator). Ничего не
     // качает CPU<->GPU. Допускает батчинг (несколько step() подряд до sync).
@@ -161,4 +202,12 @@ private:
     uint64_t dispDiscardCount_ = 0;
     size_t nlOffsetsCapacity_ = 0;
     size_t nlNeighborsCapacity_ = 0;
+
+    // Шаг 2c: внутренний GPU NL builder (cell-list+scan+Full NL целиком на GPU).
+    // Lazy-инициализируется при первом rebuildNeighborListOnGpu (резидентные
+    // инстансы, которые им не пользуются, не платят за его буфера). unique_ptr,
+    // т.к. builder некопируем/неперемещаем (владеет raii-буферами).
+    std::unique_ptr<GpuNeighborListBuilder> nlBuilder_;
+    uint64_t nlCapacityGrows_ = 0; // сколько раз резидентный nlNeighbors_ рос под GPU-NL total
+    uint64_t nlRebuilds_ = 0;      // 2e: сколько GPU-перестроек NL (по разу на rebuildNeighborListOnGpu)
 };

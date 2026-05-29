@@ -23,12 +23,12 @@
 
 #include "Benchmarks/fixtures/RendererFixture.h" // benchmarkDevice()
 #include "Engine/NeighborSearch/NeighborList.h"
-#include "Engine/metrics/NeighborListStats.h"
 #include "Engine/Simulation.h"
 #include "Engine/math/Vec3.h"
 #include "Engine/physics/AtomData.h"
 #include "Engine/physics/AtomStorage.h"
 #include "Engine/physics/ForceFields/LJForceField.h"
+#include "Engine/physics/gpu/GpuResidentPhysics.h"
 #include "Rendering/WGPUContext.h"
 
 #include "generated/shaders/integrate_verlet.wgsl.h"
@@ -375,11 +375,19 @@ void runFullStepWithRebuild(benchmark::State& state) {
         sim.update(); // warmup + установить NL reference
     }
     sim.syncFromGpuIfNeeded();
-    sim.neighborList().resetStats();
+
+    // 2e: NL перестраивается на GPU (rebuildNeighborListOnGpu), а не на CPU, поэтому
+    // CPU NeighborListStats::rebuildCount() в GPU-режиме всегда 0 (вводит в
+    // заблуждение). Считаем GPU-перестройки через резидентный счётчик. Снимаем
+    // baseline ПОСЛЕ warmup (аналог прежнего resetStats), чтобы отчитать только
+    // измеряемый участок. activeGpuResident() != nullptr — мы в GPU-режиме.
+    const GpuResidentPhysics* gpu = sim.activeGpuResident();
+    const uint64_t rebuildsBefore = gpu->nlRebuildCount();
+    const uint64_t growsBefore = gpu->nlCapacityGrows();
 
     for (auto _ : state) {
         for (int s = 0; s < spf; ++s) {
-            sim.update(); // реальный путь: disp-каденция + периодический rebuild-round-trip
+            sim.update(); // реальный путь: disp-каденция + периодическая GPU-перестройка NL
         }
         sim.syncFromGpuIfNeeded(); // per-"frame" drain (аналог render-sync)
     }
@@ -388,11 +396,17 @@ void runFullStepWithRebuild(benchmark::State& state) {
     // round-trip. disp_backstops/disp_begins — доля, в которой async деградировал
     // в блокирующий backstop: высокая при spf=20 (бенч глушит async), ≈0 при
     // spf=1-2 (async работает, как в реальном per-frame приложении).
-    const NeighborListStats& st = sim.neighborList().stats();
+    const uint64_t rebuilds = gpu->nlRebuildCount() - rebuildsBefore; // GPU-перестройки на измеряемом участке
+    const uint64_t grows = gpu->nlCapacityGrows() - growsBefore;      // overflow-рост резидентного nlNeighbors_ (2c)
+    const int64_t measuredSteps = state.iterations() * static_cast<int64_t>(spf);
     const Simulation::GpuDispCounts dc = sim.activeGpuDispCounts();
     state.counters["steps_per_frame"] = spf;
-    state.counters["rebuilds"] = static_cast<double>(st.rebuildCount());
-    state.counters["avg_steps_between_rebuilds"] = st.averageStepsBetweenRebuilds();
+    state.counters["rebuilds"] = static_cast<double>(rebuilds);
+    // Среднее число шагов между GPU-перестройками: измеряемые шаги / число перестроек
+    // (производное, т.к. GPU-счётчик не хранит пошаговую историю как CPU-stats).
+    state.counters["avg_steps_between_rebuilds"] =
+        rebuilds > 0 ? static_cast<double>(measuredSteps) / static_cast<double>(rebuilds) : 0.0;
+    state.counters["capacity_grows"] = static_cast<double>(grows); // 2c overflow-grow счётчик
     state.counters["disp_begins"] = static_cast<double>(dc.begins);
     state.counters["disp_consumes"] = static_cast<double>(dc.consumes);   // async без столла
     state.counters["disp_backstops"] = static_cast<double>(dc.backstops); // блокирующий fallback

@@ -10,6 +10,14 @@
 // пределах ФИЗИЧЕСКОГО cutoff на ТЕКУЩИХ позициях обязаны присутствовать в NL.
 // Брутфорс O(N^2) даёт эталон. Любая потерянная пара = устаревший NL.
 //
+// Шаг 2e: после 2d hot loop перестраивает NL ЦЕЛИКОМ на GPU
+// (rebuildNeighborListOnGpu) в РЕЗИДЕНТНЫЕ nlOffsets_/nlNeighbors_ — те буфера, что
+// реально читает LJ-ядро. CPU NeighborList в hot loop больше не перестраивается и
+// легитимно устаревает (syncFromGpuIfNeeded качает только позиции/скорости, не NL).
+// Поэтому гейт читает РЕЗИДЕНТНЫЙ GPU NL через activeGpuResident()->readbackNl*
+// (как BM_GpuResidentNlBuild), а не sim.neighborList(). Это и есть верификация 2d:
+// доказать, что GPU-перестройка по disp-каденции держит резидентный NL свежим.
+//
 // BM_GpuCorrectness намеренно использует медленную сцену без перестроек, поэтому
 // этот класс багов не покрывает — данный гейт закрывает пробел.
 
@@ -31,18 +39,40 @@
 #include "Engine/math/Vec3.h"
 #include "Engine/physics/AtomData.h"
 #include "Engine/physics/AtomStorage.h"
+#include "Engine/physics/gpu/GpuResidentPhysics.h"
 
 namespace {
 
 using PairSet = std::set<std::pair<uint32_t, uint32_t>>;
 
+// Пары в пределах ФИЗИЧЕСКОГО cutoff, присутствующие в РЕЗИДЕНТНОМ GPU NL (буфера,
+// что читает LJ-ядро). После 2d именно они авторитетны в hot loop — CPU
+// neighborList() в GPU-режиме устаревает и сравнивать с ним = ложный MISSING.
+//
+// Соответствие индексов: резидентные GPU-позиции залиты из CPU AtomStorage по
+// порядку (uploadFromCpu), а syncFromGpuIfNeeded скачивает их обратно в том же
+// порядке — поэтому GPU-индекс соседа j == CPU-атому j. Cutoff-фильтр считаем по
+// CPU-позициям (только что синканным), как и брутфорс, чтобы определение
+// «физически в cutoff» совпадало с обеих сторон диффа.
 PairSet nlPairsWithinCutoff(const Simulation& sim) {
-    const NeighborList& nl = sim.neighborList();
+    const GpuResidentPhysics* gpu = sim.activeGpuResident();
+    if (gpu == nullptr) {
+        throw std::runtime_error("BM_GpuNlFreshness: нет активной резидентной GPU-физики (ожидался GPU-режим)");
+    }
     const AtomStorage& a = sim.atoms();
-    const auto& offsets = nl.offsets();
-    const auto& neighbors = nl.neighbors();
-    const float cutoffSqr = nl.cutoff() * nl.cutoff();
+    const float cutoffSqr = sim.neighborList().cutoff() * sim.neighborList().cutoff();
     const uint32_t mobile = static_cast<uint32_t>(a.mobileCount());
+
+    // Читаем РЕЗИДЕНТНЫЕ буфера: offsets длиной totalCount()+1 (CSR, [total]=общее
+    // число соседей), neighbors ровно offsets[total]. Те же методы, что
+    // BM_GpuResidentNlBuild, который доказал их параритет с CPU Full.
+    const std::vector<uint32_t> offsets = gpu->readbackNlOffsets();
+    const uint32_t total = gpu->totalCount();
+    if (offsets.size() != static_cast<size_t>(total) + 1u) {
+        throw std::runtime_error("BM_GpuNlFreshness: размер resident nlOffsets != totalCount+1");
+    }
+    const std::vector<uint32_t> neighbors = gpu->readbackNlNeighbors(offsets[total]);
+
     PairSet pairs;
     for (uint32_t i = 0; i < mobile; ++i) {
         for (uint32_t p = offsets[i]; p < offsets[i + 1]; ++p) {

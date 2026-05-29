@@ -10,6 +10,7 @@
 #include "Engine/physics/AtomData.h"
 #include "Engine/physics/AtomStorage.h"
 #include "Engine/physics/ForceFields/LJForceField.h"
+#include "Engine/physics/gpu/GpuNeighborListBuilder.h"
 #include "Rendering/WGPUContext.h"
 
 #include "generated/shaders/integrate_verlet.wgsl.h"
@@ -207,13 +208,16 @@ void GpuResidentPhysics::ensureCapacity(size_t totalCount, size_t mobileCount, s
     }
     if (neighborCount > nlNeighborsCapacity_) {
         const size_t cap = kHeadroom(neighborCount);
-        nlNeighbors_ = WGPUContext::instance().createBuffer(cap * 4, st, "GRP_Nbr");
+        // stSrc: CopyDst (writeBuffer/GPU->GPU copy назначение) + CopySrc (2c readback
+        // и любой будущий GPU->GPU consumer резидентного NL). CopySrc на read-only-в-
+        // шейдере буфере безвреден — это лишь usage-флаг, не меняет доступ LJ-ядра.
+        nlNeighbors_ = WGPUContext::instance().createBuffer(cap * 4, stSrc, "GRP_Nbr");
         nlNeighborsCapacity_ = cap;
         grew = true;
     }
     if (totalCount + 1 > nlOffsetsCapacity_) {
         const size_t cap = kHeadroom(totalCount + 1);
-        nlOffsets_ = WGPUContext::instance().createBuffer(cap * 4, st, "GRP_Off");
+        nlOffsets_ = WGPUContext::instance().createBuffer(cap * 4, stSrc, "GRP_Off");
         nlOffsetsCapacity_ = cap;
         grew = true;
     }
@@ -388,6 +392,121 @@ void GpuResidentPhysics::uploadNeighborList(const NeighborList& neighborList) {
     enc.copyBufferToBuffer(*positions_, 0, *refPos_, 0, static_cast<uint64_t>(totalCount_) * 16);
     wgpu::CommandBuffer cmd = enc.finish({});
     q->submit(1, &cmd);
+}
+
+void GpuResidentPhysics::rebuildNeighborListOnGpu(uint32_t gridSizeX, uint32_t gridSizeY, uint32_t gridSizeZ, float cellSize,
+                                                  uint32_t cellCount, float listRadiusSqr) {
+    ensureInitialized(); // positions_ и резидентные NL-буфера должны существовать
+    ++nlRebuilds_;       // 2e: телеметрия — по разу на каждый вызов (GPU-аналог CPU rebuildCount)
+
+    // Перезаписываем refPos (как uploadNeighborList) — любой pending async disp-check
+    // против старого refPos недействителен. Сносим здесь, в самом владельце refPos.
+    discardPendingDisplacementCheck();
+
+    // Lazy-инициализация внутреннего builder'а (резидентные инстансы без GPU-rebuild
+    // не платят за его буфера).
+    if (!nlBuilder_) {
+        nlBuilder_ = std::make_unique<GpuNeighborListBuilder>();
+    }
+
+    // Строим Full NL ЦЕЛИКОМ на GPU. Позиции НЕ качаем в CPU: builder берёт их
+    // GPU->GPU из резидентного positions_. Блокирующе — по возврату shadow-буфера
+    // builder'а (nlOffsets/nlNeighbors) валидны и totalNeighbors() точен.
+    nlBuilder_->buildNeighborListFullFromGpuPositions(*positions_, totalCount_, gridSizeX, gridSizeY, gridSizeZ, cellSize,
+                                                      cellCount, listRadiusSqr);
+
+    const uint32_t total = nlBuilder_->totalNeighbors();
+
+    // --- Overflow fail-closed ---
+    // total известен после count+scan. Если он превышает резидентную ёмкость
+    // nlNeighbors_ — РАСТИМ её ДО copy (ensureCapacity пересоздаёт буфер с запасом
+    // и rebuildBindGroups перепривязывает LJ-группу на новый буфер). Builder уже
+    // выделил свой nlNeighbors под точный total и write_neighbors_full записал ВСЕ
+    // пары — поэтому после роста резидентного буфера до >= total копия несёт полный
+    // NL. Частичный/усечённый NL в LJ-ядро не попадает: рост происходит здесь, а
+    // LJ читает резидентный буфер только в step() (не вызывается из 2c).
+    if (static_cast<size_t>(total) > nlNeighborsCapacity_) {
+        ensureCapacity(totalCount_, mobileCount_, total);
+        ++nlCapacityGrows_;
+    }
+
+    // --- GPU->GPU copy shadow NL -> резидентные nlOffsets_/nlNeighbors_ ---
+    // offsets: totalCount_+1 элементов (CSR, [totalCount_]=total). neighbors: total.
+    // Оба буфера builder'а имеют CopySrc; резидентные — CopyDst.
+    wgpu::Device dev = *WGPUContext::instance().device();
+    auto q = WGPUContext::instance().queue();
+    {
+        wgpu::CommandEncoder enc = dev.createCommandEncoder({});
+        enc.copyBufferToBuffer(nlBuilder_->nlOffsetsBuffer(), 0, *nlOffsets_, 0, (static_cast<uint64_t>(totalCount_) + 1u) * 4);
+        if (total > 0u) {
+            enc.copyBufferToBuffer(nlBuilder_->nlNeighborsBuffer(), 0, *nlNeighbors_, 0, static_cast<uint64_t>(total) * 4);
+        }
+        // refPos := текущие позиции (как uploadNeighborList): база displacement-проверки.
+        if (totalCount_ > 0u) {
+            enc.copyBufferToBuffer(*positions_, 0, *refPos_, 0, static_cast<uint64_t>(totalCount_) * 16);
+        }
+        wgpu::CommandBuffer cmd = enc.finish({});
+        q->submit(1, &cmd);
+    }
+}
+
+namespace {
+
+// Блокирующий readback u32-буфера (bench/диагностика). Копирует count элементов
+// со смещения srcOffsetElems в свежий MapRead-буфер, дренит очередь, возвращает
+// вектор. Не для hot loop — временный буфер на каждый вызов (редкая sync-точка).
+std::vector<uint32_t> readU32Blocking(const wgpu::raii::Buffer& src, uint32_t count, uint32_t srcOffsetElems) {
+    std::vector<uint32_t> out(count);
+    if (count == 0u) {
+        return out;
+    }
+    const uint64_t bytes = static_cast<uint64_t>(count) * 4;
+    wgpu::Device dev = *WGPUContext::instance().device();
+    wgpu::Buffer rb = WGPUContext::instance().createBuffer(bytes, wgpu::BufferUsage::MapRead | wgpu::BufferUsage::CopyDst,
+                                                           "GRP_NlReadback");
+
+    wgpu::CommandEncoder enc = dev.createCommandEncoder({});
+    enc.copyBufferToBuffer(*src, static_cast<uint64_t>(srcOffsetElems) * 4, rb, 0, bytes);
+    wgpu::CommandBuffer cmd = enc.finish({});
+    WGPUContext::instance().queue()->submit(1, &cmd);
+
+    struct MapCtx {
+        bool done;
+        bool ok;
+    } ctx{false, true};
+    auto cb = [](WGPUMapAsyncStatus s, WGPUStringView, void* u1, void*) {
+        auto* c = static_cast<MapCtx*>(u1);
+        c->ok = (s == WGPUMapAsyncStatus_Success);
+        c->done = true;
+    };
+    wgpu::BufferMapCallbackInfo ci{};
+    ci.mode = wgpu::CallbackMode::AllowSpontaneous;
+    ci.callback = cb;
+    ci.userdata1 = &ctx;
+    rb.mapAsync(wgpu::MapMode::Read, 0, bytes, ci);
+    while (!ctx.done) {
+        dev.poll(true, nullptr);
+    }
+    if (!ctx.ok) {
+        throw std::runtime_error("GpuResidentPhysics: NL readback map failed");
+    }
+    const uint32_t* data = static_cast<const uint32_t*>(rb.getConstMappedRange(0, bytes));
+    std::memcpy(out.data(), data, bytes);
+    rb.unmap();
+    return out;
+}
+
+} // namespace
+
+std::vector<uint32_t> GpuResidentPhysics::readbackNlOffsets() const {
+    return readU32Blocking(nlOffsets_, totalCount_ + 1u, 0u);
+}
+
+std::vector<uint32_t> GpuResidentPhysics::readbackNlNeighbors(uint32_t total) const {
+    if (total == 0u) {
+        return {};
+    }
+    return readU32Blocking(nlNeighbors_, total, 0u);
 }
 
 void GpuResidentPhysics::step(float dt, float accelDamping) {

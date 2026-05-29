@@ -54,14 +54,19 @@ namespace {
             DebugValue("Память AtomStorage (МБ)", DebugDrawers::Float<3>),
             DebugValue("Память NeighborList (МБ)", DebugDrawers::Float<3>),
             DebugValue("Память SpatialGrid (МБ)", DebugDrawers::Float<3>),
-            DebugValue("Пар в NL", DebugDrawers::Int),
-            DebugValue("Ср. соседей на атом", DebugDrawers::Float<3>),
+            // Эти четыре — собственная статистика CPU NeighborList. В GPU-режиме CPU
+            // NL не перестраивается (NL живёт в VRAM), а GPU-аналога без дорогого
+            // per-frame readback нет, поэтому в GPU-режиме показываем честную метку
+            // «н/д», а не застывшее CPU-число. String-дровер: значение форматирует
+            // updateSimulationDebug (число в CPU-режиме / метка в GPU-режиме).
+            DebugValue("Пар в NL", DebugDrawers::String),
+            DebugValue("Ср. соседей на атом", DebugDrawers::String),
             DebugValue("Cutoff", DebugDrawers::Float<3>),
             DebugValue("Skin", DebugDrawers::Float<3>),
             DebugValue("List radius", DebugDrawers::Float<3>),
             DebugValue("Ребилдов NL", DebugDrawers::Int),
-            DebugValue("Шагов между ребилдами (recent)", DebugDrawers::Float<2>),
-            DebugValue("Время ребилда NL (мс)", DebugDrawers::Float<4>),
+            DebugValue("Шагов между ребилдами (recent)", DebugDrawers::String),
+            DebugValue("Время ребилда NL (мс)", DebugDrawers::String),
             DebugValue("SG заполненных ячеек", DebugDrawers::Int),
             DebugValue("SG макс атомов в ячейке", DebugDrawers::Int),
             DebugValue("SG ср. атомов/ячейку", DebugDrawers::Float<3>),

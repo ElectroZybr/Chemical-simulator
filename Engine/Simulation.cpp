@@ -172,12 +172,20 @@ void Simulation::updateStateGpu(WorldState& state) {
     const float thresholdSqr = threshold * threshold;
 
     auto rebuildNeighborList = [&]() {
-        // Канонический путь: скачать позиции, перестроить grid+NL на CPU, залить NL
-        // обратно (uploadNeighborList обновляет refPos — pending уже снят выше).
-        state.gpu->downloadToCpu(state.world.getAtomStorage(), /*withVelocities=*/true);
-        state.cpuPositionsDirty = false;
-        state.world.getNeighborList().rebuildPipeline(state.world.getAtomStorage(), state.world, state.sim_step);
-        state.gpu->uploadNeighborList(state.world.getNeighborList());
+        // Шаг 2d: NL пересобирается ЦЕЛИКОМ на GPU из резидентных позиций — БЕЗ
+        // CPU round-trip (downloadToCpu + CPU rebuildPipeline + uploadNeighborList).
+        // Именно этот round-trip был perf-корнем «CPU отъедает у GPU». Параметры
+        // сетки берём из CPU SpatialGrid (он не перестраивается в hot loop, но его
+        // size/cellSize/countCells валидны с момента конфигурации/входа в GPU-режим
+        // и совпадают с биннингом, который ждёт GPU-builder). refPos обновляется
+        // внутри rebuildNeighborListOnGpu (база disp-проверки) — pending уже снят
+        // выше. CPU-копия NL при этом легитимно устаревает: её контент в GPU hot
+        // loop никто не читает (LJ-силы и интегрирование идут по резидентным
+        // буферам), а перед правкой сцены uploadSceneToGpu строит NL на CPU заново.
+        const SpatialGrid& grid = state.world.getGrid();
+        const float lr = state.world.getNeighborList().listRadius();
+        state.gpu->rebuildNeighborListOnGpu(grid.size.x, grid.size.y, grid.size.z, grid.cellSize,
+                                            static_cast<uint32_t>(grid.countCells), lr * lr);
     };
 
     if (auto disp = state.gpu->tryConsumeMaxDisplacementSqr(); disp.has_value()) {
@@ -294,6 +302,26 @@ void Simulation::syncFromGpuIfNeeded() {
             state->cpuPositionsDirty = false;
             state->metricsCacheValid_ = false;
         }
+    }
+}
+
+void Simulation::refreshDiagnosticsGrid() {
+    // Рендер рисует ВСЕ миры (updateAll шагает каждый), и виз-сетка/overlay/stats
+    // читают grid КАЖДОГО GPU-мира — поэтому перебинниваем грид всех GPU-миров, а не
+    // только активного (тот же контракт «все миры», что и syncFromGpuIfNeeded). Иначе
+    // неактивный GPU-мир рисовал бы замороженную сетку при drawGrid.
+    //
+    // Только биннинг грида из УЖЕ синканных CPU-позиций (precondition: вызывающий
+    // сделал syncFromGpuIfNeeded в начале кадра). НЕ качаем VRAM повторно и НЕ трогаем
+    // CPU NeighborList — viz/overlay/stats читают именно грид, а NL-readback на каждый
+    // кадр был бы дорог (это диагностика, не hot loop).
+    for (const auto& state : worlds_) {
+        if (!state->gpu) {
+            continue; // CPU-мир: грид перестраивается физическим шагом, уже свежий.
+        }
+        World& world = state->world;
+        AtomStorage& atoms = world.getAtomStorage();
+        world.getGrid().rebuild(atoms.xDataSpan(), atoms.yDataSpan(), atoms.zDataSpan());
     }
 }
 

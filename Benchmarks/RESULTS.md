@@ -86,13 +86,65 @@ async-consume / backstop (RTX 4070 SUPER):
 rebuild-round-trip), заметнее на спокойных, где перестройка редка. Сам
 rebuild-round-trip (доминанта) — цель Шага 2 (построение NL на GPU).
 
+## Шаг 2 — построение списка соседей целиком на GPU (round-trip убран)
+
+Шаг 2 переносит саму перестройку списка соседей на GPU: cell-list (counting sort +
+Blelloch exclusive scan + scatter) → Full NeighborList (count → scan → write) строится
+из резидентных позиций прямо в резидентные буфера, которые читает LJ-ядро. Горячий путь
+больше НЕ делает CPU round-trip (downloadToCpu + CPU rebuildPipeline + uploadNeighborList)
+— именно он был доминантой замедления.
+
+BEFORE/AFTER одного и того же `BM_GpuFullStep_WithRebuild` (реальный путь Simulation
+в GPU-режиме, та же методология median-3, та же машина back-to-back; BEFORE = коммит
+8780aba с CPU round-trip, AFTER = ae329ea с GPU-построением):
+
+| N / шагов-на-кадр | BEFORE (CPU round-trip) | AFTER (GPU build) | ускорение | AFTER cv |
+|---|---|---|---|---|
+| 15 625 / 1 | 1172 μs | 234 μs | **5.0×** | 4.6% |
+| 15 625 / 2 | 2777 μs | 332 μs | **8.4×** | 3.4% |
+| 15 625 / 8 | 7842 μs | 835 μs | **9.4×** | 1.6% |
+| 15 625 / 20 | 28 027 μs | 2181 μs | **12.8×** | 2.5% |
+| 103 823 / 2 | 5754 μs | 1371 μs | **4.2×** | 4.9% |
+| 103 823 / 8 | 20 174 μs | 3898 μs | **5.2×** | 2.5% |
+
+Провенанс: процедура — `BM_GpuFullStep_WithRebuild` (`Benchmarks/physics/BM_GpuFullStep.cpp`),
+метрика = per-iteration real_time (1 итерация = N шагов на кадр + один drain-sync);
+код пути — rebuild-lambda в `Simulation::updateStateGpu` (`Engine/Simulation.cpp`),
+`GpuResidentPhysics::rebuildNeighborListOnGpu` (`Engine/physics/gpu/GpuResidentPhysics.cpp`),
+`GpuNeighborListBuilder` + `Rendering/shaders/gpu_cell_list.wgsl`; входы — когерентная
+горячая сцена (дрейф vx=5), N = 15625 и 103823, шагов-на-кадр = 1/2/8/20, медиана 3
+прогонов, `--benchmark_min_time=0.3s`; машина — та же (i7-14700K, RTX 4070 SUPER, clang
+Release).
+
+Ускорение 4–13× амортизированное — это НЕ per-rebuild-шаг 20-50× из раздела выше:
+матрица амортизирует перестройки по всем шагам кадра, а GPU-построение само имеет
+стоимость. AFTER стабилен (cv 1.5-5%, против шумного BEFORE round-trip); точный
+множитель плавает с состоянием машины (ранний single-run давал 2.6-7.9×), но порядок
+(несколько-× … ~10×) робастен. На 8/20 шагах часть disp-check'ов уходит в backstop
+(быстрый submit-цикл бенча глушит async — артефакт методики, как в Шаге 1), но
+round-trip убран на всех путях.
+
+Корректность и свежесть (отдельные гейты, не таблица времени):
+- `BM_GpuCorrectness`: GPU-траектория == CPU в пределах tolerance (max|Δ| = 0; сцена без
+  rebuild — изолирует integrator+LJ).
+- `BM_GpuNlFreshness`: на РЕЗИДЕНТНОМ GPU-списке под быстрым движением потерянных
+  within-cutoff пар нет (MISSING = 0) — GPU-перестройка по disp-каденции свежа.
+- `BM_GpuResidentNlBuild`: резидентный список поатомно == CPU Full (8 сцен, включая
+  overflow-рост буфера).
+- `BM_GpuDiagnosticsGrid`: CPU SpatialGrid диагностик (виз-сетка/overlay/панель)
+  перебиннивается на каденции рендера и совпадает с позициями (одиночный + неактивный
+  GPU-мир) — иначе после переноса перестройки на GPU замороженный CPU-грид давал бы
+  «сетку, отделяющуюся от частиц».
+
 Оговорки:
 - GPU резидентные числа — чистое вычисление, БЕЗ NL rebuild. CPU `ComputeForces`
   тоже без rebuild — сравнение apples-to-apples (верхняя граница). CPU FullStep
   с rebuild @ 103k ~16 ms.
 - GPU full-step замер шумный (cv 53-119%) — launch jitter на батч-нагрузке.
 - N=1000: GPU не выигрывает (launch overhead > вычисление); GPU полезен от ~10k.
-- Корректность: GPU-траектория бит-в-бит == CPU (`BM_GpuCorrectness`).
+- Корректность: GPU-траектория == CPU в пределах tolerance (`BM_GpuCorrectness`: на
+  тест-сцене max|Δ|=0; гейт допускает 1e-2 — Full-GPU vs Half-CPU отличаются порядком
+  суммирования, бит-в-бит не гарантирован).
 
 Прочие оптимизации (не force-loop): bond hot path −50% (D1), формация бондов
 75-121× O(N²)→O(N) (D2), рендер sparse-сетки 3.7× (D4) — детали в секциях ниже.

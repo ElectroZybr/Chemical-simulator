@@ -7,6 +7,7 @@
 #include "App/interaction/picking/PickingSystem.h"
 #include "Engine/NeighborSearch/SpatialGrid.h"
 #include "Engine/Simulation.h"
+#include "Engine/physics/gpu/GpuResidentPhysics.h" // nlRebuildCount() в GPU-режиме
 #include "Rendering/BaseRenderer.h"
 
 namespace {
@@ -41,8 +42,14 @@ void NeighborListOverlay::draw(const Simulation& simulation, const PickingSystem
         return;
     }
 
+    // Счётчик перестроек NL для инвалидации кэша skin-центра. В GPU-режиме CPU
+    // NeighborList не перестраивается (hot loop делает это на GPU), поэтому его
+    // rebuildCount() застыл бы на нуле и skin-центр не пере-центрировался бы при
+    // GPU-перестройке. Берём GPU-счётчик (2e), когда активна резидентная физика.
+    const GpuResidentPhysics* gpu = simulation.activeGpuResident();
+    const size_t nlRebuilds = gpu ? static_cast<size_t>(gpu->nlRebuildCount()) : neighborList.stats().rebuildCount();
     const Vec3f atomPos = atoms.pos(selectedIndex) + world.getRenderOffset();
-    updateSkinCenter(selectedIndex, neighborList.stats().rebuildCount(), atomPos);
+    updateSkinCenter(selectedIndex, nlRebuilds, atomPos);
 
     if (neighborList.isValid()) {
         drawSelectedNeighbors(atoms, world.getGrid(), neighborList, world.getRenderOffset(), selectedIndex, renderer);

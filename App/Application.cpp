@@ -147,6 +147,23 @@ int Application::run() {
             // В CPU-режиме — no-op.
             simulation.syncFromGpuIfNeeded();
 
+            // В GPU-режиме CPU SpatialGrid застывает (hot loop перестраивает NL на
+            // GPU и грид не трогает), а его читают диагностические потребители:
+            // визуализация сетки (drawGrid), overlay соседей выбранного атома и
+            // debug-панель статистики грида. Перебинниваем грид из УЖЕ синканных
+            // позиций ТОЛЬКО когда хоть один из них активен — иначе зря тратим O(N)
+            // на каждый кадр. App знает про UI-тумблеры; движок про них не знает.
+            // Overlay соседей рисует грид-обход только при РОВНО одном выбранном
+            // атоме (NeighborListOverlay::draw), поэтому здесь та же проверка == 1.
+            const bool singleSelection = ToolsManager::pickingSystem && ToolsManager::pickingSystem->getSelectedIndices().size() == 1;
+            const bool gridConsumerActive = renderer->drawGrid || singleSelection || appInterface.debugPanel.isVisible();
+            if (gridConsumerActive) {
+                // Без проверки isGpuMode() активного мира: рендер рисует и неактивные
+                // GPU-миры, а refreshDiagnosticsGrid сам пропускает не-GPU миры и
+                // перебиннивает грид ВСЕХ GPU-миров (мульти-мир контракт).
+                simulation.refreshDiagnosticsGrid();
+            }
+
             uiState.simStep = simulation.getSimStep();
             appInterface.update();
             refreshAtomDebugViews(debugViews, simulation);
