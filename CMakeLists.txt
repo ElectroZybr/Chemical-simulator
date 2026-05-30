@@ -13,6 +13,14 @@ option(BUILD_BENCHMARKS "Build benchmarks" OFF)
 option(BUILD_TESTS "Build unit tests" OFF)
 option(USE_TBB "Use Intel oneTBB for parallel CPU paths" ON)
 option(ENABLE_IPO "Enable link-time optimization for non-Debug builds when supported" ON)
+# -ffast-math ТОЛЬКО на физический код (latticelab_lib), не на зависимости.
+# ИЗМЕРЕНО (2026-05-30, см. RESULTS.md «-ffast-math — измерено, отклонено»): физику НЕ ломает
+# (LJ/Morse остаются бит-в-бит CPU==GPU, Coulomb сдвигается на ~5e-7 от reassociation — много
+# меньше порога гейтов, все 36 тестов + parity-гейты зелёные), НО и ускорения НЕ даёт (force-loop
+# memory-bound и уже векторизован на -O3 -march=native). Оставлено OFF как задокументированный
+# тумблер. Внимание: при включении -ffinite-math-only снимает гарантии на NaN/Inf — не для
+# test/parity-сборок (бит-в-бит EXPECT-проверки могут разойтись на нестабильных сценах).
+option(FASTMATH_PHYSICS "Physics lib with -ffast-math (measured: physics-safe but NO perf win; default OFF)" OFF)
 
 set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -72,6 +80,7 @@ add_dependencies(latticelab_lib embedded_translate)
 
 target_compile_options(latticelab_lib PRIVATE
     $<$<AND:$<BOOL:${OPTIMIZE_FOR_NATIVE}>,$<NOT:$<CONFIG:Debug>>,$<CXX_COMPILER_ID:GNU,Clang,AppleClang>>:-march=native>
+    $<$<AND:$<BOOL:${FASTMATH_PHYSICS}>,$<NOT:$<CONFIG:Debug>>,$<CXX_COMPILER_ID:GNU,Clang,AppleClang>>:-ffast-math>
 )
 
 target_compile_definitions(latticelab_lib PUBLIC

@@ -679,6 +679,44 @@ per-step readback: 20 шагов в одном submit + один poll, per-step 
 reorder/tiling/tuning отклонены de-risking замером (`BM_GpuLJReorder`): kernel
 не bottleneck (83-214 μs при любом порядке, в 4-11× быстрее CPU pair).
 
+### -ffast-math — измерено, отклонено (как perf-вариант)
+
+Опция `FASTMATH_PHYSICS` (CMakeLists) добавляет `-ffast-math` ТОЛЬКО на `latticelab_lib`
+(не на зависимости). Проверено head-to-head на одной машине (флаг подтверждён в
+`compile_commands.json` на всех 73 файлах lib). **Дефолт OFF.**
+
+Физику НЕ ломает:
+
+| Проверка | Строгая (`-O3`) | `-ffast-math` |
+|---|---|---|
+| 36 unit-тестов | зелёные | зелёные |
+| BaselineParity vs upstream fd28dc8 (траектория 20 шагов) | 2.094e-05 | 2.094e-05 |
+| Силы в cutoff vs upstream | бит-в-бит | бит-в-бит |
+| `BM_GpuCorrectness` (LJ Verlet, CPU vs GPU) | max_abs=0 | max_abs=0 |
+| Morse (CPU vs GPU) | 0.000e+00 | 0.000e+00 |
+| Angle | 2.861e-06 | 2.861e-06 |
+| Coulomb (траектория / PE absdiff) | 0 / 0 | 4.77e-07 / 7.6e-06 |
+
+Единственный измеримый эффект — сдвиг Кулона ~5e-7 (траектория) / ~8e-6 (PE) от
+reassociation FP; много меньше порогов гейтов (1e-2 / 7.4e-3). LJ и Morse остаются
+бит-в-бит даже с `-ffast-math`.
+
+Но ускорения НЕ даёт (`SimulationFixture/ComputeForcesWithNeighborList`, real_time):
+
+| N атомов | Строгая | `-ffast-math` |
+|---|---|---|
+| 15 625 | 253 μs | 274 μs |
+| 103 823 | 1239 μs | 1304 μs |
+
+В пределах шума, даже чуть медленнее. Причина: force-loop **memory-bound** (случайный
+доступ к позициям соседей по NL) и уже векторизован на `-O3 -march=native` + TBB —
+FP-throughput не узкое место, поэтому reassociation/rsqrt-аппроксимации `-ffast-math`
+ничего не дают. GPU-ядра он не трогает (это WGSL). Вывод: безопасен, но бесполезен как
+perf-вариант — опция оставлена выключенной и задокументирована.
+
+Провенанс: процедура — реконфиг `build/bench` с `-DFASTMATH_PHYSICS=ON`, те же бенчи/тесты
+back-to-back со строгой сборкой; машина — i7-14700K / RTX 4070 SUPER, clang Release.
+
 ## Воспроизведение
 
 ```sh
