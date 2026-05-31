@@ -29,10 +29,13 @@ void KDKScheme::halfKick(AtomStorage& atomStorage, float accelDamping, float dt)
 
     const size_t mobileCount = atomStorage.mobileCount();
 
+    const float halfDt = 0.5f * accelDamping * dt;
+#pragma GCC ivdep
     for (size_t i = 0; i < mobileCount; ++i) {
-        vx[i] += 0.5f * fx[i] * invMass[i] * accelDamping * dt;
-        vy[i] += 0.5f * fy[i] * invMass[i] * accelDamping * dt;
-        vz[i] += 0.5f * fz[i] * invMass[i] * accelDamping * dt;
+        const float halfDtInvMass = halfDt * invMass[i];
+        vx[i] += fx[i] * halfDtInvMass;
+        vy[i] += fy[i] * halfDtInvMass;
+        vz[i] += fz[i] * halfDtInvMass;
     }
 }
 
@@ -47,6 +50,7 @@ void KDKScheme::drift(AtomStorage& atomStorage, float dt) {
     const float* RESTRICT vz = atomStorage.vzData();
 
     const size_t mobileCount = atomStorage.mobileCount();
+#pragma GCC ivdep
     for (size_t i = 0; i < mobileCount; ++i) {
         x[i] += vx[i] * dt;
         y[i] += vy[i] * dt;
