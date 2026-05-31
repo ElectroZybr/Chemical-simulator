@@ -8,7 +8,7 @@
 #include <memory>
 
 #include <webgpu.h>
-#include <webgpu/webgpu.hpp>
+#include <webgpu/webgpu-raii.hpp>
 
 #include "Engine/metrics/Profiler.h"
 #include "Rendering/WGPUContext.h"
@@ -29,13 +29,13 @@ void FrameProducer::stopVideoCapture() {
 
 void FrameProducer::requestScreenshot(ScreenshotCallback callback) { pendingScreenshot_ = std::move(callback); }
 
-wgpu::TextureView FrameProducer::acquireRenderTarget(wgpu::Texture surfaceTexture) {
+wgpu::TextureView FrameProducer::acquireRenderTarget(wgpu::Texture surfaceTexture, wgpu::TextureView surfaceView) {
     if (!videoActive && !pendingScreenshot_) {
-        return surfaceTexture.createView();
+        return surfaceView;
     }
 
     ensureIntermediateTexture(surfaceTexture.getWidth(), surfaceTexture.getHeight(), surfaceTexture.getFormat());
-    return intermediateView_;
+    return *intermediateView_;
 }
 
 void FrameProducer::onFrameRendered(wgpu::Texture surfaceTexture, float renderDeltaTime) {
@@ -60,9 +60,9 @@ void FrameProducer::onFrameRendered(wgpu::Texture surfaceTexture, float renderDe
         return;
     }
 
-    const uint32_t width = intermediate_.getWidth();
-    const uint32_t height = intermediate_.getHeight();
-    const auto format = intermediate_.getFormat();
+    const uint32_t width = intermediate_->getWidth();
+    const uint32_t height = intermediate_->getHeight();
+    const wgpu::TextureFormat format = intermediate_->getFormat();
     const uint32_t bytesPerRow = calcBytesPerRow(width);
     const size_t bufferSize = static_cast<size_t>(height) * bytesPerRow;
 
@@ -80,7 +80,7 @@ void FrameProducer::onFrameRendered(wgpu::Texture surfaceTexture, float renderDe
         }
 
         wgpu::TexelCopyTextureInfo src{};
-        src.texture = intermediate_;
+        src.texture = *intermediate_;
         src.mipLevel = 0;
         src.origin = {0, 0, 0};
         src.aspect = wgpu::TextureAspect::All;
@@ -92,12 +92,12 @@ void FrameProducer::onFrameRendered(wgpu::Texture surfaceTexture, float renderDe
         dst.layout.rowsPerImage = height;
 
         wgpu::Extent3D extent{width, height, 1};
-        wgpu::CommandEncoder encoder = WGPUContext::instance().device().createCommandEncoder();
-        encoder.copyTextureToBuffer(src, dst, extent);
-        wgpu::CommandBuffer cmds = encoder.finish();
-        WGPUContext::instance().queue().submit(1, &cmds);
+        wgpu::raii::CommandEncoder encoder = WGPUContext::instance().device()->createCommandEncoder();
+        encoder->copyTextureToBuffer(src, dst, extent);
+        wgpu::raii::CommandBuffer cmds = encoder->finish();
+        WGPUContext::instance().queue()->submit(1, &*cmds);
 
-        auto ctx = std::make_unique<MapContext>();
+        std::unique_ptr<MapContext> ctx = std::make_unique<MapContext>();
         ctx->buffer = buffer;
         ctx->pool = &pool;
         ctx->streamer = s;
@@ -130,16 +130,15 @@ void FrameProducer::onFrameRendered(wgpu::Texture surfaceTexture, float renderDe
         submitCapture(streamer, {});
     }
 
-    // Блитаем intermediate → surface каждый кадр пока захват активен
     blitToSurface(surfaceTexture);
 }
 
 void FrameProducer::blitToSurface(wgpu::Texture surfaceTexture) {
-    const uint32_t width = intermediate_.getWidth();
-    const uint32_t height = intermediate_.getHeight();
+    const uint32_t width = intermediate_->getWidth();
+    const uint32_t height = intermediate_->getHeight();
 
     wgpu::TexelCopyTextureInfo src{};
-    src.texture = intermediate_;
+    src.texture = *intermediate_;
     src.mipLevel = 0;
     src.origin = {0, 0, 0};
     src.aspect = wgpu::TextureAspect::All;
@@ -151,10 +150,10 @@ void FrameProducer::blitToSurface(wgpu::Texture surfaceTexture) {
     dst.aspect = wgpu::TextureAspect::All;
 
     wgpu::Extent3D extent{width, height, 1};
-    wgpu::CommandEncoder enc = WGPUContext::instance().device().createCommandEncoder();
-    enc.copyTextureToTexture(src, dst, extent);
-    wgpu::CommandBuffer cmds = enc.finish();
-    WGPUContext::instance().queue().submit(1, &cmds);
+    wgpu::raii::CommandEncoder enc = WGPUContext::instance().device()->createCommandEncoder();
+    enc->copyTextureToTexture(src, dst, extent);
+    wgpu::raii::CommandBuffer cmds = enc->finish();
+    WGPUContext::instance().queue()->submit(1, &*cmds);
 }
 
 void FrameProducer::onBufferMapped(WGPUMapAsyncStatus status, WGPUStringView, void* userdata1, void*) {
@@ -204,12 +203,9 @@ std::vector<std::byte> FrameProducer::stripPadding(const std::byte* src, uint32_
 }
 
 void FrameProducer::ensureIntermediateTexture(uint32_t width, uint32_t height, wgpu::TextureFormat format) {
-    if (intermediate_ && intermediate_.getWidth() == width && intermediate_.getHeight() == height) {
+    if (intermediate_ && intermediate_->getWidth() == width && intermediate_->getHeight() == height) {
         return;
     }
-
-    intermediateView_ = nullptr;
-    intermediate_ = nullptr;
 
     wgpu::TextureDescriptor desc{};
     desc.size = {width, height, 1};
@@ -218,8 +214,8 @@ void FrameProducer::ensureIntermediateTexture(uint32_t width, uint32_t height, w
     desc.mipLevelCount = 1;
     desc.sampleCount = 1;
     desc.dimension = wgpu::TextureDimension::_2D;
-    intermediate_ = WGPUContext::instance().device().createTexture(desc);
-    intermediateView_ = intermediate_.createView();
+    intermediate_ = WGPUContext::instance().device()->createTexture(desc);
+    intermediateView_ = intermediate_->createView();
 
     pool = BufferPool{};
 }

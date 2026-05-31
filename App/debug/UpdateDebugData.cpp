@@ -8,7 +8,6 @@
 #include "App/interaction/ToolsManager.h"
 #include "Engine/Consts.h"
 #include "Engine/Simulation.h"
-#include "Engine/metrics/EnergyMetrics.h"
 #include "Engine/metrics/MemoryMetrics.h"
 #include "Engine/metrics/Profiler.h"
 #include "GUI/interface/panels/debug/view/DebugView.h"
@@ -33,7 +32,8 @@ void updateAtomSelectionDebug(const DebugViews& debugViews, const Simulation& si
             debugViews.atomSingle->add_data("Радиус", AtomData::getProps(atomType).radius);
             debugViews.atomSingle->add_data("Тип", static_cast<int>(atomType));
         }
-    } else {
+    }
+    else {
         debugViews.atomBatch->visible = true;
         debugViews.atomSingle->visible = false;
         debugViews.atomBatch->add_data("Выбрано атомов", ToolsManager::pickingSystem->getSelectedIndices().size());
@@ -50,7 +50,7 @@ void updateSimulationDebug(const DebugViews& debugViews, const Simulation& simul
     static StepsRateSample stepsRateSample{};
 
     const AtomStorage& atoms = simulation.atoms();
-    const SimBox& box = simulation.box();
+    const World& world = simulation.world();
     const NeighborList& neighborList = simulation.neighborList();
     const Profiler& profiler = Profiler::instance();
     const double renderMs = profiler.lastMs("Application::RenderFrame");
@@ -83,17 +83,18 @@ void updateSimulationDebug(const DebugViews& debugViews, const Simulation& simul
     debugViews.sim->add_data("Время симуляции (ns)", simulation.simTimeNs());
     debugViews.sim->add_data("Тип интегратора", integratorName);
 
-    const std::string gridSize = std::to_string(std::max(0, box.grid.sizeX - 2)) + " x " + std::to_string(std::max(0, box.grid.sizeY - 2)) +
-                                 " x " + std::to_string(std::max(0, box.grid.sizeZ - 2));
+    const std::string gridSize =
+        std::format("{} x {} x {}", std::max<long long>(0, world.getGrid().size.x - 2), std::max<long long>(0, world.getGrid().size.y - 2),
+                    std::max<long long>(0, world.getGrid().size.z - 2));
     debugViews.neighbor->add_data("Размер сетки", gridSize);
-    const std::string boxSizeNm = std::format("{:.2f} x {:.2f} x {:.2f}", box.size.x * Units::AngstromToNm,
-                                              box.size.y * Units::AngstromToNm, box.size.z * Units::AngstromToNm);
+    const std::string boxSizeNm = std::format("{:.2f} x {:.2f} x {:.2f}", world.getWorldSize().x * Units::AngstromToNm,
+                                              world.getWorldSize().y * Units::AngstromToNm, world.getWorldSize().z * Units::AngstromToNm);
     debugViews.neighbor->add_data("Размер бокса (nm)", boxSizeNm);
-    debugViews.neighbor->add_data("Размер ячейки", box.grid.cellSize);
+    debugViews.neighbor->add_data("Размер ячейки", world.getGrid().cellSize);
     debugViews.neighbor->add_data("NeighborList включен", std::string("Да"));
     debugViews.neighbor->add_data("Память AtomStorage (МБ)", static_cast<float>(atoms.memoryBytes()) / 1024.0f / 1024.0f);
     debugViews.neighbor->add_data("Память NeighborList (МБ)", static_cast<float>(neighborList.memoryBytes()) / 1024.0f / 1024.0f);
-    debugViews.neighbor->add_data("Память SpatialGrid (МБ)", static_cast<float>(box.grid.memoryBytes()) / 1024.0f / 1024.0f);
+    debugViews.neighbor->add_data("Память SpatialGrid (МБ)", static_cast<float>(world.getGrid().memoryBytes()) / 1024.0f / 1024.0f);
     debugViews.neighbor->add_data("Пар в NL", neighborList.pairStorageSize());
     debugViews.neighbor->add_data("Ср. соседей на атом", neighborList.stats().avgNeighborsPerAtom(neighborList));
     debugViews.neighbor->add_data("Cutoff", neighborList.cutoff());
@@ -102,7 +103,7 @@ void updateSimulationDebug(const DebugViews& debugViews, const Simulation& simul
     debugViews.neighbor->add_data("Ребилдов NL", neighborList.stats().rebuildCount());
     debugViews.neighbor->add_data("Шагов между ребилдами (recent)", neighborList.stats().recentAverageStepsBetweenRebuilds());
     debugViews.neighbor->add_data("Время ребилда NL (мс)", neighborList.stats().lastRebuildTimeMs());
-    debugViews.neighbor->add_data("SG заполненных ячеек", static_cast<int>(box.grid.stats().lastNonEmptyCellCount()));
-    debugViews.neighbor->add_data("SG макс атомов в ячейке", static_cast<int>(box.grid.stats().lastMaxAtomsPerCell()));
-    debugViews.neighbor->add_data("SG ср. атомов/ячейку", box.grid.stats().lastAverageAtomsPerNonEmptyCell());
+    debugViews.neighbor->add_data("SG заполненных ячеек", static_cast<int>(world.getGrid().stats().lastNonEmptyCellCount()));
+    debugViews.neighbor->add_data("SG макс атомов в ячейке", static_cast<int>(world.getGrid().stats().lastMaxAtomsPerCell()));
+    debugViews.neighbor->add_data("SG ср. атомов/ячейку", world.getGrid().stats().lastAverageAtomsPerNonEmptyCell());
 }

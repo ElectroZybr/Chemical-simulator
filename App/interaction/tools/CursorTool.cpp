@@ -49,7 +49,7 @@ void CursorTool::onFrame(Vec2i mousePos, float deltaTime) {
         return;
     }
 
-    const Vec3f worldMouse = screenToWorld(mousePos);
+    const Vec3f worldMouse = screenToLocalWorld(mousePos);
     const auto& selectedIndices = ctx.pickingSystem->getSelectedIndices();
     const Vec3f selectedWorldPos = atoms.pos(selectedMoveAtomIndex_);
     const Vec3f displacement = worldMouse - selectedWorldPos;

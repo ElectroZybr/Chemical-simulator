@@ -13,7 +13,6 @@
 #include "GUI/interface/UiState.h"
 #include "GUI/interface/file_dialog/FileDialogManager.h"
 #include "GUI/interface/panels/io/ioPanelWidgets.h"
-#include "Rendering/WGPUContext.h"
 
 namespace {
     constexpr float kSceneTileRounding = 10.0f;
@@ -25,7 +24,7 @@ void IOPanel::ensureSceneCatalogLoaded() {
     }
 
     try {
-        sceneTiles_ = loadIOPanelSceneTiles(scenesDirectory_.string(), WGPUContext::instance().device());
+        sceneTiles_ = loadIOPanelSceneTiles(scenesDirectory_.string());
     }
     catch (const std::exception&) {
         sceneTiles_.clear();
@@ -77,7 +76,7 @@ void IOPanel::draw(float scale, Vec2i windowSize, Simulation& simulation, FileDi
 
     fileDialog.setSimulationDirectory(scenesDirectory_.string());
     ensureSceneCatalogLoaded();
-    boxSize_ = simulation.box().size;
+    boxSize_ = simulation.world().getWorldSize();
 
     const float panelWidth = 300.f * scale;
     const float topOffset = 65.f * scale;
@@ -113,20 +112,19 @@ void IOPanel::draw(float scale, Vec2i windowSize, Simulation& simulation, FileDi
 
     ImGui::SeparatorText("Размер бокса");
     bool boxSizeChanged = false;
-    boxSizeChanged |= ImGui::SliderFloat("X##box_size_x", &boxSize_.x, 5.0f, 400.0f, "%.1f");
-    ImGui::SameLine();
-    ImGui::SetNextItemWidth(70.0f * scale);
-    boxSizeChanged |= ImGui::InputFloat("##box_size_x_input", &boxSize_.x, 0.0f, 0.0f, "%.1f");
-
-    boxSizeChanged |= ImGui::SliderFloat("Y##box_size_y", &boxSize_.y, 5.0f, 400.0f, "%.1f");
-    ImGui::SameLine();
-    ImGui::SetNextItemWidth(70.0f * scale);
-    boxSizeChanged |= ImGui::InputFloat("##box_size_y_input", &boxSize_.y, 0.0f, 0.0f, "%.1f");
-
-    boxSizeChanged |= ImGui::SliderFloat("Z##box_size_z", &boxSize_.z, 5.0f, 200.0f, "%.1f");
-    ImGui::SameLine();
-    ImGui::SetNextItemWidth(70.0f * scale);
-    boxSizeChanged |= ImGui::InputFloat("##box_size_z_input", &boxSize_.z, 0.0f, 0.0f, "%.1f");
+    const auto drawBoxSizeDrag = [&](const char* label, const char* id, float& value) {
+        ImGui::SetNextItemWidth(150.0f * scale);
+        const bool changed = ImGui::DragFloat(id, &value, 0.5f, 1.0f, 0.0f, "%.1f");
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
+        }
+        ImGui::SameLine();
+        ImGui::TextUnformatted(label);
+        return changed;
+    };
+    boxSizeChanged |= drawBoxSizeDrag("Size X", "##box_size_x", boxSize_.x);
+    boxSizeChanged |= drawBoxSizeDrag("Size Y", "##box_size_y", boxSize_.y);
+    boxSizeChanged |= drawBoxSizeDrag("Size Z", "##box_size_z", boxSize_.z);
 
     if (boxSizeChanged) {
         boxSize_.x = std::max(boxSize_.x, 1.0f);
@@ -196,7 +194,7 @@ void IOPanel::draw(float scale, Vec2i windowSize, Simulation& simulation, FileDi
         const bool isHovered = ImGui::IsItemHovered();
 
         if (tile.hasPreview) {
-            const ImTextureID textureId = (ImTextureID)(WGPUTextureView)tile.previewTextureView;
+            const ImTextureID textureId = (ImTextureID)(WGPUTextureView)*tile.previewTextureView;
             const Vec2i textureSize(tile.previewSize);
             ImVec2 uvMin(0.0f, 0.0f);
             ImVec2 uvMax(1.0f, 1.0f);

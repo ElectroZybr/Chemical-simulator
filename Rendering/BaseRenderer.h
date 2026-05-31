@@ -2,12 +2,12 @@
 
 #include <cstdint>
 
-#include <webgpu/webgpu.hpp>
+#include <webgpu/webgpu-raii.hpp>
 
-#include "Engine/SimBox.h"
-#include "Engine/physics/AtomStorage.h"
-#include "Engine/physics/Bond.h"
+#include "Engine/World.h"
 #include "Rendering/camera/Camera.h"
+
+class Simulation;
 
 class IRenderer {
 public:
@@ -19,12 +19,12 @@ public:
 
     virtual ~IRenderer() = default;
 
-    virtual void drawShot(wgpu::TextureView targetView, wgpu::TextureView depthView, const AtomStorage& atoms, const Bond::List& bonds,
-                          const SimBox& box) = 0;
+    virtual void drawShot(wgpu::TextureView targetView, wgpu::TextureView depthView, const Simulation& simulation) = 0;
     virtual void endFrame() = 0;
 
     bool drawGrid = false;
     bool drawBonds = false;
+    bool drawBox = true;
     SpeedColorMode speedColorMode = SpeedColorMode::AtomColor;
     float speedGradientMax = 5.0f;
     float alpha = 0.05f;
@@ -32,5 +32,5 @@ public:
     Camera camera;
 
 protected:
-    IRenderer(SimBox& box) : camera(box) {}
+    IRenderer(World& world) : camera(world) {}
 };

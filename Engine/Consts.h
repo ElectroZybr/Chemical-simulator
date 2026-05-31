@@ -16,7 +16,7 @@ namespace Units {
     // энергия
     inline constexpr float kEnergyUnitToEv = 1.0f;       // константа для перевода единиц энергии в электрон-вольты
     inline constexpr float kEvToJ = 1.602176634e-19f;    // константа для перевода электрон-вольт в джоули
-    inline constexpr float kEvToPJ = kEvToJ * 10e12f;    // константа для перевода электрон-вольт в пико джоули
+    inline constexpr float kEvToPJ = kEvToJ * 1e12f;     // константа для перевода электрон-вольт в пико джоули
 
     // температура
     inline constexpr float kboltzmann = 8.617333262e-5f; // постоянная Больцмана в электрон-вольтах на кельвин

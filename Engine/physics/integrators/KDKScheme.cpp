@@ -6,13 +6,13 @@
 void KDKScheme::pipeline(StepData& stepData) const {
     PROFILE_SCOPE("KDKScheme::pipeline");
     // Kick: половина шага
-    halfKick(stepData.atomStorage, stepData.accelDamping, stepData.dt);
+    halfKick(stepData.world.getAtomStorage(), stepData.accelDamping, stepData.dt);
     // Расчет новых позиций
     StepOps::predictAndSync(stepData, &drift);
     // Расчет сил
     StepOps::computeForces(stepData);
     // Kick: вторая половина шага
-    halfKick(stepData.atomStorage, stepData.accelDamping, stepData.dt);
+    halfKick(stepData.world.getAtomStorage(), stepData.accelDamping, stepData.dt);
 }
 
 void KDKScheme::halfKick(AtomStorage& atomStorage, float accelDamping, float dt) {

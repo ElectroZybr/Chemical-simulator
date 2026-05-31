@@ -2,8 +2,9 @@
 
 #include <cmath>
 
-#include "Engine/SimBox.h"
+#include "Engine/World.h"
 #include "Engine/metrics/Profiler.h"
+#include "Engine/physics/AtomStorage.h"
 #include "Engine/physics/ForceField.h"
 #include "Engine/physics/Integrator.h"
 #include "Engine/restrict.h"
@@ -16,9 +17,11 @@ namespace StepOps {
         { fn(storage, dt) } -> std::same_as<void>;
     };
 
-    inline void confineToBox(AtomStorage& atomStorage, SimBox& box) {
+    inline void confineToBox(World& world) {
         constexpr float restitution = 0.8f;
-        const Vec3f max = box.size - Vec3f(1.0, 1.0, 1.0);
+        const Vec3f max = world.getWorldSize() - Vec3f(1.0, 1.0, 1.0);
+
+        AtomStorage& atomStorage = world.getAtomStorage();
 
         auto confineAxis = [&](float& coord, float& speed, float axisMax) {
             if (coord < 0.0f) {
@@ -71,20 +74,21 @@ namespace StepOps {
 
     inline void computeForces(StepData& stepData) {
         PROFILE_SCOPE("StepOps::computeForces");
-        stepData.forceField.compute(stepData.atomStorage, stepData.bonds, stepData.box, stepData.neighborList, stepData.allowBondFormation,
-                                    stepData.dt);
+        stepData.forceField.compute(stepData.world, stepData.allowBondFormation, stepData.dt);
     }
 
     template <typename StepFn>
         requires AtomStepFunc<StepFn>
     inline void predictAndSync(StepData& stepData, StepFn predictFn) {
-        predictFn(stepData.atomStorage, stepData.dt);
-        confineToBox(stepData.atomStorage, stepData.box);
+        AtomStorage& atomStorage = stepData.world.getAtomStorage();
 
-        stepData.atomStorage.swapPrevCurrentForces();
-        std::fill_n(stepData.atomStorage.fxData(), stepData.atomStorage.size(), 0.0f);
-        std::fill_n(stepData.atomStorage.fyData(), stepData.atomStorage.size(), 0.0f);
-        std::fill_n(stepData.atomStorage.fzData(), stepData.atomStorage.size(), 0.0f);
-        std::fill_n(stepData.atomStorage.energyData(), stepData.atomStorage.size(), 0.0f);
+        predictFn(stepData.world.getAtomStorage(), stepData.dt);
+        confineToBox(stepData.world);
+
+        atomStorage.swapPrevCurrentForces();
+        std::fill_n(atomStorage.fxData(), atomStorage.size(), 0.0f);
+        std::fill_n(atomStorage.fyData(), atomStorage.size(), 0.0f);
+        std::fill_n(atomStorage.fzData(), atomStorage.size(), 0.0f);
+        std::fill_n(atomStorage.energyData(), atomStorage.size(), 0.0f);
     }
 }

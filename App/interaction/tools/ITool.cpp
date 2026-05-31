@@ -1,5 +1,7 @@
 #include "ITool.h"
 
+#include "Engine/Simulation.h"
+#include "Engine/World.h"
 #include "Rendering/BaseRenderer.h"
 
 ITool::ITool(ToolContext& context) noexcept : context_(context) {}
@@ -27,6 +29,14 @@ Vec3f ITool::screenToWorld(Vec2i mousePos) const {
         return renderer->camera.screenToWorld(mousePos);
     }
     return {};
+}
+
+Vec3f ITool::screenToLocalWorld(Vec2i mousePos) const {
+    Vec3f worldPos = screenToWorld(mousePos);
+    if (context_.simulation != nullptr) {
+        worldPos -= context_.simulation->world().getRenderOffset();
+    }
+    return worldPos;
 }
 
 Vec2i ITool::worldToScreen(Vec3f worldPos) const {

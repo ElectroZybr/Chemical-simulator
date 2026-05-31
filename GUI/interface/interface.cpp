@@ -76,7 +76,7 @@ int Interface::init() {
 
     auto& ctx = WGPUContext::instance();
     ImGui_ImplWGPU_InitInfo wgpuInfo{};
-    wgpuInfo.Device = (WGPUDevice)ctx.device();
+    wgpuInfo.Device = (WGPUDevice)(*ctx.device());
     wgpuInfo.RenderTargetFormat = (WGPUTextureFormat)ctx.surfaceFormat();
     wgpuInfo.DepthStencilFormat = WGPUTextureFormat_Depth24Plus;
     ImGui_ImplWGPU_Init(&wgpuInfo);

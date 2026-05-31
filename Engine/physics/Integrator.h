@@ -6,18 +6,15 @@
 class AtomStorage;
 class ForceField;
 class NeighborList;
-class SimBox;
+class World;
 
-#include "Engine/physics/Bond.h"
 #include "Engine/physics/integrators/KDKScheme.h"
 #include "Engine/physics/integrators/LangevinScheme.h"
 #include "Engine/physics/integrators/RK4Scheme.h"
 #include "Engine/physics/integrators/VerletScheme.h"
 
 struct StepData {
-    AtomStorage& atomStorage;
-    Bond::List& bonds;
-    SimBox& box;
+    World& world;
     ForceField& forceField;
     NeighborList& neighborList;
     bool allowBondFormation;

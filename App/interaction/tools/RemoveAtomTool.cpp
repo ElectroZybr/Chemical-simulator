@@ -30,12 +30,12 @@ void RemoveAtomTool::onLeftPressed(Vec2i mousePos) {
         std::sort(toRemove.begin(), toRemove.end(), std::greater<>());
 
         for (size_t index : toRemove) {
-            if (ctx.simulation->removeAtom(index)) {
-                ctx.pickingSystem->handleAtomRemoval(index);
-            }
+            ctx.simulation->removeAtom(index);
+            ctx.pickingSystem->handleAtomRemoval(index);
         }
     }
-    else if (ctx.simulation->removeAtom(target)) {
+    else {
+        ctx.simulation->removeAtom(target);
         ctx.pickingSystem->handleAtomRemoval(target);
     }
 

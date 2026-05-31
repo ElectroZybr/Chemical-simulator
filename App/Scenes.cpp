@@ -57,13 +57,13 @@ namespace Scenes {
         }
 
         bool hasNeighborInStorage(const Simulation& sim, const Vec3f& coords, float delta) {
-            const SimBox& box = sim.box();
+            const World& box = sim.world();
             const AtomStorage& atoms = sim.atoms();
-            const int cx = box.grid.worldToCellX(coords.x);
-            const int cy = box.grid.worldToCellY(coords.y);
-            const int cz = box.grid.worldToCellZ(coords.z);
+            const int cx = box.getGrid().worldToCellX(coords.x);
+            const int cy = box.getGrid().worldToCellY(coords.y);
+            const int cz = box.getGrid().worldToCellZ(coords.z);
             const float deltaSqr = delta * delta;
-            const int radiusCells = std::max(1, static_cast<int>(std::ceil(delta / static_cast<float>(box.grid.cellSize))));
+            const int radiusCells = std::max(1, static_cast<int>(std::ceil(delta / static_cast<float>(box.getGrid().cellSize))));
 
             for (int dz = -radiusCells; dz <= radiusCells; ++dz) {
                 for (int dy = -radiusCells; dy <= radiusCells; ++dy) {
@@ -71,11 +71,12 @@ namespace Scenes {
                         const int nx = cx + dx;
                         const int ny = cy + dy;
                         const int nz = cz + dz;
-                        if (nx < 0 || ny < 0 || nz < 0 || nx >= box.grid.sizeX || ny >= box.grid.sizeY || nz >= box.grid.sizeZ) {
+                        if (nx < 0 || ny < 0 || nz < 0 || nx >= box.getGrid().size.x || ny >= box.getGrid().size.y ||
+                            nz >= box.getGrid().size.z) {
                             continue;
                         }
 
-                        auto cell = box.grid.atomsInCell(nx, ny, nz);
+                        std::span<const uint32_t> cell = box.getGrid().atomsInCell(nx, ny, nz);
                         for (size_t atomIndex : cell) {
                             if (atomIndex >= atoms.size()) {
                                 continue;
@@ -115,6 +116,72 @@ namespace Scenes {
         sim.finalizeAtomBatch();
     }
 
+    void triangularBipyramidCrystal(Simulation& sim, int baseSideAtoms, AtomData::Type type, float verticalScale, double spacing, double margin) {
+        baseSideAtoms = std::max(1, baseSideAtoms);
+        verticalScale = std::max(0.1f, verticalScale);
+        if (spacing <= 0.0) {
+            spacing = static_cast<double>(AtomData::getProps(type).ljA0) * std::pow(2.0, 1.0 / 6.0);
+        }
+
+        const int baseSide = baseSideAtoms;
+        const int layerRadius = baseSide - 1;
+        const double rowStep = spacing * std::sqrt(3.0) * 0.5;
+        const double layerShiftZ = rowStep / 3.0;
+        const double layerStep = spacing * std::sqrt(2.0 / 3.0) * static_cast<double>(verticalScale);
+        const Vec3f pyramidCenter(static_cast<double>(layerRadius) * spacing * 0.5, 0.0,
+                                  static_cast<double>(layerRadius) * rowStep / 3.0);
+
+        std::vector<Vec3f> positions;
+        size_t atomTotal = 0;
+        for (int layer = -layerRadius; layer <= layerRadius; ++layer) {
+            const int side = baseSide - std::abs(layer);
+            atomTotal += static_cast<size_t>(side) * static_cast<size_t>(side + 1) / 2;
+        }
+        positions.reserve(atomTotal);
+
+        Vec3f maxRadius(0.0, 0.0, 0.0);
+
+        for (int layer = -layerRadius; layer <= layerRadius; ++layer) {
+            const int layerIndex = std::abs(layer);
+            const int side = baseSide - layerIndex;
+            const double layerShiftX = static_cast<double>(layerIndex) * spacing * 0.5;
+            const double layerShiftedZ = static_cast<double>(layerIndex) * layerShiftZ;
+
+            for (int row = 0; row < side; ++row) {
+                const int rowCount = side - row;
+                for (int col = 0; col < rowCount; ++col) {
+                    const Vec3f latticePos(static_cast<double>(col) * spacing + static_cast<double>(row) * spacing * 0.5 + layerShiftX,
+                                           static_cast<double>(layer) * layerStep,
+                                           static_cast<double>(row) * rowStep + layerShiftedZ);
+                    positions.push_back(latticePos);
+                    const Vec3f centeredPos = latticePos - pyramidCenter;
+                    maxRadius.x = std::max(maxRadius.x, std::abs(centeredPos.x));
+                    maxRadius.y = std::max(maxRadius.y, std::abs(centeredPos.y));
+                    maxRadius.z = std::max(maxRadius.z, std::abs(centeredPos.z));
+                }
+            }
+        }
+
+        sim.setSizeBox(maxRadius * 2.0 + Vec3f(margin * 2.0, margin * 2.0, margin * 2.0));
+        const Vec3f boxCenter = sim.world().getWorldSize() * 0.5f;
+        sim.reserveAtoms(sim.atoms().size() + positions.size());
+        for (const Vec3f& position : positions) {
+            sim.appendAtomFast(position - pyramidCenter + boxCenter, Vec3f(0.0, 0.0, 0.0), type);
+        }
+
+        sim.finalizeAtomBatch();
+    }
+
+    void AngularVelocity(Simulation& sim, Vec3f angularVelocity) {
+        const Vec3f center = sim.world().getWorldSize() * 0.5f;
+        AtomStorage& atoms = sim.atoms();
+
+        for (size_t atomIndex = 0; atomIndex < atoms.mobileCount(); ++atomIndex) {
+            const Vec3f radial = atoms.pos(atomIndex) - center;
+            atoms.setVel(atomIndex, angularVelocity.cross(radial));
+        }
+    }
+
     void hexLattice(Simulation& sim, Vec3f count, AtomData::Type type, float start_force, float margin) {
         const size_t atomTotal = static_cast<size_t>(count.x) * static_cast<size_t>(count.y) * static_cast<size_t>(count.z);
 
@@ -123,8 +190,7 @@ namespace Scenes {
         const float layerShiftY = lj_min * std::sqrt(3.0f) / 6.0f;
         const float layerStep = lj_min * std::sqrt(2.0f / 3.0f);
 
-        sim.setSizeBox(Vec3f(2.0f * margin + count.x * lj_min + 1.5f * lj_min,
-                             2.0f * margin + count.y * rowStep + 1.5f * lj_min,
+        sim.setSizeBox(Vec3f(2.0f * margin + count.x * lj_min + 1.5f * lj_min, 2.0f * margin + count.y * rowStep + 1.5f * lj_min,
                              2.0f * margin + count.z * layerStep + lj_min));
 
         sim.reserveAtoms(sim.atoms().size() + atomTotal);
@@ -155,20 +221,20 @@ namespace Scenes {
 
         std::srand(static_cast<unsigned>(detail::resolveSeed(seed)));
 
-        const SimBox& box = sim.box();
+        const World& world = sim.world();
         const float minDistanceSqr = minDistance * minDistance;
 
         const size_t oldSize = sim.atoms().size();
         std::vector<Vec3f> acceptedPositions;
         acceptedPositions.reserve(static_cast<size_t>(atomCount));
 
-        std::vector<std::vector<Vec3f>> pendingByCell(static_cast<size_t>(box.grid.countCells));
-        const int pendingRadiusCells = std::max(1, static_cast<int>(std::ceil(minDistance / static_cast<float>(box.grid.cellSize))));
+        std::vector<std::vector<Vec3f>> pendingByCell(static_cast<size_t>(world.getGrid().countCells));
+        const int pendingRadiusCells = std::max(1, static_cast<int>(std::ceil(minDistance / static_cast<float>(world.getGrid().cellSize))));
 
         const auto isTooCloseToPending = [&](const Vec3f& coords) {
-            const int cx = box.grid.worldToCellX(coords.x);
-            const int cy = box.grid.worldToCellY(coords.y);
-            const int cz = box.grid.worldToCellZ(coords.z);
+            const int cx = world.getGrid().worldToCellX(coords.x);
+            const int cy = world.getGrid().worldToCellY(coords.y);
+            const int cz = world.getGrid().worldToCellZ(coords.z);
 
             for (int dz = -pendingRadiusCells; dz <= pendingRadiusCells; ++dz) {
                 for (int dy = -pendingRadiusCells; dy <= pendingRadiusCells; ++dy) {
@@ -176,11 +242,12 @@ namespace Scenes {
                         const int nx = cx + dx;
                         const int ny = cy + dy;
                         const int nz = cz + dz;
-                        if (nx < 0 || ny < 0 || nz < 0 || nx >= box.grid.sizeX || ny >= box.grid.sizeY || nz >= box.grid.sizeZ) {
+                        if (nx < 0 || ny < 0 || nz < 0 || nx >= world.getGrid().size.x || ny >= world.getGrid().size.y ||
+                            nz >= world.getGrid().size.z) {
                             continue;
                         }
 
-                        const int cellIndex = box.grid.index(nx, ny, nz);
+                        const int cellIndex = world.getGrid().index(nx, ny, nz);
                         const auto& bucket = pendingByCell[static_cast<size_t>(cellIndex)];
                         for (const Vec3f& other : bucket) {
                             if ((coords - other).sqrAbs() < minDistanceSqr) {
@@ -193,20 +260,20 @@ namespace Scenes {
             return false;
         };
 
-        const double zMid = box.size.z * 0.5;
-        const double zSpan = box.size.z - 4.0;
+        const double zMid = world.getWorldSize().z * 0.5;
+        const double zSpan = world.getWorldSize().z - 4.0;
         const int maxZ = std::max(0, static_cast<int>(zSpan));
         for (int i = 0; i < atomCount; ++i) {
             for (int attempt = 0; attempt < maxAttemptsPerAtom; ++attempt) {
-                const double rx = std::rand() % int(box.size.x - 4.0);
-                const double ry = std::rand() % int(box.size.y - 4.0);
+                const double rx = std::rand() % int(world.getWorldSize().x - 4.0);
+                const double ry = std::rand() % int(world.getWorldSize().y - 4.0);
                 const double rz = is3d ? (std::rand() % (maxZ + 1)) : zMid;
                 const Vec3f coords(rx + 2.0, ry + 2.0, is3d ? (rz + 2.0) : zMid);
 
                 if (!detail::hasNeighborInStorage(sim, coords, minDistance) && !isTooCloseToPending(coords)) {
                     acceptedPositions.emplace_back(coords);
-                    const int cell =
-                        box.grid.index(box.grid.worldToCellX(coords.x), box.grid.worldToCellY(coords.y), box.grid.worldToCellZ(coords.z));
+                    const int cell = world.getGrid().index(world.getGrid().worldToCellX(coords.x), world.getGrid().worldToCellY(coords.y),
+                                                           world.getGrid().worldToCellZ(coords.z));
                     pendingByCell[static_cast<size_t>(cell)].emplace_back(coords);
                     break;
                 }
@@ -269,8 +336,7 @@ namespace Scenes {
             // Используем проценты
             for (size_t i = 0; i < atomSpecs.size(); ++i) {
                 if (atomSpecs[i].concentrationPercent > 0.0f) {
-                    atomCountsPerType[i] = static_cast<int>(
-                        std::round(totalAtomCount * atomSpecs[i].concentrationPercent / 100.0f));
+                    atomCountsPerType[i] = static_cast<int>(std::round(totalAtomCount * atomSpecs[i].concentrationPercent / 100.0f));
                 }
             }
             // Убеждаемся, что сумма равна totalAtomCount (корректируем последний тип)
@@ -286,7 +352,8 @@ namespace Scenes {
                     }
                 }
             }
-        } else {
+        }
+        else {
             // Используем абсолютные значения
             int reservedAtoms = 0;
             for (size_t i = 0; i < atomSpecs.size(); ++i) {
@@ -308,9 +375,8 @@ namespace Scenes {
         const float clampedDensity = std::clamp(density, 0.25f, 3.0f);
         const double effectiveSpacing = spacing / static_cast<double>(clampedDensity);
 
-        const int sideCount =
-            is3d ? std::max(1, static_cast<int>(std::ceil(std::cbrt(static_cast<double>(totalAtomCount)))))
-                 : std::max(1, static_cast<int>(std::ceil(std::sqrt(static_cast<double>(totalAtomCount)))));
+        const int sideCount = is3d ? std::max(1, static_cast<int>(std::ceil(std::cbrt(static_cast<double>(totalAtomCount)))))
+                                   : std::max(1, static_cast<int>(std::ceil(std::sqrt(static_cast<double>(totalAtomCount)))));
 
         const double span = sideCount * effectiveSpacing + 2.0 * margin;
         sim.setSizeBox(Vec3f(span, span, is3d ? span : 6));

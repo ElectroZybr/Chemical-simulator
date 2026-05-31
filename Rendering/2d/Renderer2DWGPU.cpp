@@ -8,8 +8,7 @@
 #include "generated/shaders/grid.wgsl.h"
 #include "generated/shaders/line.wgsl.h"
 
-Renderer2DWGPU::Renderer2DWGPU(SimBox& simBox, wgpu::Device device, wgpu::TextureFormat surfaceFormat)
-    : RendererWGPU(simBox, device, surfaceFormat) {
+Renderer2DWGPU::Renderer2DWGPU(World& simBox, wgpu::TextureFormat surfaceFormat) : RendererWGPU(simBox, surfaceFormat) {
     initAtomPipeline(atom2dWGSL);
     initBoxPipeline(lineWGSL);
     initBondPipeline(lineWGSL);

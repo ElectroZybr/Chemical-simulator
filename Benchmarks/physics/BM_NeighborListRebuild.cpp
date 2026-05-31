@@ -7,11 +7,11 @@ BENCHMARK_DEFINE_F(SimulationFixture, NeighborListRebuildOnly)(benchmark::State&
     rebuildScene();
 
     auto& atoms = simulation_->atoms();
-    auto& box = simulation_->box();
-    box.grid.rebuild(atoms.xDataSpan(), atoms.yDataSpan(), atoms.zDataSpan());
+    auto& grid = simulation_->world().getGrid();
+    grid.rebuild(atoms.xDataSpan(), atoms.yDataSpan(), atoms.zDataSpan());
 
     for (auto _ : state) {
-        simulation_->neighborList().build(atoms, box);
+        simulation_->neighborList().build(simulation_->atoms(), simulation_->world());
         benchmark::DoNotOptimize(simulation_->neighborList().pairStorageSize());
         benchmark::ClobberMemory();
     }

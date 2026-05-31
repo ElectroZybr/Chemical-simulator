@@ -1,6 +1,7 @@
 #include "FfmpegStreamer.h"
 
 #include <cassert>
+#include <csignal>
 #include <sstream>
 
 #include "Engine/metrics/Profiler.h"
@@ -18,6 +19,7 @@ bool FFmpegStreamer::start(uint32_t width, uint32_t height, const char* inputPix
 #ifdef _WIN32
     pipe_ = _popen(cmd.data(), "wb");
 #else
+    std::signal(SIGPIPE, SIG_IGN);
     pipe_ = popen(cmd.data(), "w");
 #endif
 
@@ -54,7 +56,7 @@ void FFmpegStreamer::stop() {
 bool FFmpegStreamer::pushFrame(std::vector<std::byte> pixels) {
     std::lock_guard lock(mutex_);
 
-    if (queue_.size() >= kMaxQueueDepth) {
+    if (!running_ || pipe_ == nullptr || queue_.size() >= kMaxQueueDepth) {
         return false;
     }
 
@@ -79,8 +81,12 @@ void FFmpegStreamer::writerLoop() {
         }
 
         PROFILE_SCOPE("FFmpegStreamer::writeFrame");
-        fwrite(frame.data(), 1, frame.size(), pipe_);
-        fflush(pipe_);
+        const size_t written = fwrite(frame.data(), 1, frame.size(), pipe_);
+        if (written != frame.size() || fflush(pipe_) != 0) {
+            std::lock_guard lock(mutex_);
+            running_ = false;
+            break;
+        }
     }
 }
 

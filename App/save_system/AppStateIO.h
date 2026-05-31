@@ -2,7 +2,7 @@
 
 #include <string_view>
 
-#include <webgpu/webgpu.hpp>
+#include <webgpu/webgpu-raii.hpp>
 
 class Simulation;
 class IRenderer;

@@ -1,9 +1,8 @@
-#include "Benchmarks/fixtures/RendererFixture.h"
-
 #include <stdexcept>
 
 #include <GLFW/glfw3.h>
 
+#include "Benchmarks/fixtures/RendererFixture.h"
 #include "Rendering/WGPUContext.h"
 
 namespace {
@@ -31,7 +30,7 @@ namespace {
 
 wgpu::Device benchmarkDevice() {
     ensureBenchmarkContext();
-    return WGPUContext::instance().device();
+    return *WGPUContext::instance().device();
 }
 
 wgpu::TextureFormat benchmarkSurfaceFormat() {
@@ -41,7 +40,10 @@ wgpu::TextureFormat benchmarkSurfaceFormat() {
 
 void RendererFixtureBase::prepareAtoms(benchmark::State& state) {
     ensureBenchmarkContext();
-    atomStorage_ = makeGridAtoms(state.range(0));
+    if (simulation_.worldCount() == 0) {
+        simulation_.createWorld(Vec3f(300, 300, 300));
+    }
+    simulation_.world().getAtomStorage() = makeGridAtoms(state.range(0));
 }
 
 void RendererFixtureBase::createRenderTargets(wgpu::Device device, wgpu::TextureFormat colorFormat) {
@@ -53,7 +55,7 @@ void RendererFixtureBase::createRenderTargets(wgpu::Device device, wgpu::Texture
     colorDesc.sampleCount = 1;
     colorDesc.dimension = wgpu::TextureDimension::_2D;
     targetTexture_ = device.createTexture(colorDesc);
-    targetTextureView_ = targetTexture_.createView();
+    targetTextureView_ = targetTexture_->createView();
 
     wgpu::TextureDescriptor depthDesc{};
     depthDesc.size = {800, 600, 1};
@@ -70,16 +72,16 @@ void RendererFixtureBase::createRenderTargets(wgpu::Device device, wgpu::Texture
     depthViewDesc.mipLevelCount = 1;
     depthViewDesc.arrayLayerCount = 1;
     depthViewDesc.aspect = wgpu::TextureAspect::DepthOnly;
-    depthTextureView_ = depthTexture_.createView(depthViewDesc);
+    depthTextureView_ = depthTexture_->createView(depthViewDesc);
 }
 
 void RendererFixtureBase::drawFrame() {
-    renderer_->drawShot(targetTextureView_, depthTextureView_, atomStorage_, bonds_, box_);
+    renderer_->drawShot(*targetTextureView_, *depthTextureView_, simulation_);
     renderer_->endFrame();
 }
 
 void RendererFixtureBase::setCounters(benchmark::State& state) const {
-    state.SetItemsProcessed(state.iterations() * static_cast<int64_t>(atomStorage_.size()));
+    state.SetItemsProcessed(state.iterations() * static_cast<int64_t>(simulation_.world().getAtomStorage().size()));
 }
 
 AtomStorage RendererFixtureBase::makeGridAtoms(int count) {

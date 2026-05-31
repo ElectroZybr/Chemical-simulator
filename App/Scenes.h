@@ -29,6 +29,12 @@ namespace Scenes {
     void crystal(Simulation& sim, int n, AtomData::Type type, bool is3d, CrystalPlane plane = CrystalPlane::XY,
                  double padding = 3.0, double margin = 15.0);
 
+    /// @param baseSideAtoms Количество атомов в одной стороне максимального треугольного слоя
+    void triangularBipyramidCrystal(Simulation& sim, int baseSideAtoms, AtomData::Type type, float verticalScale = 1.0f,
+                                    double spacing = 0.0, double margin = 12.0);
+
+    void AngularVelocity(Simulation& sim, Vec3f angularVelocity);
+
     void hexLattice(Simulation& sim, Vec3f count, AtomData::Type type, float start_force = 1.0f, float margin = 15.0);
 
     /// Создает рандомный газ в уже существующем ящике симуляции

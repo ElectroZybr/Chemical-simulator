@@ -25,13 +25,13 @@ namespace {
         }
     }
 
-    void applyResizeBox(Simulation& simulation, std::unique_ptr<IRenderer>& renderer, const Vec3f& newSize) {
-        const Vec3f oldSize = simulation.box().size;
+    void applyResizeBox(Simulation& simulation, const Vec3f& newSize) {
+        World& world = simulation.world();
+        const Vec3f oldSize = world.getWorldSize();
         const Vec3f delta = (newSize - oldSize) * 0.5f;
 
         shiftAtoms(simulation.atoms(), delta);
-        renderer->camera.move(delta.xy());
-        renderer->camera.move3D(delta);
+        world.setRenderOffset(world.getRenderOffset() - delta);
         simulation.setSizeBox(newSize);
     }
 }
@@ -45,7 +45,7 @@ namespace AppActions {
             AppStateIO::load(simulation, *renderer, path);
             ToolsManager::resetInteractionState();
         }));
-        track(AppSignals::UI::ResizeBox.connect([&](const Vec3f& newSize) { applyResizeBox(simulation, renderer, newSize); }));
+        track(AppSignals::UI::ResizeBox.connect([&](const Vec3f& newSize) { applyResizeBox(simulation, newSize); }));
         track(AppSignals::UI::ClearSimulation.connect([&]() {
             simulation.clear();
             ToolsManager::resetInteractionState();
@@ -67,12 +67,10 @@ namespace AppActions {
             std::unique_ptr<IRenderer> newRenderer;
             switch (type) {
             case RendererType::Renderer2D:
-                newRenderer = std::make_unique<Renderer2DWGPU>(simulation.box(), WGPUContext::instance().device(),
-                                                               WGPUContext::instance().surfaceFormat());
+                newRenderer = std::make_unique<Renderer2DWGPU>(simulation.world(), WGPUContext::instance().surfaceFormat());
                 break;
             case RendererType::Renderer3D:
-                newRenderer = std::make_unique<Renderer3DWGPU>(simulation.box(), WGPUContext::instance().device(),
-                                                               WGPUContext::instance().surfaceFormat());
+                newRenderer = std::make_unique<Renderer3DWGPU>(simulation.world(), WGPUContext::instance().surfaceFormat());
                 break;
             }
 
@@ -80,6 +78,7 @@ namespace AppActions {
                 ToolsManager::resetInteractionState();
                 newRenderer->drawGrid = renderer->drawGrid;
                 newRenderer->drawBonds = renderer->drawBonds;
+                newRenderer->drawBox = renderer->drawBox;
                 newRenderer->speedColorMode = renderer->speedColorMode;
                 newRenderer->speedGradientMax = renderer->speedGradientMax;
                 newRenderer->camera.setScreenSize(renderer->camera.getScreenSize());

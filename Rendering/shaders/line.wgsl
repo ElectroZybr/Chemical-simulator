@@ -5,6 +5,8 @@ struct SceneUniforms {
     colorMode  : vec4<f32>,
     maxSpeedSqr: vec4<f32>,
     maxCount   : vec4<f32>,
+    renderOffset: vec4<f32>,
+    lineColor  : vec4<f32>,
     typeColors : array<vec4<f32>, 119>,
 }
 @group(0) @binding(0) var<uniform> uScene: SceneUniforms;
@@ -17,8 +19,8 @@ struct VertOut {
 @vertex
 fn vs_main(@location(0) pos: vec3<f32>) -> VertOut {
     var out: VertOut;
-    out.pos   = uScene.projection * uScene.view * vec4<f32>(pos, 1.0);
-    out.color = vec4<f32>(0.4, 0.6, 1.0, 0.3);
+    out.pos   = uScene.projection * uScene.view * vec4<f32>(pos + uScene.renderOffset.xyz, 1.0);
+    out.color = uScene.lineColor;
     return out;
 }
 

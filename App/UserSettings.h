@@ -14,6 +14,7 @@ struct UserSettings {
 
     bool rendererDrawGrid = false;
     bool rendererDrawBonds = true;
+    bool rendererDrawBox = true;
     IRenderer::SpeedColorMode rendererSpeedColorMode = IRenderer::SpeedColorMode::AtomColor;
     float rendererSpeedGradientMax = 5.0f;
 

@@ -22,9 +22,54 @@
 #include <GLFW/glfw3native.h>
 #endif
 
+#ifndef _WIN32
+#include <filesystem>
+#include <limits.h>
+#include <unistd.h>
+
+#include "stb/stb_image.h"
+#endif
+
 #include <iostream>
 
 #include "generated/AppVersion.h"
+
+#ifndef _WIN32
+inline std::filesystem::path executableDirectory() {
+    char buffer[PATH_MAX + 1]{};
+    const ssize_t len = readlink("/proc/self/exe", buffer, PATH_MAX);
+    if (len <= 0) {
+        return std::filesystem::current_path();
+    }
+    buffer[len] = '\0';
+    return std::filesystem::path(buffer).parent_path();
+}
+
+inline void setLinuxWindowIcon(GLFWwindow* window) {
+    const std::filesystem::path exeDir = executableDirectory();
+    const std::filesystem::path candidates[] = {
+        std::filesystem::path("assets/icon.png"),
+        exeDir / "assets/icon.png",
+    };
+
+    for (const auto& path : candidates) {
+        int width = 0;
+        int height = 0;
+        int channels = 0;
+        unsigned char* pixels = stbi_load(path.string().c_str(), &width, &height, &channels, 4);
+        if (!pixels) {
+            continue;
+        }
+
+        GLFWimage icon{width, height, pixels};
+        glfwSetWindowIcon(window, 1, &icon);
+        stbi_image_free(pixels);
+        return;
+    }
+
+    std::cerr << "Failed to load window icon: assets/icon.png" << std::endl;
+}
+#endif
 
 inline GLFWwindow* createWindow() {
     if (!glfwInit()) {
@@ -59,6 +104,8 @@ inline GLFWwindow* createWindow() {
             SendMessageW(hwnd, WM_SETICON, ICON_SMALL, reinterpret_cast<LPARAM>(smallIcon));
         }
     }
+#else
+    setLinuxWindowIcon(window);
 #endif
 
     return window;

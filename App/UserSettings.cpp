@@ -153,6 +153,9 @@ UserSettings UserSettingsIO::load(const std::filesystem::path& path) {
         else if (tag == "renderer_draw_bonds") {
             file >> settings.rendererDrawBonds;
         }
+        else if (tag == "renderer_draw_box") {
+            file >> settings.rendererDrawBox;
+        }
         else if (tag == "renderer_speed_color_mode") {
             std::string value;
             file >> value;
@@ -210,6 +213,7 @@ void UserSettingsIO::save(const UserSettings& settings, const std::filesystem::p
     file << "capture_pixel_format " << pixelFormatToString(settings.captureSettings.pixelFormat) << "\n";
     file << "renderer_draw_grid " << static_cast<int>(settings.rendererDrawGrid) << "\n";
     file << "renderer_draw_bonds " << static_cast<int>(settings.rendererDrawBonds) << "\n";
+    file << "renderer_draw_box " << static_cast<int>(settings.rendererDrawBox) << "\n";
     file << "renderer_speed_color_mode " << speedColorModeToString(settings.rendererSpeedColorMode) << "\n";
     file << "renderer_speed_gradient_max " << settings.rendererSpeedGradientMax << "\n";
     file << "simulation_integrator " << integratorToString(settings.simulationIntegrator) << "\n";

@@ -11,7 +11,7 @@
 #include "Engine/math/Vec3.h"
 #include "Rendering/BaseRenderer.h"
 
-class SimBox;
+class World;
 class SideToolsPanel;
 class Interface;
 struct UiState;
@@ -46,6 +46,7 @@ public:
     static void onFrame(Vec2i mousePos, float deltaTime);
     static void resetInteractionState();
     static bool isInteractingNow() noexcept;
+    static bool blocksCameraControls() noexcept;
 
     static Mode currentMode();
     static bool isSelectionMode(Mode mode);
@@ -58,6 +59,8 @@ private:
 
     static ITool* activeTool() noexcept;
     static void syncToolMode() noexcept;
+    static void syncPickingWorldToActive(bool clearSelection);
+    static void selectWorldAt(Vec2i mousePos);
     static size_t toIndex(Mode mode) noexcept;
 
     static GLFWwindow* window;
@@ -68,6 +71,7 @@ private:
     static ToolContext toolContext;
     static std::array<std::unique_ptr<ITool>, kModeCount> toolInstances;
     static Mode syncedMode;
+    static Simulation::WorldId pickingWorldId;
 
     static Vec2i startMousePos;
     static Vec2i lastSceneMousePos;

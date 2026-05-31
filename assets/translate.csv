@@ -1,0 +1,66 @@
+key;en;ru
+integrator_velocity_verlet;Velocity Verlet;Интегратор Верле
+integrator_kdk;KDK;KDK
+integrator_runge_kutta_4;Runge-Kutta 4;Runge-Kutta 4
+integrator_langevin;Langevin;Langevin
+integrator_unknown;Unknown;Unknown
+speed_color_normal_coloring;Normal coloring;Обычная раскраска
+speed_color_gradient_coloring;Speed gradient;Градиент скорости
+speed_color_turbo_coloring;Turbo gradient;Турбо градиент
+capture_preset_ultrafast;ultrafast;ultrafast
+capture_preset_veryfast;veryfast;veryfast
+capture_preset_faster;faster;faster
+capture_preset_fast;fast;fast
+capture_preset_medium;medium;medium
+capture_pixel_format_Yuv420p;I420;I420
+capture_pixel_format_Yuv444p;I444;I444
+imgui_language_toggle;EN##language_toggle;RU##language_toggle
+imgui_localization;Localization;Локализация
+imgui_simulation;Simulation;Симуляция
+imgui_gravity;Gravity;Гравитация
+imgui_reset_gravity;Reset##gravity;Сбросить##gravity
+imgui_gravity_x;Gravity X##gravity_x;Гравитация X##gravity_x
+imgui_gravity_y;Gravity Y##gravity_y;Гравитация Y##gravity_y
+imgui_gravity_z;Gravity Z##gravity_z;Гравитация Z##gravity_z
+imgui_integrator;Integrator;Интегратор
+imgui_warning_not_implemented_used_as_velocity_verlet;Warning: %s is not yet implemented and temporarily works as Velocity Verlet;Внимание: %s пока не реализован и временно работает как Velocity Verlet
+imgui_speed_of_light;Speed of light;Скорость света
+imgui_speed_of_light_unlimited;unlimited;не ограничена
+imgui_accel_damping;Accel damping;Accel damping
+imgui_time_step;Time step (Dt);Time step (Dt)
+imgui_worlds;Worlds;Миры
+imgui_world_prefix;World ;Мир 
+imgui_create_world;Create world;Создать мир
+imgui_delete_world;Delete;Удалить
+imgui_offset_x;Offset X##world_offset_x;Offset X##world_offset_x
+imgui_offset_y;Offset Y##world_offset_y;Offset Y##world_offset_y
+imgui_offset_z;Offset Z##world_offset_z;Offset Z##world_offset_z
+imgui_bond_formation;Bond formation;Образовывать связи
+imgui_lj;LJ;LJ
+imgui_coulomb;Coulomb;Coulomb
+imgui_render;Render;Рендер
+imgui_grid;Grid;Сетка
+imgui_connections;Connections;Связи
+imgui_box;Box bounds;Границы куба
+imgui_color_scheme;Color scheme;Цветовая схема
+imgui_speed_color_mode;##speed_color_mode;##speed_color_mode
+imgui_max_gradien_velocity;Max gradient velocity;Макс. скорость градиента
+imgui_speed_gradient_max_slider;##speed_gradient_max;##speed_gradient_max
+imgui_auto_speed_gradien;Auto##speed_gradient_auto;Авто##speed_gradient_auto
+imgui_neighbour_list;Neighbour list;Список соседей
+imgui_cell_size;Cell size;Cell size
+imgui_cutoff_nl;Cutoff NL;Cutoff NL
+imgui_skin_nl;Skin NL;Skin NL
+imgui_write;Record;Запись
+imgui_video_saving_folder;Video save folder;Папка сохранения видео
+imgui_capture_dir;##capture_dir;##capture_dir
+imgui_capture_dir_browse;...#capture_dir_browse;...#capture_dir_browse
+imgui_capture_settings_table;##capture_settings_table;##capture_settings_table
+imgui_fps_capture;FPS##capture_fps;FPS##capture_fps
+imgui_crf_capture;CRF##capture_crf;CRF##capture_crf
+imgui_preset_capture;Preset##capture_preset;Preset##capture_preset
+imgui_color_capture;Color##capture_color;Цвет##capture_color
+imgui_reset_settings;Reset settings;Reset settings
+imgui_exit_button;Exit;Exit
+version_text_pre;LatticeLab v;LatticeLab v
+version_text_after; demo; demo

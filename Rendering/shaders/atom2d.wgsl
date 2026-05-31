@@ -5,6 +5,8 @@ struct SceneUniforms {
     colorMode   : vec4<f32>,
     maxSpeedSqr : vec4<f32>,
     maxCount    : vec4<f32>,
+    renderOffset: vec4<f32>,
+    lineColor   : vec4<f32>,
     typeColors  : array<vec4<f32>, 119>,
 }
 @group(0) @binding(0) var<uniform>       uScene   : SceneUniforms;
@@ -44,7 +46,7 @@ fn vs_main(
     @location(0)             quadPos : vec2<f32>,
     @builtin(instance_index) iid     : u32,
 ) -> VertOut {
-    let pos    = sPos[iid].xy;
+    let pos    = sPos[iid].xy + uScene.renderOffset.xy;
     let vel    = sVel[iid].xyz;
     let radius = sRadius[iid];
     let aType  = u32(sType[iid]);

@@ -2,12 +2,17 @@
 
 #include <limits>
 
-#include "Engine/SimBox.h"
+#include "Engine/World.h"
 #include "Engine/math/Ray.h"
 #include "Rendering/BaseRenderer.h"
 
-PickingSystem::PickingSystem(AtomStorage& atomStorage, SimBox& box, std::unique_ptr<IRenderer>& renderer)
-    : atomStorage(atomStorage), box(box), renderer(&renderer) {}
+PickingSystem::PickingSystem(AtomStorage& atomStorage, World& box, std::unique_ptr<IRenderer>& renderer)
+    : atomStorage(&atomStorage), box(&box), renderer(&renderer) {}
+
+void PickingSystem::setWorld(AtomStorage& newAtomStorage, World& newBox) {
+    atomStorage = &newAtomStorage;
+    box = &newBox;
+}
 
 void PickingSystem::clearSelection() {
     overlay.reset();
@@ -42,8 +47,8 @@ void PickingSystem::processRect(Vec2i start, Vec2i end, bool cumulative) {
     }
     IRenderer* rend = renderer->get();
 
-    for (size_t i = 0; i < atomStorage.size(); ++i) {
-        const Vec3f worldPos = atomStorage.pos(i);
+    for (size_t i = 0; i < atomStorage->size(); ++i) {
+        const Vec3f worldPos = displayAtomPos(i);
         const Vec2i atomScreen = rend->camera.worldToScreen(worldPos);
         if (pointInRect(atomScreen, start, end)) {
             selectedIndices.insert(i);
@@ -60,8 +65,8 @@ void PickingSystem::processLasso(std::span<Vec2i> points, bool cumulative) {
     }
     IRenderer* rend = renderer->get();
 
-    for (size_t i = 0; i < atomStorage.size(); ++i) {
-        const Vec3f worldPos = atomStorage.pos(i);
+    for (size_t i = 0; i < atomStorage->size(); ++i) {
+        const Vec3f worldPos = displayAtomPos(i);
         const Vec2i screenPos = rend->camera.worldToScreen(worldPos);
         if (pointInPolygon(screenPos, points)) {
             selectedIndices.insert(i);
@@ -72,7 +77,7 @@ void PickingSystem::processLasso(std::span<Vec2i> points, bool cumulative) {
 void PickingSystem::handleAtomRemoval(size_t index) {
     selectedIndices.erase(index);
 
-    size_t movedFrom = atomStorage.size();
+    size_t movedFrom = atomStorage->size();
 
     if (index < movedFrom) {
         if (selectedIndices.erase(movedFrom) > 0) {
@@ -98,13 +103,13 @@ bool PickingSystem::pickAtom2D(Vec2i screenPos, float tolerance, AtomHit& hit) c
     float bestDistSqr = std::numeric_limits<float>::max();
     size_t bestIndex = static_cast<size_t>(-1);
 
-    for (size_t i = 0; i < atomStorage.size(); ++i) {
-        const Vec3f worldPos = atomStorage.pos(i);
+    for (size_t i = 0; i < atomStorage->size(); ++i) {
+        const Vec3f worldPos = displayAtomPos(i);
         const Vec2i atomScreen = rend->camera.worldToScreen(worldPos);
         const float distSqr = (atomScreen - Vec2i(screenPos)).sqrAbs();
 
         // радиус атома в экранных пикселях
-        const float atomRadius = AtomData::getProps(atomStorage.type(i)).radius;
+        const float atomRadius = AtomData::getProps(atomStorage->type(i)).radius;
         const float screenRadius = atomRadius * rend->camera.getZoom() + tolerance;
 
         if (distSqr < screenRadius * screenRadius && distSqr < bestDistSqr) {
@@ -128,9 +133,9 @@ bool PickingSystem::pickAtom3D(Vec2i screenPos, AtomHit& hit) const {
     float bestT = std::numeric_limits<float>::max();
     size_t bestIndex = static_cast<size_t>(-1);
 
-    for (size_t i = 0; i < atomStorage.size(); ++i) {
-        const Vec3f worldPos = atomStorage.pos(i);
-        const float radius = AtomData::getProps(atomStorage.type(i)).radius;
+    for (size_t i = 0; i < atomStorage->size(); ++i) {
+        const Vec3f worldPos = displayAtomPos(i);
+        const float radius = AtomData::getProps(atomStorage->type(i)).radius;
 
         RaySphereHit rayHit;
         if (raySphereIntersect(ray, worldPos, radius, rayHit)) {
@@ -147,6 +152,10 @@ bool PickingSystem::pickAtom3D(Vec2i screenPos, AtomHit& hit) const {
 
     hit = {bestIndex, bestT};
     return true;
+}
+
+Vec3f PickingSystem::displayAtomPos(size_t atomIndex) const {
+    return atomStorage->pos(atomIndex) + box->getRenderOffset();
 }
 
 // Ray casting алгоритм для point-in-polygon

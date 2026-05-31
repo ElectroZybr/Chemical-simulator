@@ -55,7 +55,7 @@ void ThermalTool::applyAt(Vec2i mousePos, float deltaTime) {
         return;
     }
 
-    const Vec3f center = screenToWorld(mousePos);
+    const Vec3f center = screenToLocalWorld(mousePos);
     const float radiusSqr = radius_ * radius_;
     const bool is2D = renderer->camera.getMode() == Camera::Mode::Mode2D;
 

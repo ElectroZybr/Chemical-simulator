@@ -87,8 +87,8 @@ ForceField::ForceField() = default;
 void ForceField::compute(World& world, bool allowBondFormation, float dt) const {
     PROFILE_SCOPE("ForceField::compute");
 
-    AtomStorage& atoms        = world.getAtomStorage();
-    Bond::List& bonds         = world.getBonds();
+    AtomStorage& atoms = world.getAtomStorage();
+    Bond::List& bonds = world.getBonds();
     NeighborList& neighborList = world.getNeighborList();
 
     wallForceField_.compute(world);
@@ -99,7 +99,7 @@ void ForceField::compute(World& world, bool allowBondFormation, float dt) const 
 void ForceField::computePairInteractions(World& world) const {
     PROFILE_SCOPE("ForceField::pairInteractions");
 
-    AtomStorage& atoms              = world.getAtomStorage();
+    AtomStorage& atoms = world.getAtomStorage();
     const NeighborList& neighborList = world.getNeighborList();
 
     if (world.isLJEnabled() && world.isCoulombEnabled()) {

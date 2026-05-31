@@ -29,6 +29,7 @@ namespace {
     struct LoadedRendererData {
         bool drawGrid = false;
         bool drawBonds = false;
+        bool drawBox = true;
         int speedColorMode = static_cast<int>(IRenderer::SpeedColorMode::AtomColor);
         float speedGradientMax = 5.0f;
         float alpha = 0.05f;
@@ -183,6 +184,7 @@ namespace {
         file << "\n[renderer]\n";
         file << kBlockIndent << "draw_grid " << static_cast<int>(renderer.drawGrid) << "\n";
         file << kBlockIndent << "draw_bonds " << static_cast<int>(renderer.drawBonds) << "\n";
+        file << kBlockIndent << "draw_box " << static_cast<int>(renderer.drawBox) << "\n";
         file << kBlockIndent << "speed_color_mode " << static_cast<int>(renderer.speedColorMode) << "\n";
         file << kBlockIndent << "speed_gradient_max " << renderer.speedGradientMax << "\n";
         file << kBlockIndent << "renderer_alpha " << renderer.alpha << "\n";
@@ -197,6 +199,7 @@ namespace {
         LoadedRendererData loadedRenderer{
             .drawGrid = renderer.drawGrid,
             .drawBonds = renderer.drawBonds,
+            .drawBox = renderer.drawBox,
             .speedColorMode = static_cast<int>(renderer.speedColorMode),
             .speedGradientMax = renderer.speedGradientMax,
             .alpha = renderer.alpha,
@@ -223,6 +226,11 @@ namespace {
                 stream >> value;
                 loadedRenderer.drawBonds = (value != 0);
             }
+            else if (tag == "draw_box") {
+                int value = 0;
+                stream >> value;
+                loadedRenderer.drawBox = (value != 0);
+            }
             else if (tag == "speed_color_mode") {
                 stream >> loadedRenderer.speedColorMode;
             }
@@ -236,6 +244,7 @@ namespace {
 
         renderer.drawGrid = loadedRenderer.drawGrid;
         renderer.drawBonds = loadedRenderer.drawBonds;
+        renderer.drawBox = loadedRenderer.drawBox;
         renderer.speedColorMode = static_cast<IRenderer::SpeedColorMode>(loadedRenderer.speedColorMode);
         renderer.speedGradientMax = loadedRenderer.speedGradientMax;
         renderer.alpha = loadedRenderer.alpha;
@@ -279,8 +288,8 @@ void AppStateIO::saveBinary(CaptureController& captureController, const PreviewF
     simState.bondFormationEnabled = simulation.isBondFormationEnabled();
     simState.LJEnabled = simulation.isLJEnabled();
     simState.coulombEnabled = simulation.isCoulombEnabled();
-    simState.boxSize = simulation.box().size;
-    simState.gridCellSize = simulation.box().grid.cellSize;
+    simState.boxSize = simulation.world().getWorldSize();
+    simState.gridCellSize = simulation.world().getGridCellSize();
     simState.neighborListCutoff = simulation.getNeighborListCutoff();
     simState.neighborListSkin = simulation.getNeighborListSkin();
     simState.maxParticleSpeed = simulation.getMaxParticleSpeed();
@@ -301,6 +310,7 @@ void AppStateIO::saveBinary(CaptureController& captureController, const PreviewF
     RendererSaveState rendState;
     rendState.drawGrid = renderer.drawGrid;
     rendState.drawBonds = renderer.drawBonds;
+    rendState.drawBox = renderer.drawBox;
     rendState.speedColorMode = renderer.speedColorMode;
     rendState.speedGradientMax = renderer.speedGradientMax;
     rendState.alpha = renderer.alpha;
@@ -309,12 +319,12 @@ void AppStateIO::saveBinary(CaptureController& captureController, const PreviewF
     appState.simulation = std::move(simState);
     appState.renderer = std::move(rendState);
 
-    std::string title = simulation.sceneTitle();
+    std::string title = simulation.worldTitle();
     if (title.empty() && !path.empty()) {
         title = std::filesystem::path(path).stem().string();
     }
     appState.header.title = title;
-    appState.header.description = simulation.sceneDescription();
+    appState.header.description = simulation.worldDescription();
 
     captureController.requestScreenshot([previewRect, filePath = std::string(path), appState = std::move(appState)](ImageData img) mutable {
         const uint32_t pitch = img.width * 4;
@@ -400,8 +410,8 @@ void AppStateIO::loadBinary(Simulation& simulation, IRenderer& renderer, std::st
 
     // Заголовок
     const auto& header = appState.header;
-    simulation.setSceneTitle(header.title);
-    simulation.setSceneDescription(header.description);
+    simulation.setWorldTitle(header.title);
+    simulation.setWorldDescription(header.description);
 
     // Симуляция
     const auto& simState = appState.simulation;
@@ -439,6 +449,7 @@ void AppStateIO::loadBinary(Simulation& simulation, IRenderer& renderer, std::st
     const auto& rendState = appState.renderer;
     renderer.drawGrid = rendState.drawGrid;
     renderer.drawBonds = rendState.drawBonds;
+    renderer.drawBox = rendState.drawBox;
     renderer.speedColorMode = rendState.speedColorMode;
     renderer.speedGradientMax = rendState.speedGradientMax;
     renderer.alpha = rendState.alpha;

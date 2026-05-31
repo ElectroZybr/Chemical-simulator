@@ -4,6 +4,7 @@
 #include "Engine/physics/AtomStorage.h"
 #include "GUI/interface/UiState.h"
 #include "GUI/interface/panels/periodic/PeriodicPanel.h"
+#include "Rendering/BaseRenderer.h"
 
 AddAtomTool::AddAtomTool(ToolContext& context) noexcept : ITool(context) {}
 
@@ -18,12 +19,16 @@ void AddAtomTool::onLeftPressed(Vec2i mousePos) {
     }
 
     AtomStorage& atoms = ctx.simulation->atoms();
-    const SimBox& box = ctx.simulation->box();
+    const World& box = ctx.simulation->world();
     const AtomData::Type atomType = static_cast<AtomData::Type>(PeriodicPanel::decodeAtom(ctx.uiState->selectedAtom));
-    const Vec3f spawnPos = screenToWorld(mousePos);
+    Vec3f spawnPos = screenToLocalWorld(mousePos);
+    const bool is2D = ctx.activeRenderer() != nullptr && ctx.activeRenderer()->camera.getMode() == Camera::Mode::Mode2D;
+    if (is2D) {
+        spawnPos.z = box.getWorldSize().z * 0.5f;
+    }
 
-    if (!(1 <= spawnPos.x && spawnPos.x <= box.size.x - 1 && 1 <= spawnPos.y && spawnPos.y <= box.size.y - 1 && 1 <= spawnPos.z &&
-          spawnPos.z <= box.size.z - 1)) {
+    if (!(1 <= spawnPos.x && spawnPos.x <= box.getWorldSize().x - 1 && 1 <= spawnPos.y && spawnPos.y <= box.getWorldSize().y - 1 &&
+          1 <= spawnPos.z && spawnPos.z <= box.getWorldSize().z - 1)) {
         return;
     }
 
@@ -36,5 +41,9 @@ void AddAtomTool::onLeftPressed(Vec2i mousePos) {
         }
     }
 
-    ctx.simulation->createAtom(spawnPos, Vec3f::Random() * 5.f, atomType, false);
+    Vec3f velocity = Vec3f::Random() * 5.f;
+    if (is2D) {
+        velocity.z = 0.0f;
+    }
+    ctx.simulation->createAtom(spawnPos, velocity, atomType, false);
 }

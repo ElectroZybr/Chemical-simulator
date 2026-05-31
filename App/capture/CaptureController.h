@@ -8,7 +8,7 @@
 #include <filesystem>
 #include <functional>
 
-#include <webgpu/webgpu.hpp>
+#include <webgpu/webgpu-raii.hpp>
 
 struct UiState;
 
@@ -29,7 +29,7 @@ public:
     using ScreenshotCallback = std::function<void(ImageData)>;
     void requestScreenshot(ScreenshotCallback callback);
 
-    wgpu::TextureView acquireRenderTarget(wgpu::Texture surfaceTexture);
+    wgpu::TextureView acquireRenderTarget(wgpu::Texture surfaceTexture, wgpu::TextureView surfaceView);
     void onFrameRendered(wgpu::Texture texture);
 
     void update(double deltaTime);

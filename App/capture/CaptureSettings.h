@@ -1,6 +1,6 @@
 #pragma once
 
-#include <webgpu/webgpu.hpp>
+#include <webgpu/webgpu-raii.hpp>
 
 struct CaptureSettings {
     enum class Preset { Ultrafast, Veryfast, Faster, Fast, Medium };

@@ -75,7 +75,6 @@ if(ENABLE_TBB)
     target_compile_definitions(latticelab_lib PUBLIC ENABLE_TBB)
     message(STATUS "TBB: enabled")
 endif()
-
 target_compile_options(latticelab_lib PRIVATE
     $<$<AND:$<BOOL:${OPTIMIZE_FOR_NATIVE}>,$<NOT:$<CONFIG:Debug>>,$<CXX_COMPILER_ID:GNU,Clang,AppleClang>>:-march=native>
 )
@@ -112,7 +111,6 @@ if(APPLE)
         ${QUARTZCORE_FRAMEWORK}
     )
 endif()
-
 target_link_libraries(latticelab_lib PUBLIC
     glfw
     imgui ImGuiFileDialog_lib

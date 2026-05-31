@@ -5,6 +5,8 @@ struct SceneUniforms {
     colorMode  : vec4<f32>,
     maxSpeedSqr: vec4<f32>,
     maxCount   : vec4<f32>,
+    renderOffset: vec4<f32>,
+    lineColor  : vec4<f32>,
     typeColors : array<vec4<f32>, 119>,
 }
 @group(0) @binding(0) var<uniform> uScene: SceneUniforms;
@@ -21,7 +23,7 @@ fn vs_main(
     @location(2) cellSize  : f32,
     @location(3) atomCount : f32,
 ) -> VertOut {
-    let worldPos = origin.xyz + localPos * cellSize;
+    let worldPos = origin.xyz + localPos * cellSize + uScene.renderOffset.xyz;
     let t = clamp(atomCount / uScene.maxCount.x, 0.0, 1.0);
     let color = mix(vec4<f32>(0.0, 1.0, 0.0, 0.3), vec4<f32>(1.0, 0.0, 0.0, 0.3), t);
 

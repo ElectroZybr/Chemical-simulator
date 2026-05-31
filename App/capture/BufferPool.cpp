@@ -2,8 +2,7 @@
 
 #include <cassert>
 
-#include <webgpu.h>
-#include <webgpu/webgpu.hpp>
+#include <webgpu/webgpu-raii.hpp>
 
 #include "Rendering/WGPUContext.h"
 
@@ -26,10 +25,5 @@ wgpu::Buffer BufferPool::acquire() {
 void BufferPool::release(wgpu::Buffer buffer) { free.emplace_back(std::move(buffer)); }
 
 wgpu::Buffer BufferPool::createBuffer() const {
-    wgpu::BufferDescriptor desc{};
-    desc.label = wgpu::StringView("CaptureReadback");
-    desc.size = bufferSize;
-    desc.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::MapRead;
-    desc.mappedAtCreation = false;
-    return WGPUContext::instance().device().createBuffer(desc);
+    return WGPUContext::instance().createBuffer(bufferSize, wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::MapRead, "CaptureReadback");
 }
