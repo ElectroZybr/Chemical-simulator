@@ -8,14 +8,14 @@
 
 #include "App/debug/CreateDebugPanels.h"
 #include "App/interaction/ToolsManager.h"
-#include "Engine/Consts.h"
-#include "Engine/Simulation.h"
-#include "Engine/metrics/MemoryMetrics.h"
-#include "Engine/metrics/Profiler.h"
-#include "Engine/physics/gpu/GpuResidentPhysics.h" // nlRebuildCount() в GPU-режиме
+#include "Lattice/Engine/Consts.h"
+#include "Lattice/Engine/Simulation.h"
+#include "Lattice/Engine/metrics/MemoryMetrics.h"
+#include "Lattice/Engine/metrics/Profiler.h"
+#include "Lattice/Engine/physics/gpu/GpuResidentPhysics.h" // nlRebuildCount() в GPU-режиме
 #include "GUI/interface/panels/debug/view/DebugView.h"
 
-void updateAtomSelectionDebug(const DebugViews& debugViews, const Simulation& simulation) {
+void updateAtomSelectionDebug(const DebugViews& debugViews, const Lattice::Simulation& simulation) {
     const AtomStorage& atoms = simulation.atoms();
     if (ToolsManager::pickingSystem->getSelectedIndices().size() == 1) {
         debugViews.atomSingle->visible = true;
@@ -43,7 +43,7 @@ void updateAtomSelectionDebug(const DebugViews& debugViews, const Simulation& si
     }
 }
 
-void updateSimulationDebug(const DebugViews& debugViews, const Simulation& simulation, std::string_view integratorName) {
+void updateSimulationDebug(const DebugViews& debugViews, const Lattice::Simulation& simulation, std::string_view integratorName) {
     struct StepsRateSample {
         int lastStep = 0;
         std::chrono::steady_clock::time_point lastTime = std::chrono::steady_clock::now();
@@ -56,11 +56,13 @@ void updateSimulationDebug(const DebugViews& debugViews, const Simulation& simul
     const World& world = simulation.world();
     const NeighborList& neighborList = simulation.neighborList();
     const Profiler& profiler = Profiler::instance();
-    const double renderMs = profiler.lastMs("Application::RenderFrame");
-    const double captureReadbackMs = profiler.lastMs("Capture::readback");
-    const double captureEncodeMs = profiler.lastMs("Capture::encodeFrame");
-    const double physicsMs = profiler.lastActiveMs("Simulation::update");
-    const int simStep = simulation.getSimStep();
+    const double renderMs = profiler.lastActiveMs("Application::RenderFrame");
+    const double captureReadbackMs = profiler.lastActiveMs("Capture::readback");
+    const double captureEncodeMs = profiler.lastActiveMs("Capture::encodeFrame");
+    const double physicsMs =
+        std::max({profiler.lastActiveMs("Simulation::update"), profiler.lastActiveMs("Simulation::updateAll"),
+                  profiler.lastActiveMs("Simulation::updateWorld")});
+    const int simStep = simulation.world().getSimStep();
     const auto now = std::chrono::steady_clock::now();
     const float elapsedSeconds = std::chrono::duration<float>(now - stepsRateSample.lastTime).count();
     if (elapsedSeconds >= 0.25f) {
@@ -70,11 +72,11 @@ void updateSimulationDebug(const DebugViews& debugViews, const Simulation& simul
     }
     const float stepsPerSecond = stepsRateSample.rate;
 
-    debugViews.sim->add_data("Средняя скорость (км/ч)", simulation.averageSpeedKmPerHour());
-    debugViews.sim->add_data("Полная энергия (pj)", simulation.fullEnegryPJ());
-    debugViews.sim->add_data("Полная средняя энергия (eV)", simulation.fullAverageEnergyEv());
-    debugViews.sim->add_data("Температура (K)", simulation.temperatureK());
-    debugViews.sim->add_data("Температура (°C)", simulation.temperatureC());
+    debugViews.sim->add_data("Средняя скорость (км/ч)", simulation.world().getMetrics().averageSpeedKmPerHour());
+    debugViews.sim->add_data("Полная энергия (pj)", simulation.world().getMetrics().fullAverageEnergyEv() * simulation.atoms().size() * Units::kEvToPJ);
+    debugViews.sim->add_data("Полная средняя энергия (eV)", simulation.world().getMetrics().fullAverageEnergyEv());
+    debugViews.sim->add_data("Температура (K)", simulation.world().getMetrics().temperatureK());
+    debugViews.sim->add_data("Температура (°C)", simulation.world().getMetrics().temperatureC());
     debugViews.sim->add_data("Память (МБ)", MemoryMetrics::getRSS() / 1024.f / 1024.f);
     debugViews.sim->add_data("Рендер (мс)", renderMs);
     debugViews.sim->add_data("Capture readback (ms)", captureReadbackMs);

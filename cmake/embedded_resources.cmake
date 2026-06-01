@@ -31,7 +31,7 @@ function(embed_bin_resource INPUT_FILE OUTPUT_DIR VAR_PREFIX)
     set(G_RES_HEADERS ${G_RES_HEADERS} ${H_FILE} PARENT_SCOPE)
 endfunction()
 
-file(GLOB FONT_FILES "${CMAKE_SOURCE_DIR}/GUI/interface/font_manager/fonts/*.ttf" "${CMAKE_SOURCE_DIR}/GUI/interface/font_manager/fonts/*.otf")
+file(GLOB FONT_FILES "${CMAKE_SOURCE_DIR}/App/GUI/interface/font_manager/fonts/*.ttf" "${CMAKE_SOURCE_DIR}/App/GUI/interface/font_manager/fonts/*.otf")
 foreach(FONT ${FONT_FILES})
     embed_bin_resource(${FONT} "${GENERATED_DIR}/fonts" "font")
 endforeach()

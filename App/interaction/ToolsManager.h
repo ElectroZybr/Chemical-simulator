@@ -7,8 +7,8 @@
 #include "App/interaction/picking/PickingSystem.h"
 #include "App/interaction/selection/NeighborListOverlay.h"
 #include "App/interaction/tools/ITool.h"
-#include "Engine/Simulation.h"
-#include "Engine/math/Vec3.h"
+#include "Lattice/Engine/Simulation.h"
+#include "Lattice/Engine/math/Vec3.h"
 #include "Rendering/BaseRenderer.h"
 
 class World;
@@ -35,7 +35,7 @@ public:
         RemoveAtom,
     };
 
-    static void init(GLFWwindow* window, Simulation& simulation, std::unique_ptr<IRenderer>& renderer, Interface& appInterface);
+    static void init(GLFWwindow* window, Lattice::Simulation& simulation, std::unique_ptr<BaseRenderer>& renderer, Interface& appInterface);
 
     static Vec3f screenToWorld(Vec2i mousePos);
     static Vec2i worldToScreen(Vec3f pos);
@@ -64,14 +64,14 @@ private:
     static size_t toIndex(Mode mode) noexcept;
 
     static GLFWwindow* window;
-    static std::unique_ptr<IRenderer>* renderer;
-    static Simulation* simulation;
+    static std::unique_ptr<BaseRenderer>* renderer;
+    static Lattice::Simulation* simulation;
     static UiState* uiState;
     static SideToolsPanel* sideToolsPanel;
     static ToolContext toolContext;
     static std::array<std::unique_ptr<ITool>, kModeCount> toolInstances;
     static Mode syncedMode;
-    static Simulation::WorldId pickingWorldId;
+    static Lattice::Simulation::WorldId pickingWorldId;
 
     static Vec2i startMousePos;
     static Vec2i lastSceneMousePos;

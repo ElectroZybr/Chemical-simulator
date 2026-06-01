@@ -1,22 +1,20 @@
-﻿#include "Application.h"
+#include "Application.h"
 
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
 
-#include <imgui_impl_wgpu.h>
-
 #include "App/AppActions.h"
 #include "App/CreateWindow.h"
-#include "App/Scenes.h"
+#include "Lattice/Generators/Generators.h"
 #include "App/UserSettings.h"
+#include "App/viewport/SceneViewport.h"
 #include "App/interaction/ToolsManager.h"
-#include "Engine/Simulation.h"
-#include "Engine/metrics/Profiler.h"
+#include "Lattice/Engine/Simulation.h"
+#include "Lattice/Engine/metrics/Profiler.h"
 #include "GUI/interface/interface.h"
 #include "GUI/io/keyboard/Keyboard.h"
 #include "GUI/io/manager/EventManager.h"
-#include "Rendering/3d/Renderer3DWGPU.h"
 #include "Rendering/WGPUContext.h"
 #include "capture/CaptureActions.h"
 #include "capture/CaptureController.h"
@@ -27,6 +25,14 @@ using Clock = std::chrono::high_resolution_clock;
 
 constexpr int FPS = 60;
 constexpr int LPS = 20;
+
+namespace {
+    uint32_t makeXYZStepInterval(float simulationStepsPerSecond, int captureFps) {
+        const float sanitizedStepsPerSecond = std::max(simulationStepsPerSecond, 1.0f);
+        const int sanitizedCaptureFps = std::max(captureFps, 1);
+        return std::max(1u, static_cast<uint32_t>(std::lround(sanitizedStepsPerSecond / static_cast<float>(sanitizedCaptureFps))));
+    }
+}
 
 int Application::run() {
     GLFWwindow* window = createWindow();
@@ -39,21 +45,24 @@ int Application::run() {
     WGPUContext::instance().init(window, width, height);
 
     // инициализация систем
-    Simulation simulation;
+    Lattice::Simulation simulation;
 
     simulation.createWorld({120, 120, 120});
 
     CaptureController captureController;
-    std::unique_ptr<IRenderer> renderer = std::make_unique<Renderer3DWGPU>(simulation.world(), WGPUContext::instance().surfaceFormat());
-    Interface appInterface(window, simulation, renderer, captureController);
-    appInterface.toolsPanel.setRendererType(renderer->camera.getMode() == Camera::Mode::Mode2D ? RendererType::Renderer2D : RendererType::Renderer3D);
+    SceneViewport renderer(SceneViewport::RendererType::Renderer3D, captureController);
+    renderer.syncScene(simulation);
+
+    Interface appInterface(window, simulation, renderer.rendererHandle(), captureController);
+    appInterface.toolsPanel.setRendererType(renderer.renderer().camera.getMode() == Camera::Mode::Mode2D ? RendererType::Renderer2D : RendererType::Renderer3D);
+
     AppActions::Handler appActions(window, captureController, simulation, renderer, appInterface.state());
     CaptureActions::Handler captureActions(captureController);
     if (appInterface.init() != EXIT_SUCCESS) {
         return EXIT_FAILURE;
     }
-    EventManager::init(window, renderer, appInterface);
-    ToolsManager::init(window, simulation, renderer, appInterface);
+    EventManager::init(window, renderer.rendererHandle(), appInterface);
+    ToolsManager::init(window, simulation, renderer.rendererHandle(), appInterface);
     const DebugViews debugViews = createDebugViews(appInterface.debugPanel);
 
     // загрузка пользовательских настроек
@@ -61,30 +70,31 @@ int Application::run() {
     captureController.setSettings(userSettings.captureSettings);
     captureController.setOutputDirectory(userSettings.captureOutputDirectory);
     appInterface.setScenesDirectory(userSettings.scenesDirectory);
-    renderer->drawGrid = userSettings.rendererDrawGrid;
-    renderer->drawBonds = userSettings.rendererDrawBonds;
-    renderer->drawBox = userSettings.rendererDrawBox;
-    renderer->speedColorMode = userSettings.rendererSpeedColorMode;
-    renderer->speedGradientMax = userSettings.rendererSpeedGradientMax;
-    simulation.setIntegrator(userSettings.simulationIntegrator);
-    simulation.setBondFormationEnabled(userSettings.simulationBondFormationEnabled);
-    simulation.setLJEnabled(userSettings.simulationLJEnabled);
-    simulation.setCoulombEnabled(userSettings.simulationCoulombEnabled);
+    renderer.renderer().getRenderData(0).drawGrid = userSettings.rendererDrawGrid;
+    renderer.renderer().getRenderData(0).drawBonds = userSettings.rendererDrawBonds;
+    renderer.renderer().getRenderData(0).drawBox = userSettings.rendererDrawBox;
+    renderer.renderer().getRenderData(0).speedColorMode = userSettings.rendererSpeedColorMode;
+    renderer.renderer().getRenderData(0).speedGradientMax = userSettings.rendererSpeedGradientMax;
+    simulation.world().getIntegrator().setScheme(userSettings.simulationIntegrator);
+    simulation.world().setBondFormationEnabled(userSettings.simulationBondFormationEnabled);
+    simulation.world().setLJEnabled(userSettings.simulationLJEnabled);
+    simulation.world().setCoulombEnabled(userSettings.simulationCoulombEnabled);
     appInterface.state().simulationSpeed = 100.0f;
     appInterface.state().pause = true;
 
     // создание сцены
-    Scenes::triangularBipyramidCrystal(simulation, 8, AtomData::Type::Z);
-    Scenes::AngularVelocity(simulation, Vec3f(0.0f, 0.25f, 0.0f));
+    Generators::triangularBipyramidCrystal(simulation, 8, AtomData::Type::Z);
+    Generators::AngularVelocity(simulation, Vec3f(0.0f, 0.25f, 0.0f));
+    renderer.syncScene(simulation);
 
     // std::vector<Scenes::AtomTypeSpec> gasSpecs = {
     //     // {AtomData::Type::O, 0, 80.0f},    // 80% водорода
     //     {AtomData::Type::Na, 0, 50.0f},   // 10% натрия
     //     {AtomData::Type::Cl, 0, 50.0f}    // 10% хлора
     // };
-    // Scenes::randomGasMixed(simulation, 500, gasSpecs, false, 6.0, 6.0, 1.0f, 5.0f, 0);
-    // simulation.createAtom(Vec3f(24, 25, 3), Vec3f(1, 0, 0), AtomData::Type::Na);
-    // simulation.createAtom(Vec3f(28, 25, 3), Vec3f(-1, 0, 0), AtomData::Type::Na);
+    // Scenes::randomGasMixed(Lattice::simulation, 500, gasSpecs, false, 6.0, 6.0, 1.0f, 5.0f, 0);
+    // Lattice::simulation.createAtom(Vec3f(24, 25, 3), Vec3f(1, 0, 0), AtomData::Type::Na);
+    // Lattice::simulation.createAtom(Vec3f(28, 25, 3), Vec3f(-1, 0, 0), AtomData::Type::Na);
 
     auto startTime = Clock::now();
     double renderAccum = 0.0;
@@ -94,8 +104,9 @@ int Application::run() {
     constexpr double renderInterval = 1.0 / FPS;
     constexpr double logInterval = 1.0 / LPS;
 
-    renderer->camera.setScreenSize({static_cast<float>(width), static_cast<float>(height)});
-    renderer->camera.resetView();
+    renderer.setScreenSize(width, height);
+    renderer.resetView();
+    UiState& uiState = appInterface.state();
 
     while (!glfwWindowShouldClose(window)) {
         Profiler::instance().beginFrame();
@@ -104,7 +115,6 @@ int Application::run() {
         const float deltaTime = std::chrono::duration<float>(currentTime - startTime).count();
         startTime = currentTime;
 
-        UiState& uiState = appInterface.state();
         physicsAccum += deltaTime;
         renderAccum += deltaTime;
         logAccum += deltaTime;
@@ -112,7 +122,11 @@ int Application::run() {
         EventManager::poll();
         EventManager::frame(deltaTime);
         captureController.update(deltaTime);
+        simulation.setXYZRecordingStepInterval(makeXYZStepInterval(uiState.simulationSpeed, captureController.settings().fps));
         captureController.syncUiState(uiState);
+        uiState.xyzRecording = simulation.isXYZRecording();
+        uiState.xyzFps = simulation.xyzFPS();
+        uiState.xyzFrameCount = simulation.xyzFrameCount();
         captureController.handleToggleShortcut();
 
         // обновление физики (fixed-timestep accumulator)
@@ -139,86 +153,70 @@ int Application::run() {
 
         // отрисовка кадра
         if (renderAccum >= renderInterval) {
-            PROFILE_SCOPE("Application::RenderFrame");
             renderAccum -= renderInterval;
 
-            // UI обновляем ПЕРВЫМ в кадре: SettingsPanel может тут переключить
-            // drawBonds/drawGrid/speedColor, а от них зависит cpuPositionConsumerActive
-            // и решение о per-frame sync ниже. Если считать предикат ДО update(),
-            // включение потребителя из «чистого» режима дало бы один stale-кадр (sync
-            // решён по старым флагам, а drawShot ниже уже рисует с новыми).
-            uiState.simStep = simulation.getSimStep();
-            appInterface.update();
+            // --- GPU-режим: условный per-frame sync ПЕРЕД renderFrame ---
+            // Апстрим вынес тело кадра в SceneViewport::renderFrame(const Simulation&):
+            // внутри он зовёт appInterface.update() (там UI-тумблеры применяются) и
+            // syncRendererWithSimulation (читает CPU-позиции). syncFromGpuIfNeeded /
+            // refreshDiagnosticsGrid МУТИРУЮТ Simulation, поэтому в const-renderFrame им
+            // места нет — делаем их здесь, где simulation ещё mutable, ДО renderFrame.
+            //
+            // Overlay соседей рисует грид-обход только при РОВНО одном выбранном атоме
+            // (NeighborListOverlay::draw), поэтому проверка == 1.
+            const bool singleSelection =
+                ToolsManager::pickingSystem != nullptr && ToolsManager::pickingSystem->getSelectedIndices().size() == 1;
 
-            // Overlay соседей рисует грид-обход только при РОВНО одном выбранном
-            // атоме (NeighborListOverlay::draw), поэтому здесь проверка == 1.
-            const bool singleSelection = ToolsManager::pickingSystem && ToolsManager::pickingSystem->getSelectedIndices().size() == 1;
+            // Render-настройки живут пер-мир в BaseRenderer::getRenderData(worldId).
+            // UI-чекбоксы (SettingsPanel) пишут в getRenderData(activeWorldId), поэтому
+            // предикат читаем оттуда же; bounds-guard как в SettingsPanel.
+            const auto activeWorld = simulation.activeWorldId(); // Lattice::Simulation::WorldId (size_t)
+            const bool hasActiveRenderData = renderer.renderer().getRenderDataCount() > activeWorld;
+            bool drawBonds = false;
+            bool drawGrid = false;
+            bool speedColorAutoMax = false;
+            if (hasActiveRenderData) {
+                const RenderData& rd = renderer.renderer().getRenderData(activeWorld);
+                drawBonds = rd.drawBonds;
+                drawGrid = rd.drawGrid;
+                // speed-color АВТО-max: рендер CPU-сканит max|vel| по AtomStorage для
+                // нормировки (R3/§11 edit 6). При заданном вручную speedGradientMax > 0
+                // скан НЕ делается → синк не нужен.
+                speedColorAutoMax = rd.speedColorMode != RenderData::SpeedColorMode::AtomColor && rd.speedGradientMax <= 0.0f;
+            }
 
             // Инкремент B (zero-copy): атомы рендерятся ПРЯМО из резидентных VRAM-буферов
             // (Инкремент A), поэтому per-frame download нужен НЕ всегда, а только если
             // активен хоть один CPU-потребитель позиций/скоростей. Перечисляем их явно:
-            //  - drawBonds  — связи рисуются по CPU-позициям (RendererWGPU::drawBondsImpl);
+            //  - drawBonds  — связи рисуются по CPU-позициям;
             //  - drawGrid / singleSelection — viz-сетка и overlay соседей читают CPU-грид
             //    (через refreshDiagnosticsGrid ниже, у которого precondition «позиции синканы»);
             //  - debugPanel видна — atom/sim debug-views читают CPU pos/vel (UpdateDebugData);
-            //  - speed-color АВТО-max (speedColorMode != AtomColor && speedGradientMax <= 0)
-            //    — рендер CPU-сканит max|vel| по AtomStorage для нормировки (R3/§11 edit 6);
-            //    при заданном вручную speedGradientMax > 0 скан НЕ делается → синк не нужен.
+            //  - speed-color АВТО-max — рендер CPU-сканит max|vel| по AtomStorage.
             // Если НИ ОДИН не активен («чистый» GPU-режим: атомы only, atom-color) —
             // download ПРОПУСКАЕТСЯ целиком, атомы рисуются zero-copy. Это и есть выигрыш.
             // Консервативно: при любом сомнении синк делается (лишний download безопасен,
             // syncFromGpuIfNeeded идемпотентен по cpuPositionsDirty). В CPU-режиме — no-op.
-            const bool speedColorAutoMax =
-                renderer->speedColorMode != IRenderer::SpeedColorMode::AtomColor && renderer->speedGradientMax <= 0.0f;
             const bool cpuPositionConsumerActive =
-                renderer->drawBonds || renderer->drawGrid || singleSelection || appInterface.debugPanel.isVisible() || speedColorAutoMax;
+                drawBonds || drawGrid || singleSelection || appInterface.debugPanel.isVisible() || speedColorAutoMax;
             if (cpuPositionConsumerActive) {
                 simulation.syncFromGpuIfNeeded();
             }
 
-            // В GPU-режиме CPU SpatialGrid застывает (hot loop перестраивает NL на
-            // GPU и грид не трогает), а его читают диагностические потребители:
-            // визуализация сетки (drawGrid), overlay соседей выбранного атома и
-            // debug-панель статистики грида. Перебинниваем грид из УЖЕ синканных
-            // позиций ТОЛЬКО когда хоть один из них активен — иначе зря тратим O(N)
-            // на каждый кадр. App знает про UI-тумблеры; движок про них не знает.
-            // gridConsumerActive ⊆ cpuPositionConsumerActive, поэтому к этому месту
-            // syncFromGpuIfNeeded уже вызван — precondition refreshDiagnosticsGrid
-            // (позиции синканы) соблюдён.
-            const bool gridConsumerActive = renderer->drawGrid || singleSelection || appInterface.debugPanel.isVisible();
+            // В GPU-режиме CPU SpatialGrid застывает (hot loop перестраивает NL на GPU и
+            // грид не трогает), а его читают диагностические потребители: визуализация
+            // сетки (drawGrid), overlay соседей выбранного атома и debug-панель статистики
+            // грида. Перебинниваем грид из УЖЕ синканных позиций ТОЛЬКО когда хоть один из
+            // них активен. gridConsumerActive ⊆ cpuPositionConsumerActive, поэтому
+            // syncFromGpuIfNeeded уже вызван — precondition refreshDiagnosticsGrid соблюдён.
+            const bool gridConsumerActive = drawGrid || singleSelection || appInterface.debugPanel.isVisible();
             if (gridConsumerActive) {
-                // Без проверки isGpuMode() активного мира: рендер рисует и неактивные
-                // GPU-миры, а refreshDiagnosticsGrid сам пропускает не-GPU миры и
-                // перебиннивает грид ВСЕХ GPU-миров (мульти-мир контракт).
+                // refreshDiagnosticsGrid сам пропускает не-GPU миры и перебиннивает грид
+                // ВСЕХ GPU-миров (мульти-мир контракт), проверка isGpuMode здесь не нужна.
                 simulation.refreshDiagnosticsGrid();
             }
 
-            refreshAtomDebugViews(debugViews, simulation);
-
-            WGPUContext& ctx = WGPUContext::instance();
-
-            // получаем surface текстуру один раз на кадр
-            wgpu::SurfaceTexture surfaceTex;
-            ctx.surface()->getCurrentTexture(&surfaceTex);
-            wgpu::raii::Texture surfaceTexture(surfaceTex.texture);
-            wgpu::raii::TextureView surfaceView = surfaceTexture->createView();
-
-            // - нет захвата -> возвращает view от surface напрямую
-            // - идёт захват -> возвращает view intermediate текстуры
-            wgpu::TextureView renderTarget = captureController.acquireRenderTarget(*surfaceTexture, *surfaceView);
-
-            renderer->drawShot(renderTarget, *ctx.depthView(), simulation);
-            ToolsManager::overlay.draw();
-            ImGui::Render();
-            auto* wgpuRenderer = static_cast<RendererWGPU*>(renderer.get());
-            ImGui_ImplWGPU_RenderDrawData(ImGui::GetDrawData(), *wgpuRenderer->getCurrentPass());
-            renderer->endFrame();
-
-            // захват кадра для видео
-            captureController.onFrameRendered(*surfaceTexture);
-
-            ctx.present();
-            ctx.processEvents();
+            renderer.renderFrame(simulation, appInterface, debugViews);
         }
 
         Profiler::instance().endFrame();
@@ -245,13 +243,13 @@ int Application::run() {
         .captureOutputDirectory = captureController.outputDirectory(),
         .scenesDirectory = appInterface.scenesDirectory(),
         .captureSettings = captureController.settings(),
-        .rendererDrawGrid = renderer->drawGrid,
-        .rendererDrawBonds = renderer->drawBonds,
-        .rendererDrawBox = renderer->drawBox,
-        .rendererSpeedColorMode = renderer->speedColorMode,
-        .rendererSpeedGradientMax = renderer->speedGradientMax,
-        .simulationIntegrator = simulation.getIntegrator(),
-        .simulationBondFormationEnabled = simulation.isBondFormationEnabled(),
+        .rendererDrawGrid = renderer.renderer().getRenderData(0).drawGrid,
+        .rendererDrawBonds = renderer.renderer().getRenderData(0).drawBonds,
+        .rendererDrawBox = renderer.renderer().getRenderData(0).drawBox,
+        .rendererSpeedColorMode = renderer.renderer().getRenderData(0).speedColorMode,
+        .rendererSpeedGradientMax = renderer.renderer().getRenderData(0).speedGradientMax,
+        .simulationIntegrator = simulation.world().getIntegrator().getScheme(),
+        .simulationBondFormationEnabled = simulation.world().isBondFormationEnabled(),
         .simulationLJEnabled = simulation.isLJEnabled(),
         .simulationCoulombEnabled = simulation.isCoulombEnabled(),
     });

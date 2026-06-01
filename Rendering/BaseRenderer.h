@@ -1,36 +1,33 @@
 #pragma once
 
 #include <cstdint>
+#include <vector>
 
 #include <webgpu/webgpu-raii.hpp>
 
-#include "Engine/World.h"
 #include "Rendering/camera/Camera.h"
+#include "Rendering/RenderData.h"
 
-class Simulation;
-
-class IRenderer {
+class BaseRenderer {
 public:
-    enum class SpeedColorMode : uint8_t {
-        AtomColor = 0,
-        GradientClassic = 1,
-        GradientTurbo = 2,
-    };
+    virtual ~BaseRenderer() = default;
 
-    virtual ~IRenderer() = default;
-
-    virtual void drawShot(wgpu::TextureView targetView, wgpu::TextureView depthView, const Simulation& simulation) = 0;
+    virtual void drawShot(wgpu::TextureView targetView, wgpu::TextureView depthView) = 0;
     virtual void endFrame() = 0;
+    virtual wgpu::raii::RenderPassEncoder* currentRenderPass() { return nullptr; }
+    virtual const wgpu::raii::RenderPassEncoder* currentRenderPass() const { return nullptr; }
 
-    bool drawGrid = false;
-    bool drawBonds = false;
-    bool drawBox = true;
-    SpeedColorMode speedColorMode = SpeedColorMode::AtomColor;
-    float speedGradientMax = 5.0f;
-    float alpha = 0.05f;
+    void resizeRenderData(size_t count) { renderData_.resize(count); }
+    void clearRenderData() { renderData_.clear(); }
+    RenderData& getRenderData(size_t index) { return renderData_[index]; }
+    const RenderData& getRenderData(size_t index) const { return renderData_[index]; }
+    size_t getRenderDataCount() const { return renderData_.size(); }
 
     Camera camera;
 
 protected:
-    IRenderer(World& world) : camera(world) {}
+    BaseRenderer() = default;
+
+private:
+    std::vector<RenderData> renderData_;
 };

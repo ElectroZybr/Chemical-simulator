@@ -11,6 +11,7 @@
 #include <webgpu/webgpu-raii.hpp>
 
 struct UiState;
+class BaseRenderer;
 
 class CaptureController {
 public:
@@ -31,6 +32,7 @@ public:
 
     wgpu::TextureView acquireRenderTarget(wgpu::Texture surfaceTexture, wgpu::TextureView surfaceView);
     void onFrameRendered(wgpu::Texture texture);
+    void renderFrame(BaseRenderer& renderer, const std::function<void()>& afterDraw = {});
 
     void update(double deltaTime);
 

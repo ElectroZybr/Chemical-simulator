@@ -57,26 +57,26 @@ namespace {
         return CaptureSettings::PixelFormat::Yuv444p;
     }
 
-    const char* speedColorModeToString(IRenderer::SpeedColorMode mode) {
+    const char* speedColorModeToString(RenderData::SpeedColorMode mode) {
         switch (mode) {
-        case IRenderer::SpeedColorMode::AtomColor:
+        case RenderData::SpeedColorMode::AtomColor:
             return "atom_color";
-        case IRenderer::SpeedColorMode::GradientClassic:
+        case RenderData::SpeedColorMode::GradientClassic:
             return "gradient_classic";
-        case IRenderer::SpeedColorMode::GradientTurbo:
+        case RenderData::SpeedColorMode::GradientTurbo:
             return "gradient_turbo";
         }
         return "atom_color";
     }
 
-    IRenderer::SpeedColorMode speedColorModeFromString(const std::string& value) {
+    RenderData::SpeedColorMode speedColorModeFromString(const std::string& value) {
         if (value == "gradient_classic") {
-            return IRenderer::SpeedColorMode::GradientClassic;
+            return RenderData::SpeedColorMode::GradientClassic;
         }
         if (value == "gradient_turbo") {
-            return IRenderer::SpeedColorMode::GradientTurbo;
+            return RenderData::SpeedColorMode::GradientTurbo;
         }
-        return IRenderer::SpeedColorMode::AtomColor;
+        return RenderData::SpeedColorMode::AtomColor;
     }
 
     const char* integratorToString(Integrator::Scheme scheme) {

@@ -1,9 +1,10 @@
 #include <algorithm>
 #include <gtest/gtest.h>
 
-#include "Benchmarks/BenchmarkScenes.h"
+#include "benchmarks/BenchmarkScenes.h"
 #include "Engine/Simulation.h"
 #include "Engine/math/Vec3.h"
+using namespace Lattice;
 
 namespace {
 
@@ -50,13 +51,8 @@ TEST(BenchmarkScenes, IdealCrystal3DBuildsThreeDimensionalVolume) {
     Simulation simulation;
     simulation.createWorld(Vec3f{160.0f, 160.0f, 160.0f});
 
-    Benchmarks::BenchmarkCase bc;
-    bc.scene = Benchmarks::SceneKind::IdealCrystal3D;
-    bc.atomCount = 1000;
-    bc.boxSize = Vec3f{160.0f, 160.0f, 160.0f};
-    bc.cellSize = 5;
-
-    Benchmarks::BenchmarkScenes::build(simulation, bc);
+    // Новый API (upstream): Scenes::build(sim, SceneKind, atomCount) — BenchmarkCase убран.
+    Benchmarks::Scenes::build(simulation, Benchmarks::SceneKind::IdealCrystal3D, 1000);
 
     const AtomStorage& atoms = simulation.atoms();
     ASSERT_GT(atoms.size(), 0u) << "IdealCrystal3D scene should produce atoms";

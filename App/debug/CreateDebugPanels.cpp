@@ -16,9 +16,9 @@ namespace {
             DebugValue("Шагов/с", DebugDrawers::Float<2>),
             DebugValue("Время симуляции (ns)", DebugDrawers::Float<4>),
             DebugValue("Количество атомов", DebugDrawers::Int),
-            // DebugValue("Полная энергия (pj)", DebugDrawers::Float<4>),
-            // DebugValue("Температура (K)", DebugDrawers::Float<4>),
-            // DebugValue("Температура (°C)", DebugDrawers::Float<4>),
+            DebugValue("Полная энергия (pj)", DebugDrawers::Float<4>),
+            DebugValue("Температура (K)", DebugDrawers::Float<4>),
+            DebugValue("Температура (°C)", DebugDrawers::Float<4>),
             DebugSeries("Полная средняя энергия (eV)"),
             DebugValue("Средняя скорость (км/ч)", DebugDrawers::Float<3>)
         }));

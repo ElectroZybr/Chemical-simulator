@@ -8,6 +8,7 @@
 #include "Engine/physics/AtomStorage.h"
 #include "Engine/physics/Bond.h"
 #include "Engine/physics/ForceFields/BondForceField.h"
+using namespace Lattice;
 
 namespace {
 

@@ -1,9 +1,10 @@
 #pragma once
 
+#include <cstdint>
 #include <string_view>
 
-#include "Engine/math/Vec3.h"
-#include "Engine/physics/AtomData.h"
+#include "Lattice/Engine/math/Vec3.h"
+#include "Lattice/Engine/physics/AtomData.h"
 #include "GUI/interface/panels/tools/ToolsPanel.h"
 #include "Rendering/camera/Camera.h"
 #include "Signals/Signals.h"
@@ -29,6 +30,7 @@ namespace AppSignals {
     namespace Capture {
         inline Signals::Signal<void(std::string_view path)> SetOutputDirectory;
         inline Signals::Signal<void()> ToggleRecording;
+        inline Signals::Signal<void()> ToggleXYZRecording;
     }
 
     namespace Keyboard {

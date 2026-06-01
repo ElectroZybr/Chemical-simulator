@@ -5,9 +5,9 @@
 #include <imgui.h>
 
 #include "App/interaction/picking/PickingSystem.h"
-#include "Engine/NeighborSearch/SpatialGrid.h"
-#include "Engine/Simulation.h"
-#include "Engine/physics/gpu/GpuResidentPhysics.h" // nlRebuildCount() в GPU-режиме
+#include "Lattice/Engine/NeighborSearch/SpatialGrid.h"
+#include "Lattice/Engine/Simulation.h"
+#include "Lattice/Engine/physics/gpu/GpuResidentPhysics.h" // nlRebuildCount() в GPU-режиме
 #include "Rendering/BaseRenderer.h"
 
 namespace {
@@ -23,7 +23,7 @@ namespace {
     }
 }
 
-void NeighborListOverlay::draw(const Simulation& simulation, const PickingSystem& pickingSystem, const IRenderer& renderer) {
+void NeighborListOverlay::draw(const Lattice::Simulation& simulation, const PickingSystem& pickingSystem, const BaseRenderer& renderer) {
     if (renderer.camera.getMode() != Camera::Mode::Mode2D) {
         return;
     }
@@ -60,7 +60,7 @@ void NeighborListOverlay::draw(const Simulation& simulation, const PickingSystem
 }
 
 void NeighborListOverlay::drawSelectedNeighbors(const AtomStorage& atoms, const SpatialGrid& grid, const NeighborList& neighborList,
-                                                const Vec3f& renderOffset, size_t selectedIndex, const IRenderer& renderer) {
+                                                const Vec3f& renderOffset, size_t selectedIndex, const BaseRenderer& renderer) {
     if (selectedIndex >= atoms.size()) {
         return;
     }
@@ -97,7 +97,7 @@ void NeighborListOverlay::updateSkinCenter(size_t selectedIndex, size_t rebuildC
     skinCenter_ = atomPos;
 }
 
-void NeighborListOverlay::drawWorldCircle(const IRenderer& renderer, Vec3f center, float radius, ImU32 color, float thickness) {
+void NeighborListOverlay::drawWorldCircle(const BaseRenderer& renderer, Vec3f center, float radius, ImU32 color, float thickness) {
     if (radius <= 0.0f) {
         return;
     }

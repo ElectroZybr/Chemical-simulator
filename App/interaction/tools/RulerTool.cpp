@@ -4,13 +4,13 @@
 #include <string>
 
 #include "App/interaction/picking/PickingSystem.h"
-#include "Engine/Consts.h"
+#include "Lattice/Engine/Consts.h"
 #include "GUI/interface/UiState.h"
 #include "Rendering/BaseRenderer.h"
 
 namespace {
     Vec3f mapMouseToRulerWorld(const ToolContext& ctx, Vec2i mousePos) {
-        IRenderer* renderer = ctx.activeRenderer();
+        BaseRenderer* renderer = ctx.activeRenderer();
         if (renderer == nullptr) {
             return Vec3f();
         }
@@ -139,7 +139,7 @@ void RulerTool::syncOverlayFromWorld() {
     }
 
     auto& overlay = ctx.pickingSystem->getOverlay();
-    IRenderer* renderer = ctx.activeRenderer();
+    BaseRenderer* renderer = ctx.activeRenderer();
     if (renderer == nullptr) {
         return;
     }

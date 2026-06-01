@@ -20,6 +20,7 @@
 #include "Engine/math/Vec3.h"
 #include "Engine/physics/AtomData.h"
 #include "Engine/physics/AtomStorage.h"
+using namespace Lattice;
 
 namespace {
 

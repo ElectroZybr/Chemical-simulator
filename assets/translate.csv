@@ -3,6 +3,7 @@ integrator_velocity_verlet;Velocity Verlet;Интегратор Верле
 integrator_kdk;KDK;KDK
 integrator_runge_kutta_4;Runge-Kutta 4;Runge-Kutta 4
 integrator_langevin;Langevin;Langevin
+integrator_andersen;Andersen;Андерсен
 integrator_unknown;Unknown;Unknown
 speed_color_normal_coloring;Normal coloring;Обычная раскраска
 speed_color_gradient_coloring;Speed gradient;Градиент скорости

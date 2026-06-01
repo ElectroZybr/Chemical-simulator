@@ -9,7 +9,7 @@
 
 #include <imgui.h>
 
-#include "Engine/metrics/Profiler.h"
+#include "Lattice/Engine/metrics/Profiler.h"
 
 namespace {
     struct ProfileNameAlias {

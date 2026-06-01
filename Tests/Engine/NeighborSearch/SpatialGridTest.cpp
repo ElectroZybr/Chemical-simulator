@@ -14,6 +14,7 @@
 #include "Engine/Simulation.h"
 #include "Engine/math/Vec3.h"
 #include "Engine/physics/AtomData.h"
+using namespace Lattice;
 
 TEST(SpatialGridTest, NonEmptyCellsMatchesBruteForce) {
     Simulation sim;

@@ -9,7 +9,7 @@
 #include <imgui.h>
 #include <imgui_internal.h>
 
-#include "Engine/math/Vec2.h"
+#include "Lattice/Engine/math/Vec2.h"
 
 struct OverlayState {
     bool boxVisible = false;

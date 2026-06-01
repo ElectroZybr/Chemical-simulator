@@ -4,24 +4,26 @@
 
 #include <GLFW/glfw3.h>
 
-#include "Engine/math/Vec3.h"
+#include "Lattice/Engine/math/Vec3.h"
 
 class AtomStorage;
-class IRenderer;
+class BaseRenderer;
 class PickingSystem;
-class Simulation;
+namespace Lattice {
+    class Simulation;
+}
 struct UiState;
 
 struct ToolContext {
     GLFWwindow* window = nullptr;
-    Simulation* simulation = nullptr;
-    std::unique_ptr<IRenderer>* renderer = nullptr;
+    Lattice::Simulation* simulation = nullptr;
+    std::unique_ptr<BaseRenderer>* renderer = nullptr;
     PickingSystem* pickingSystem = nullptr;
     UiState* uiState = nullptr;
 
     [[nodiscard]] bool isValid() const noexcept { return window != nullptr && simulation != nullptr && renderer != nullptr; }
 
-    [[nodiscard]] IRenderer* activeRenderer() const noexcept { return (renderer != nullptr) ? renderer->get() : nullptr; }
+    [[nodiscard]] BaseRenderer* activeRenderer() const noexcept { return (renderer != nullptr) ? renderer->get() : nullptr; }
 };
 
 class ITool {

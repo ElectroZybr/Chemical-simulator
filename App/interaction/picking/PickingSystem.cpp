@@ -2,11 +2,10 @@
 
 #include <limits>
 
-#include "Engine/World.h"
-#include "Engine/math/Ray.h"
+#include "Lattice/Engine/World.h"
 #include "Rendering/BaseRenderer.h"
 
-PickingSystem::PickingSystem(AtomStorage& atomStorage, World& box, std::unique_ptr<IRenderer>& renderer)
+PickingSystem::PickingSystem(AtomStorage& atomStorage, World& box, std::unique_ptr<BaseRenderer>& renderer)
     : atomStorage(&atomStorage), box(&box), renderer(&renderer) {}
 
 void PickingSystem::setWorld(AtomStorage& newAtomStorage, World& newBox) {
@@ -45,7 +44,7 @@ void PickingSystem::processRect(Vec2i start, Vec2i end, bool cumulative) {
     if (!cumulative) {
         clearSelection();
     }
-    IRenderer* rend = renderer->get();
+    BaseRenderer* rend = renderer->get();
 
     for (size_t i = 0; i < atomStorage->size(); ++i) {
         const Vec3f worldPos = displayAtomPos(i);
@@ -63,7 +62,7 @@ void PickingSystem::processLasso(std::span<Vec2i> points, bool cumulative) {
     if (!cumulative) {
         clearSelection();
     }
-    IRenderer* rend = renderer->get();
+    BaseRenderer* rend = renderer->get();
 
     for (size_t i = 0; i < atomStorage->size(); ++i) {
         const Vec3f worldPos = displayAtomPos(i);
@@ -87,7 +86,7 @@ void PickingSystem::handleAtomRemoval(size_t index) {
 }
 
 bool PickingSystem::pickAtom(Vec2i screenPos, float tolerance, AtomHit& hit) const {
-    IRenderer* rend = renderer->get();
+    BaseRenderer* rend = renderer->get();
     switch (rend->camera.getMode()) {
     case Camera::Mode::Mode2D:
         return pickAtom2D(screenPos, tolerance, hit);
@@ -99,7 +98,7 @@ bool PickingSystem::pickAtom(Vec2i screenPos, float tolerance, AtomHit& hit) con
 }
 
 bool PickingSystem::pickAtom2D(Vec2i screenPos, float tolerance, AtomHit& hit) const {
-    IRenderer* rend = renderer->get();
+    BaseRenderer* rend = renderer->get();
     float bestDistSqr = std::numeric_limits<float>::max();
     size_t bestIndex = static_cast<size_t>(-1);
 
@@ -128,7 +127,7 @@ bool PickingSystem::pickAtom2D(Vec2i screenPos, float tolerance, AtomHit& hit) c
 
 // 3D: ray cast — ищем ближайший атом вдоль луча
 bool PickingSystem::pickAtom3D(Vec2i screenPos, AtomHit& hit) const {
-    const Ray ray = (*renderer)->camera.screenToRay(static_cast<float>(screenPos.x), static_cast<float>(screenPos.y));
+    const Ray ray = (*renderer)->camera.screenToRay(screenPos);
 
     float bestT = std::numeric_limits<float>::max();
     size_t bestIndex = static_cast<size_t>(-1);
@@ -137,7 +136,7 @@ bool PickingSystem::pickAtom3D(Vec2i screenPos, AtomHit& hit) const {
         const Vec3f worldPos = displayAtomPos(i);
         const float radius = AtomData::getProps(atomStorage->type(i)).radius;
 
-        RaySphereHit rayHit;
+        RaySphereHit rayHit{};
         if (raySphereIntersect(ray, worldPos, radius, rayHit)) {
             if (rayHit.t < bestT) {
                 bestT = rayHit.t;

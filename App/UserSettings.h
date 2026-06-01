@@ -4,8 +4,8 @@
 
 #include "App/AppPaths.h"
 #include "App/capture/CaptureSettings.h"
-#include "Engine/physics/Integrator.h"
-#include "Rendering/BaseRenderer.h"
+#include "Lattice/Engine/physics/Integrator.h"
+#include "Rendering/RenderData.h"
 
 struct UserSettings {
     std::filesystem::path captureOutputDirectory = "captures";
@@ -15,7 +15,7 @@ struct UserSettings {
     bool rendererDrawGrid = false;
     bool rendererDrawBonds = true;
     bool rendererDrawBox = true;
-    IRenderer::SpeedColorMode rendererSpeedColorMode = IRenderer::SpeedColorMode::AtomColor;
+    RenderData::SpeedColorMode rendererSpeedColorMode = RenderData::SpeedColorMode::AtomColor;
     float rendererSpeedGradientMax = 5.0f;
 
     Integrator::Scheme simulationIntegrator = Integrator::Scheme::Verlet;

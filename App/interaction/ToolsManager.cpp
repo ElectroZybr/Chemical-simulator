@@ -14,7 +14,7 @@
 #include "GUI/interface/panels/tools/SideToolsPanel.h"
 
 namespace {
-    bool rayBoxIntersect(const Ray& ray, const Vec3f& min, const Vec3f& max, float& hitT) {
+    bool rayBoxIntersect(const RenderRay& ray, const Vec3f& min, const Vec3f& max, float& hitT) {
         float tMin = 0.0f;
         float tMax = std::numeric_limits<float>::max();
 
@@ -63,21 +63,21 @@ namespace {
 }
 
 GLFWwindow* ToolsManager::window = nullptr;
-std::unique_ptr<IRenderer>* ToolsManager::renderer = nullptr;
+std::unique_ptr<BaseRenderer>* ToolsManager::renderer = nullptr;
 PickingSystem* ToolsManager::pickingSystem = nullptr;
 ToolsManager::Overlay ToolsManager::overlay = {};
-Simulation* ToolsManager::simulation = nullptr;
+Lattice::Simulation* ToolsManager::simulation = nullptr;
 UiState* ToolsManager::uiState = nullptr;
 SideToolsPanel* ToolsManager::sideToolsPanel = nullptr;
 ToolContext ToolsManager::toolContext = {};
 std::array<std::unique_ptr<ITool>, ToolsManager::kModeCount> ToolsManager::toolInstances = {};
 ToolsManager::Mode ToolsManager::syncedMode = ToolsManager::Mode::Cursor;
-Simulation::WorldId ToolsManager::pickingWorldId = 0;
+Lattice::Simulation::WorldId ToolsManager::pickingWorldId = 0;
 Vec2i ToolsManager::startMousePos = {};
 Vec2i ToolsManager::lastSceneMousePos = {};
 bool ToolsManager::isInteracting = false;
 
-void ToolsManager::init(GLFWwindow* w, Simulation& sim, std::unique_ptr<IRenderer>& rend, Interface& appInterface) {
+void ToolsManager::init(GLFWwindow* w, Lattice::Simulation& sim, std::unique_ptr<BaseRenderer>& rend, Interface& appInterface) {
     window = w;
     simulation = &sim;
     renderer = &rend;
@@ -202,9 +202,13 @@ void ToolsManager::onFrame(Vec2i mousePos, float deltaTime) {
     }
 }
 
-Vec3f ToolsManager::screenToWorld(Vec2i mousePos) { return (*renderer)->camera.screenToWorld(mousePos); }
+Vec3f ToolsManager::screenToWorld(Vec2i mousePos) {
+    return (*renderer)->camera.screenToWorld(mousePos);
+}
 
-Vec2i ToolsManager::worldToScreen(Vec3f pos) { return (*renderer)->camera.worldToScreen(pos); }
+Vec2i ToolsManager::worldToScreen(Vec3f pos) {
+    return (*renderer)->camera.worldToScreen(pos);
+}
 
 ToolsManager::Mode ToolsManager::currentMode() {
     if (sideToolsPanel == nullptr) {
@@ -251,7 +255,7 @@ void ToolsManager::syncPickingWorldToActive(bool clearSelection) {
         return;
     }
 
-    const Simulation::WorldId activeWorldId = simulation->activeWorldId();
+    const Lattice::Simulation::WorldId activeWorldId = simulation->activeWorldId();
     if (pickingWorldId == activeWorldId) {
         return;
     }
@@ -272,14 +276,14 @@ void ToolsManager::selectWorldAt(Vec2i mousePos) {
         return;
     }
 
-    IRenderer& rend = **renderer;
-    Simulation::WorldId bestWorldId = simulation->activeWorldId();
+    BaseRenderer& rend = **renderer;
+    Lattice::Simulation::WorldId bestWorldId = simulation->activeWorldId();
     bool found = false;
     float bestT = std::numeric_limits<float>::max();
 
     if (rend.camera.getMode() == Camera::Mode::Mode2D) {
         const Vec3f worldPos = rend.camera.screenToWorld(mousePos);
-        for (Simulation::WorldId worldId = 0; worldId < simulation->worldCount(); ++worldId) {
+        for (Lattice::Simulation::WorldId worldId = 0; worldId < simulation->worldCount(); ++worldId) {
             const World& world = simulation->worldAt(worldId);
             const Vec3f min = world.getRenderOffset();
             const Vec3f max = min + world.getWorldSize();
@@ -290,8 +294,8 @@ void ToolsManager::selectWorldAt(Vec2i mousePos) {
         }
     }
     else {
-        const Ray ray = rend.camera.screenToRay(static_cast<float>(mousePos.x), static_cast<float>(mousePos.y));
-        for (Simulation::WorldId worldId = 0; worldId < simulation->worldCount(); ++worldId) {
+        const RenderRay ray = rend.camera.screenToRay(static_cast<float>(mousePos.x), static_cast<float>(mousePos.y));
+        for (Lattice::Simulation::WorldId worldId = 0; worldId < simulation->worldCount(); ++worldId) {
             const World& world = simulation->worldAt(worldId);
             const Vec3f min = world.getRenderOffset();
             const Vec3f max = min + world.getWorldSize();

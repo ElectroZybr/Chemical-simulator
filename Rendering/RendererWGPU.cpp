@@ -1,14 +1,13 @@
 #include "RendererWGPU.h"
 
+#include <algorithm>
 #include <cstring>
 #include <ranges>
 
 #include <webgpu/webgpu-raii.hpp>
 #include <webgpu/webgpu.hpp>
 
-#include "App/interaction/ToolsManager.h"
-#include "Engine/Simulation.h"
-#include "Engine/physics/gpu/GpuResidentPhysics.h" // render-bind резидентных pos/vel
+#include "Lattice/Engine/physics/AtomData.h"
 #include "Rendering/WGPUContext.h"
 
 #ifdef True
@@ -32,7 +31,7 @@ namespace {
 
 }
 
-RendererWGPU::RendererWGPU(World& world, wgpu::TextureFormat surfaceFormat) : IRenderer(world), surfaceFormat(surfaceFormat) {
+RendererWGPU::RendererWGPU() : surfaceFormat(WGPUContext::instance().surfaceFormat()) {
     uniformBuffer = WGPUContext::instance().createBuffer(sizeof(SceneUniforms), wgpu::BufferUsage::Uniform | wgpu::BufferUsage::CopyDst,
                                                          "RenderingUniforms");
 
@@ -44,11 +43,10 @@ RendererWGPU::RendererWGPU(World& world, wgpu::TextureFormat surfaceFormat) : IR
 }
 
 void RendererWGPU::initAtomColors() {
-    const int typeCount = static_cast<int>(AtomData::Type::COUNT);
-    typeColorsData.resize(typeCount);
-    for (int i = 0; i < typeCount; ++i) {
+    typeColorsData.assign(119, glm::vec4(1.0f, 1.0f, 1.0f, 1.0f));
+    for (size_t i = 0; i < static_cast<size_t>(AtomData::Type::COUNT) && i < typeColorsData.size(); ++i) {
         const auto& props = AtomData::getProps(static_cast<AtomData::Type>(i));
-        typeColorsData[i] = glm::vec4(props.color.r / 255.f, props.color.g / 255.f, props.color.b / 255.f, props.color.a / 255.f);
+        typeColorsData[i] = glm::vec4(props.color.r / 255.0f, props.color.g / 255.0f, props.color.b / 255.0f, props.color.a / 255.0f);
     }
 }
 
@@ -363,24 +361,25 @@ template <typename T> void RendererWGPU::uploadStorageBuffer(wgpu::Buffer& buf, 
     WGPUContext::instance().queue()->writeBuffer(buf, 0, data, count * sizeof(T));
 }
 
-wgpu::BindGroup RendererWGPU::ensureAtomBindGroup(size_t boundCount, const GpuResidentPhysics* gpuResident) {
+wgpu::BindGroup RendererWGPU::ensureAtomBindGroup(size_t boundCount, const RenderAtomsGpuResidency& residency) {
     // CPU-режим: обычная renderer-owned bind-group (собрана в ensureStorageBuffers).
     // Путь не меняется ни на байт относительно прежнего поведения.
-    if (gpuResident == nullptr) {
+    if (!residency.valid) {
         return *atomBindGroup;
     }
 
-    // GPU-режим: bind-group биндит РЕЗИДЕНТНЫЕ pos/vel (binding 1/2) + renderer-owned
-    // type/radius/sel (binding 3/4/5). Layout тот же. Резидентный буфер — ЧУЖОЙ и
-    // может переехать при росте сцены, поэтому пере-собираем по кеш-ключу:
-    //   (gpuResident ptr, его renderBufferGeneration(), наша sbCapacity_, boundCount).
+    // GPU-режим (zero-copy): bind-group биндит РЕЗИДЕНТНЫЕ pos/vel (binding 1/2) +
+    // renderer-owned type/radius/sel (binding 3/4/5). Layout тот же. Резидентный
+    // буфер — ЧУЖОЙ (принадлежит GpuResidentPhysics через App-слой) и может переехать
+    // при росте сцены, поэтому пере-собираем по кеш-ключу:
+    //   (pos-буфер как идентичность источника, residency.generation, наша sbCapacity_, boundCount).
     // boundCount в ключе: §11/§6.2 требуют BindGroupEntry.size резидентных = boundCount*16
     // (а не полный буфер), а boundCount может меняться на transient-правке сцены при той
     // же generation — тогда пере-биндим, чтобы bound size был ровно текущим. На статичной
     // сцене ключ неизменен → горячий путь bind-group не трогает.
-    const uint64_t gen = gpuResident->renderBufferGeneration();
-    const bool keyMatch = gpuBindValid_ && gpuBindPtr_ == static_cast<const void*>(gpuResident) &&
-                          gpuBindGeneration_ == gen && gpuBindSbCapacity_ == sbCapacity_ && gpuBindBoundCount_ == boundCount;
+    const WGPUBuffer posRaw = residency.positions;
+    const bool keyMatch = gpuBindValid_ && gpuBindPosBuffer_ == posRaw && gpuBindGeneration_ == residency.generation &&
+                          gpuBindSbCapacity_ == sbCapacity_ && gpuBindBoundCount_ == boundCount;
     if (keyMatch) {
         return *atomBindGroupGpu_;
     }
@@ -393,10 +392,10 @@ wgpu::BindGroup RendererWGPU::ensureAtomBindGroup(size_t boundCount, const GpuRe
     entries[0].buffer = *uniformBuffer;
     entries[0].size = sizeof(SceneUniforms);
     entries[1].binding = 1; // резидентные позиции физики (zero-copy)
-    entries[1].buffer = gpuResident->positionsBuffer();
+    entries[1].buffer = residency.positions;
     entries[1].size = residentBytes;
     entries[2].binding = 2; // резидентные скорости физики (zero-copy, нужны speed-color)
-    entries[2].buffer = gpuResident->velocitiesBuffer();
+    entries[2].buffer = residency.velocities;
     entries[2].size = residentBytes;
     entries[3].binding = 3; // type/radius/sel остаются renderer-owned
     entries[3].buffer = *sbType;
@@ -411,42 +410,41 @@ wgpu::BindGroup RendererWGPU::ensureAtomBindGroup(size_t boundCount, const GpuRe
     atomBindGroupGpu_ = WGPUContext::instance().createBindGroup(*atomBindGroupLayout, entries, "AtomBindGroupGpu");
 
     gpuBindValid_ = true;
-    gpuBindPtr_ = static_cast<const void*>(gpuResident);
-    gpuBindGeneration_ = gen;
+    gpuBindPosBuffer_ = posRaw;
+    gpuBindGeneration_ = residency.generation;
     gpuBindSbCapacity_ = sbCapacity_;
     gpuBindBoundCount_ = boundCount;
     return *atomBindGroupGpu_;
 }
 
-void RendererWGPU::drawShot(wgpu::TextureView targetView, wgpu::TextureView depthView, const Simulation& simulation) {
-    if (simulation.worldCount() == 0) {
+void RendererWGPU::drawShot(wgpu::TextureView targetView, wgpu::TextureView depthView) {
+    if (getRenderDataCount() == 0) {
         beginPass(targetView, depthView, wgpu::LoadOp::Clear);
         return;
     }
 
-    for (Simulation::WorldId worldId = 0; worldId < simulation.worldCount(); ++worldId) {
-        // Per-world резидентная физика (nullptr если мир в CPU-режиме). Mixed
-        // CPU/GPU миры корректны: каждый проход биндит ровно свой режим.
-        drawWorldPass(targetView, depthView, simulation.worldAt(worldId), worldId == 0 ? wgpu::LoadOp::Clear : wgpu::LoadOp::Load,
-                      worldId == simulation.activeWorldId(), simulation.gpuResidentAt(worldId));
-        if (worldId + 1 < simulation.worldCount()) {
+    for (size_t renderDataIndex = 0; renderDataIndex < getRenderDataCount(); ++renderDataIndex) {
+        const RenderData& renderData = getRenderData(renderDataIndex);
+        drawWorldPass(targetView, depthView, renderData, renderDataIndex == 0 ? wgpu::LoadOp::Clear : wgpu::LoadOp::Load,
+                      renderData.isActiveWorld);
+        if (renderDataIndex + 1 < getRenderDataCount()) {
             endFrame();
         }
     }
 }
 
-void RendererWGPU::drawWorldPass(wgpu::TextureView targetView, wgpu::TextureView depthView, const World& world, wgpu::LoadOp targetLoadOp,
-                                 bool applySelection, const GpuResidentPhysics* gpuResident) {
+void RendererWGPU::drawWorldPass(wgpu::TextureView targetView, wgpu::TextureView depthView, const RenderData& renderData, wgpu::LoadOp targetLoadOp,
+                                 bool applySelection) {
     updateMatrices();
 
     SceneUniforms uniforms{};
     uniforms.view = view;
     uniforms.projection = projection;
     uniforms.lightDir = glm::vec4(getLightDir(), 0.f);
-    uniforms.colorMode = glm::vec4(static_cast<float>(speedColorMode), 0, 0, 0);
+    uniforms.colorMode = glm::vec4(static_cast<float>(renderData.speedColorMode), 0, 0, 0);
     uniforms.maxSpeedSqr = glm::vec4(1.f, 0, 0, 0);
     uniforms.maxCount = glm::vec4(1.f, 0, 0, 0);
-    uniforms.renderOffset = glm::vec4(world.getRenderOffset().x, world.getRenderOffset().y, world.getRenderOffset().z, 0.0f);
+    uniforms.renderOffset = glm::vec4(renderData.renderOffset.x, renderData.renderOffset.y, renderData.renderOffset.z, 0.0f);
     uniforms.lineColor = glm::vec4(0.4f, 0.6f, 1.0f, 0.3f);
     for (size_t i = 0; i < typeColorsData.size(); ++i) {
         uniforms.typeColors[i] = typeColorsData[i];
@@ -456,18 +454,18 @@ void RendererWGPU::drawWorldPass(wgpu::TextureView targetView, wgpu::TextureView
 
     beginPass(targetView, depthView, targetLoadOp);
 
-    if (drawBonds) {
+    if (renderData.drawBonds && !renderData.bonds.empty()) {
         setLineColor(glm::vec4(0.4f, 0.6f, 1.0f, 0.3f));
-        drawBondsImpl(world.getAtomStorage(), world.getBonds());
+        drawBondsImpl(renderData.atoms, renderData.bonds);
     }
-    if (drawGrid) {
-        drawGridImpl(world.getGrid());
+    if (renderData.drawGrid && !renderData.grid.empty()) {
+        drawGridImpl(renderData.grid);
     }
-    if (drawBox) {
+    if (renderData.drawBox && renderData.hasBox) {
         setLineColor(applySelection ? glm::vec4(0.5f, 0.78f, 1.0f, 0.55f) : glm::vec4(0.35f, 0.52f, 0.9f, 0.3f));
-        drawBoxImpl(world.getWorldSize());
+        drawBoxImpl(renderData.worldSize);
     }
-    drawAtomsImpl(world.getAtomStorage(), applySelection, gpuResident);
+    drawAtomsImpl(renderData.atoms, renderData, applySelection);
 }
 
 void RendererWGPU::beginPass(wgpu::TextureView targetView, wgpu::TextureView depthView, wgpu::LoadOp targetLoadOp) {
@@ -511,19 +509,24 @@ void RendererWGPU::endFrame() {
     currentEncoder = wgpu::raii::CommandEncoder{};
 }
 
-void RendererWGPU::drawAtomsImpl(const AtomStorage& atoms, bool applySelection, const GpuResidentPhysics* gpuResident) {
-    const size_t count = atoms.size();
-    if (count == 0) {
+void RendererWGPU::drawAtomsImpl(const RenderAtomsView& atoms, const RenderData& renderData, bool applySelection) {
+    const size_t count = atoms.count;
+    // В чистом zero-copy GPU-режиме CPU-указатели pos могут быть НЕ свежими (download
+    // пропущен App-слоем). Позиции/типы для отрисовки тогда живут в VRAM. Поэтому в
+    // GPU-режиме допустимо count>0 даже если !hasPositions(): рисуем из резидентного
+    // буфера. Требуем CPU-позиции ТОЛЬКО в CPU-режиме (residency.valid==false).
+    const RenderAtomsGpuResidency& residency = atoms.gpu;
+    const bool gpuMode = residency.valid;
+    if (count == 0 || !atoms.hasTypes() || (!gpuMode && !atoms.hasPositions())) {
         return;
     }
 
     // В GPU-режиме рисуем ровно столько атомов, сколько залито в VRAM — clamp на
     // transient-правке сцены (§6.2): CPU AtomStorage уже изменён, а резидентный
-    // re-upload отложен (напр. на паузе), поэтому boundCount = min(atoms.size(),
-    // renderBoundCount()) НИКОГДА не читает за пределами меньшего из буферов. В
-    // CPU-режиме gpuResident==nullptr и boundCount == count (поведение прежнее).
-    const bool gpuMode = gpuResident != nullptr;
-    const size_t boundCount = gpuMode ? std::min<size_t>(count, gpuResident->renderBoundCount()) : count;
+    // re-upload отложен (напр. на паузе), поэтому boundCount = min(count,
+    // residency.boundCount) НИКОГДА не читает за пределами меньшего из буферов. В
+    // CPU-режиме boundCount == count (поведение прежнее).
+    const size_t boundCount = gpuMode ? std::min<size_t>(count, residency.boundCount) : count;
     if (boundCount == 0) {
         return; // VRAM ещё пуст (например, рост сцены до первого upload) — нечего рисовать
     }
@@ -544,15 +547,15 @@ void RendererWGPU::drawAtomsImpl(const AtomStorage& atoms, bool applySelection, 
 
     for (size_t i = 0; i < count; ++i) {
         if (!gpuMode) {
-            posData_[i] = {atoms.xData()[i], atoms.yData()[i], atoms.zData()[i]};
-            velData_[i] = {atoms.vxData()[i], atoms.vyData()[i], atoms.vzData()[i]};
+            posData_[i] = {atoms.x[i], atoms.y[i], atoms.z[i]};
+            velData_[i] = atoms.hasVelocities() ? AtomVec4{atoms.vx[i], atoms.vy[i], atoms.vz[i]} : AtomVec4{};
         }
-        const auto& props = AtomData::getProps(atoms.type(i));
-        radii[i] = props.radius;
-        typeData[i] = static_cast<float>(atoms.type(i));
+        const AtomData::Type atomType = static_cast<AtomData::Type>(atoms.type[i]);
+        radii[i] = atoms.hasRadii() ? atoms.radius[i] : AtomData::getProps(atomType).radius;
+        typeData[i] = static_cast<float>(atomType);
     }
-    if (applySelection && ToolsManager::pickingSystem != nullptr) {
-        for (const size_t idx : ToolsManager::pickingSystem->getSelectedIndices()) {
+    if (applySelection) {
+        for (const size_t idx : renderData.selectedAtomIndices) {
             if (idx < count) {
                 selectedData[idx] = 1.0f;
             }
@@ -569,29 +572,34 @@ void RendererWGPU::drawAtomsImpl(const AtomStorage& atoms, bool applySelection, 
     uploadStorageBuffer(*sbSel, selectedData.data(), count);
 
     float maxSpeedSqr = 1.f;
-    if (speedColorMode != SpeedColorMode::AtomColor) {
-        if (speedGradientMax > 0.f) {
-            maxSpeedSqr = speedGradientMax * speedGradientMax;
+    if (renderData.speedColorMode != RenderData::SpeedColorMode::AtomColor) {
+        if (renderData.speedGradientMax > 0.f) {
+            maxSpeedSqr = renderData.speedGradientMax * renderData.speedGradientMax;
         }
         else {
-            // CPU-скан max-скорости по AtomStorage. В GPU-режиме при auto-max
-            // (speedGradientMax<=0) это читает CPU-скорости — их свежесть обеспечит
-            // Инкремент B (условный per-frame sync); в этом инкременте sync пока
-            // безусловный, поэтому скорости свежи, поведение бит-в-бит как сегодня.
-            const auto it =
-                std::ranges::max_element(std::views::iota(size_t{0}, count), {}, [&](size_t i) { return atoms.vel(i).sqrAbs(); });
-            maxSpeedSqr = std::max(1e-6f, atoms.vel(*it).sqrAbs());
+            // Auto-max: CPU-скан max-скорости по RenderAtomsView. В GPU-режиме это
+            // читает CPU-скорости — их свежесть гарантирует условный per-frame sync
+            // App-слоя: предикат cpuPositionConsumerActive ВКЛЮЧАЕТ speed-color-auto-max,
+            // поэтому при этой ветке download сделан и vx/vy/vz свежи. Если hasVelocities()
+            // ложно (теоретически в GPU-режиме при отсутствии CPU-зеркала) — остаёмся на 1.0f.
+            if (atoms.hasVelocities()) {
+                const auto it = std::ranges::max_element(std::views::iota(size_t{0}, count), {}, [&](size_t i) {
+                    return atoms.vx[i] * atoms.vx[i] + atoms.vy[i] * atoms.vy[i] + atoms.vz[i] * atoms.vz[i];
+                });
+                const float speedSqr = atoms.vx[*it] * atoms.vx[*it] + atoms.vy[*it] * atoms.vy[*it] + atoms.vz[*it] * atoms.vz[*it];
+                maxSpeedSqr = std::max(1e-6f, speedSqr);
+            }
         }
     }
     WGPUContext::instance().queue()->writeBuffer(*uniformBuffer, offsetof(SceneUniforms, maxSpeedSqr), &maxSpeedSqr, sizeof(float));
 
     currentPass->setPipeline(*atomPipeline);
-    currentPass->setBindGroup(0, ensureAtomBindGroup(boundCount, gpuResident), 0, nullptr);
+    currentPass->setBindGroup(0, ensureAtomBindGroup(boundCount, residency), 0, nullptr);
     currentPass->setVertexBuffer(0, *atomQuadVb, 0, atomQuadVb->getSize());
     currentPass->draw(6, static_cast<uint32_t>(boundCount), 0, 0);
 }
 
-void RendererWGPU::drawBoxImpl(const Vec3f& worldSize) {
+void RendererWGPU::drawBoxImpl(const glm::vec3& worldSize) {
     if (worldSize != cachedBoxSize_) {
         cachedBoxSize_ = worldSize;
         const float x1 = cachedBoxSize_.x;
@@ -615,22 +623,31 @@ void RendererWGPU::setLineColor(const glm::vec4& color) {
     WGPUContext::instance().queue()->writeBuffer(*uniformBuffer, offsetof(SceneUniforms, lineColor), &color, sizeof(color));
 }
 
-void RendererWGPU::drawBondsImpl(const AtomStorage& atoms, const Bond::List& bonds) {
+void RendererWGPU::drawBondsImpl(const RenderAtomsView& atoms, const RenderBondsView& bonds) {
     if (bonds.empty()) {
         return;
     }
 
-    std::vector<glm::vec3> verts;
-    verts.reserve(bonds.size() * 2);
-    for (const Bond& bond : bonds) {
-        if (bond.aIndex >= atoms.size() || bond.bIndex >= atoms.size()) {
-            continue;
+    struct BondVertexBuildContext {
+        const RenderAtomsView* atoms = nullptr;
+        std::vector<glm::vec3>* verts = nullptr;
+
+        static void append(size_t aIndex, size_t bIndex, void* userData) {
+            auto& ctx = *static_cast<BondVertexBuildContext*>(userData);
+            const RenderAtomsView& atoms = *ctx.atoms;
+            if (aIndex >= atoms.count || bIndex >= atoms.count || !atoms.hasPositions()) {
+                return;
+            }
+
+            ctx.verts->emplace_back(atoms.x[aIndex], atoms.y[aIndex], atoms.z[aIndex]);
+            ctx.verts->emplace_back(atoms.x[bIndex], atoms.y[bIndex], atoms.z[bIndex]);
         }
-        const Vec3f a = atoms.pos(bond.aIndex);
-        const Vec3f b = atoms.pos(bond.bIndex);
-        verts.emplace_back(a.x, a.y, a.z);
-        verts.emplace_back(b.x, b.y, b.z);
-    }
+    };
+
+    std::vector<glm::vec3> verts;
+    verts.reserve(bonds.count * 2);
+    BondVertexBuildContext buildContext{.atoms = &atoms, .verts = &verts};
+    bonds.forEach(BondVertexBuildContext::append, &buildContext);
     if (verts.empty()) {
         return;
     }
@@ -648,30 +665,31 @@ void RendererWGPU::drawBondsImpl(const AtomStorage& atoms, const Bond::List& bon
     currentPass->draw(verts.size(), 1, 0, 0);
 }
 
-void RendererWGPU::drawGridImpl(const SpatialGrid& grid) {
-    gridData.clear();
-    int maxCount = 1;
+void RendererWGPU::drawGridImpl(const RenderGridView& grid) {
+    struct GridBuildContext {
+        RendererWGPU* renderer = nullptr;
+        float maxCount = 1.0f;
 
-    // SpatialGrid::nonEmptyCells() возвращает линейные индексы клеток с
-    // атомами, собранные в rebuild. На разреженных сценах это убирает
-    // O(всех клеток) обход — сразу идём по N << totalCells.
-    const auto stride = static_cast<uint32_t>(grid.size.x);
-    const auto plane = static_cast<uint32_t>(grid.size.x) * static_cast<uint32_t>(grid.size.y);
-    for (const uint32_t cellIndex : grid.nonEmptyCells()) {
-        const uint32_t z = cellIndex / plane;
-        const uint32_t rem = cellIndex - z * plane;
-        const uint32_t y = rem / stride;
-        const uint32_t x = rem - y * stride;
-        const int cnt = grid.countAtomsInCell(static_cast<int>(x), static_cast<int>(y), static_cast<int>(z));
-        gridData.emplace_back(glm::vec4((x - 1) * grid.cellSize, (y - 1) * grid.cellSize, (z - 1) * grid.cellSize, 0.f),
-                              (float)grid.cellSize, (float)cnt);
-        maxCount = std::max(maxCount, cnt);
-    }
+        static void append(const RenderGridCell& cell, void* userData) {
+            auto& ctx = *static_cast<GridBuildContext*>(userData);
+            ctx.renderer->gridData.push_back(GridInstance{
+                .origin = glm::vec4(cell.origin, 0.0f),
+                .cellSize = cell.cellSize,
+                .atomCount = cell.atomCount,
+            });
+            ctx.maxCount = std::max(ctx.maxCount, cell.atomCount);
+        }
+    };
+
+    gridData.clear();
+    gridData.reserve(grid.count);
+    GridBuildContext buildContext{.renderer = this};
+    grid.forEach(GridBuildContext::append, &buildContext);
     if (gridData.empty()) {
         return;
     }
 
-    float mc = (float)maxCount;
+    float mc = buildContext.maxCount;
     WGPUContext::instance().queue()->writeBuffer(*uniformBuffer, offsetof(SceneUniforms, maxCount), &mc, sizeof(float));
 
     const uint64_t instBytes = gridData.size() * sizeof(GridInstance);

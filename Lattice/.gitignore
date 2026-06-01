@@ -1,0 +1,4 @@
+build/
+Lattice-cli
+benchmarks/bench
+*exe

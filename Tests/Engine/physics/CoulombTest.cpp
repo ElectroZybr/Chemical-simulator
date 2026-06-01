@@ -13,6 +13,7 @@
 #include "Engine/physics/AtomData.h"
 #include "Engine/physics/AtomStorage.h"
 #include "Engine/physics/ForceFields/CoulombForceField.h"
+using namespace Lattice;
 
 namespace {
 

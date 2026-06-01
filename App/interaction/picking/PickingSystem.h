@@ -6,9 +6,9 @@
 #include <unordered_set>
 
 #include "App/interaction/selection/OverlayState.h"
-#include "Engine/physics/AtomStorage.h"
+#include "Lattice/Engine/physics/AtomStorage.h"
 
-class IRenderer;
+class BaseRenderer;
 class World;
 
 struct AtomHit {
@@ -18,7 +18,7 @@ struct AtomHit {
 
 class PickingSystem {
 public:
-    PickingSystem(AtomStorage& atomStorage, World& box, std::unique_ptr<IRenderer>& renderer);
+    PickingSystem(AtomStorage& atomStorage, World& box, std::unique_ptr<BaseRenderer>& renderer);
 
     void setWorld(AtomStorage& atomStorage, World& box);
     void clearSelection();
@@ -38,7 +38,7 @@ public:
 private:
     AtomStorage* atomStorage;
     World* box;
-    std::unique_ptr<IRenderer>* renderer;
+    std::unique_ptr<BaseRenderer>* renderer;
     OverlayState overlay;
     std::unordered_set<size_t> selectedIndices;
 

@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <cmath>
 
-#include "Engine/Simulation.h"
+#include "Lattice/Engine/Simulation.h"
 #include "Rendering/BaseRenderer.h"
 #include "Rendering/camera/Camera.h"
 
@@ -45,7 +45,7 @@ void ThermalTool::applyAt(Vec2i mousePos, float deltaTime) {
         return;
     }
 
-    IRenderer* renderer = ctx.activeRenderer();
+    BaseRenderer* renderer = ctx.activeRenderer();
     if (renderer == nullptr) {
         return;
     }

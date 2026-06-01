@@ -4,17 +4,19 @@
 
 #include <imgui.h>
 
-#include "Engine/NeighborSearch/NeighborList.h"
-#include "Engine/math/Vec3.h"
+#include "Lattice/Engine/NeighborSearch/NeighborList.h"
+#include "Lattice/Engine/math/Vec3.h"
 
-class IRenderer;
+class BaseRenderer;
 class PickingSystem;
 class SpatialGrid;
-class Simulation;
+namespace Lattice {
+    class Simulation;
+}
 
 class NeighborListOverlay {
 public:
-    void draw(const Simulation& simulation, const PickingSystem& pickingSystem, const IRenderer& renderer);
+    void draw(const Lattice::Simulation& simulation, const PickingSystem& pickingSystem, const BaseRenderer& renderer);
 
 private:
     size_t skinSelectedIndex_ = static_cast<size_t>(-1);
@@ -22,7 +24,7 @@ private:
     Vec3f skinCenter_{};
 
     static void drawSelectedNeighbors(const AtomStorage& atoms, const SpatialGrid& grid, const NeighborList& neighborList,
-                                      const Vec3f& renderOffset, size_t selectedIndex, const IRenderer& renderer);
+                                      const Vec3f& renderOffset, size_t selectedIndex, const BaseRenderer& renderer);
     void updateSkinCenter(size_t selectedIndex, size_t rebuildCount, Vec3f atomPos);
-    static void drawWorldCircle(const IRenderer& renderer, Vec3f center, float radius, ImU32 color, float thickness);
+    static void drawWorldCircle(const BaseRenderer& renderer, Vec3f center, float radius, ImU32 color, float thickness);
 };

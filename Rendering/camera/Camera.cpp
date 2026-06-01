@@ -6,8 +6,6 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/constants.hpp>
 
-#include "Engine/World.h"
-
 namespace {
     float wrapRadians(float angle) {
         constexpr float pi = glm::pi<float>();
@@ -33,33 +31,31 @@ namespace {
     }
 }
 
-Camera::Camera(World& simBox, float moveSpeed, float zoomSpeed)
-    : world(simBox), moveSpeed(moveSpeed), zoomSpeed(zoomSpeed), isDragging(false), lastMousePos(0, 0) {}
+Camera::Camera(float moveSpeed, float zoomSpeed) : moveSpeed(moveSpeed), zoomSpeed(zoomSpeed), isDragging(false), lastMousePos(0, 0) {}
 
 void Camera::resetView() {
     azimuth = 0.f;
     elevation = 0.f;
     orbitUp = glm::vec3(0.f, 1.f, 0.f);
 
-    const float max_side = std::max({world.getWorldSize().x, world.getWorldSize().y, world.getWorldSize().z});
+    const float max_side = std::max({sceneSize.x, sceneSize.y, sceneSize.z});
     const float distance = (max_side * 0.5f * 1.1f) / std::tan(glm::radians(Camera::FOV_ORBIT) * 0.5f);
-    orbitCenter = world.getRenderOffset() + world.getWorldSize() * 0.5f;
-    freePosition = orbitCenter;
-    freePosition.z = orbitCenter.z - distance;
-    position = orbitCenter.xy();
+    orbitCenter = sceneOffset + sceneSize * 0.5f;
+    position = glm::vec2(orbitCenter);
 
     if (mode == Camera::Mode::Mode2D) {
         constexpr float margin = 0.85f;
 
-        const float zoomX = (screenSize.x * margin) / world.getWorldSize().x;
-        const float zoomY = (screenSize.y * margin) / world.getWorldSize().y;
+        const float zoomX = (screenSize.x * margin) / sceneSize.x;
+        const float zoomY = (screenSize.y * margin) / sceneSize.y;
 
         setZoom(std::min(zoomX, zoomY));
     }
     else {
-        setZoom(1.15f);
-        const Vec3f orbitOffset(std::cos(elevation) * std::sin(azimuth), std::sin(elevation), std::cos(elevation) * std::cos(azimuth));
-        freePosition = orbitCenter + orbitOffset * (moveSpeed / zoom);
+        const float safeDistance = std::max(distance, 1e-3f);
+        setZoom(moveSpeed / safeDistance);
+        const glm::vec3 orbitOffset(std::cos(elevation) * std::sin(azimuth), std::sin(elevation), std::cos(elevation) * std::cos(azimuth));
+        freePosition = orbitCenter + orbitOffset * safeDistance;
     }
 }
 
@@ -75,15 +71,15 @@ void Camera::setMode(Mode newMode) {
 
     if (mode == Mode::Orbit && newMode == Mode::Free) {
         const glm::vec3 eye = getEyePosition();
-        freePosition = Vec3f(eye.x, eye.y, eye.z);
+        freePosition = glm::vec3(eye.x, eye.y, eye.z);
     }
     else if (mode == Mode::Free && newMode == Mode::Orbit) {
-        const Vec3f eye = freePosition;
-        orbitCenter = world.getRenderOffset() + world.getWorldSize() * 0.5f;
+        const glm::vec3 eye = freePosition;
+        orbitCenter = sceneOffset + sceneSize * 0.5f;
 
-        const Vec3f toEye = eye - orbitCenter;
-        const float distance = toEye.abs();
-        if (distance > Consts::Epsilon) {
+        const glm::vec3 toEye = eye - orbitCenter;
+        const float distance = glm::length(toEye);
+        if (distance > 1e-6f) {
             setZoom(moveSpeed / distance);
             azimuth = std::atan2(toEye.x, toEye.z);
             elevation = std::asin(std::clamp(toEye.y / distance, -1.0f, 1.0f));
@@ -94,7 +90,7 @@ void Camera::setMode(Mode newMode) {
     mode = newMode;
 }
 
-void Camera::zoomAt(float factor, Vec2f mousePos) {
+void Camera::zoomAt(float factor, glm::vec2 mousePos) {
     // Изменяем уровень зума с учетом направления к курсору
     zoom *= (1.f + factor * zoomSpeed);
     zoom = std::clamp(zoom, 1.f, 500.f);
@@ -102,13 +98,13 @@ void Camera::zoomAt(float factor, Vec2f mousePos) {
 
     // Плавное следование за указателем мыши при зуме
     if (zoom > 1.f && zoom < 500.f) {
-        Vec2f deltaPos(mousePos - screenSize * 0.5f);
+        glm::vec2 deltaPos(mousePos - screenSize * 0.5f);
         deltaPos.y *= -1.f;
         position += deltaPos * 0.1f / zoom * factor;
     }
 }
 
-void Camera::orbitDrag(Vec2i delta) {
+void Camera::orbitDrag(glm::ivec2 delta) {
     constexpr float sensitivity = 0.005f;
     orbitRotate(-delta.x * sensitivity, -delta.y * sensitivity);
 }
@@ -119,7 +115,7 @@ void Camera::orbitRotate(float azimuthDelta, float elevationDelta) {
     glm::vec3 offset = eye - center;
 
     const float distance = glm::length(offset);
-    if (distance <= Consts::Epsilon) {
+    if (distance <= 1e-6f) {
         return;
     }
 
@@ -138,7 +134,7 @@ void Camera::orbitRotate(float azimuthDelta, float elevationDelta) {
     elevation = wrapRadians(std::asin(std::clamp(offset.y / distance, -1.0f, 1.0f)));
 }
 
-void Camera::freeDrag(Vec2i delta) {
+void Camera::freeDrag(glm::ivec2 delta) {
     constexpr float sensitivity = 0.003f;
     azimuth -= delta.x * sensitivity;
     elevation += delta.y * sensitivity;
@@ -146,24 +142,24 @@ void Camera::freeDrag(Vec2i delta) {
 }
 
 // Для 3д режимов возвращает cameraPos + cameraDir * 10
-Vec3f Camera::screenToWorld(Vec2i screenPos) const {
+glm::vec3 Camera::screenToWorld(glm::ivec2 screenPos) const {
     if (mode == Mode::Mode2D) {
-        Vec2f offset = Vec2f(screenPos) - screenSize * 0.5f;
+        glm::vec2 offset = glm::vec2(screenPos) - screenSize * 0.5f;
         offset.y *= -1.f;
-        const Vec2f w = position + offset / zoom;
-        return Vec3f(w);
+        const glm::vec2 w = position + offset / zoom;
+        return glm::vec3(w, 0.0f);
     }
 
-    const Ray ray = screenToRay(screenPos.x, screenPos.y);
+    const RenderRay ray = screenToRay(screenPos.x, screenPos.y);
     return ray.at(100.0);
 }
 
-Vec2i Camera::worldToScreen(Vec3f worldPos) const {
+glm::ivec2 Camera::worldToScreen(glm::vec3 worldPos) const {
     if (mode == Mode::Mode2D) {
-        Vec2f offset = worldPos.xy() - position;
+        glm::vec2 offset = glm::vec2(worldPos) - position;
         offset.y *= -1.f;
-        const Vec2f s = offset * zoom + screenSize * 0.5f;
-        return Vec2i(s);
+        const glm::vec2 s = offset * zoom + screenSize * 0.5f;
+        return glm::ivec2(s);
     }
 
     const glm::vec4 clip = getProjectionMatrix() * getViewMatrix() * glm::vec4(worldPos.x, worldPos.y, worldPos.z, 1.f);
@@ -175,7 +171,7 @@ Vec2i Camera::worldToScreen(Vec3f worldPos) const {
     const float ndcX = clip.x / clip.w;
     const float ndcY = clip.y / clip.w;
 
-    return Vec2i((ndcX + 1.f) * 0.5f * screenSize.x, (-ndcY + 1.f) * 0.5f * screenSize.y);
+    return glm::ivec2(static_cast<int>((ndcX + 1.f) * 0.5f * screenSize.x), static_cast<int>((-ndcY + 1.f) * 0.5f * screenSize.y));
 }
 
 glm::vec3 Camera::getEyePosition() const {
@@ -201,7 +197,7 @@ glm::mat4 Camera::getViewMatrix() const {
     }
 
     // Orbit camera keeps its target stable until resetView().
-    Vec3f center = orbitCenter;
+    glm::vec3 center = orbitCenter;
     glm::vec3 eye = getEyePosition();
     return glm::lookAt(eye, glm::vec3(center.x, center.y, center.z), orbitUp);
 }
@@ -211,7 +207,7 @@ glm::mat4 Camera::getProjectionMatrix() const {
     return glm::perspective(glm::radians(fov), screenSize.x / screenSize.y, NEAR, FAR);
 }
 
-Ray Camera::screenToRay(float screenX, float screenY) const {
+RenderRay Camera::screenToRay(float screenX, float screenY) const {
     const float ndcX = (2.0f * screenX) / screenSize.x - 1.0f;
     const float ndcY = 1.0f - (2.0f * screenY) / screenSize.y;
 
@@ -226,5 +222,5 @@ Ray Camera::screenToRay(float screenX, float screenY) const {
     const glm::mat4 invView = glm::inverse(getViewMatrix());
     const glm::vec3 rayDirWorld = glm::normalize(glm::vec3(invView * rayEye));
 
-    return Ray(Vec3f(getEyePosition()), Vec3f(rayDirWorld));
+    return RenderRay(getEyePosition(), rayDirWorld);
 }

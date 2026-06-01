@@ -1,7 +1,7 @@
 #include "AddAtomTool.h"
 
-#include "Engine/Simulation.h"
-#include "Engine/physics/AtomStorage.h"
+#include "Lattice/Engine/Simulation.h"
+#include "Lattice/Engine/physics/AtomStorage.h"
 #include "GUI/interface/UiState.h"
 #include "GUI/interface/panels/periodic/PeriodicPanel.h"
 #include "Rendering/BaseRenderer.h"

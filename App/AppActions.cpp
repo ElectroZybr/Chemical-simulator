@@ -1,15 +1,14 @@
 #include "AppActions.h"
 
 #include "App/AppSignals.h"
-#include "App/Scenes.h"
+#include "Lattice/Generators/Generators.h"
+#include "App/capture/CaptureOutputPath.h"
 #include "App/capture/CaptureController.h"
 #include "App/interaction/ToolsManager.h"
+#include "App/viewport/SceneViewport.h"
 #include "App/save_system/AppStateIO.h"
-#include "Engine/Simulation.h"
+#include "Lattice/Engine/Simulation.h"
 #include "GUI/interface/UiState.h"
-#include "Rendering/2d/Renderer2DWGPU.h"
-#include "Rendering/3d/Renderer3DWGPU.h"
-#include "Rendering/WGPUContext.h"
 
 namespace {
     void shiftAtoms(AtomStorage& atomStorage, Vec3f delta) {
@@ -25,7 +24,7 @@ namespace {
         }
     }
 
-    void applyResizeBox(Simulation& simulation, const Vec3f& newSize) {
+    void applyResizeBox(Lattice::Simulation& simulation, const Vec3f& newSize) {
         World& world = simulation.world();
         const Vec3f oldSize = world.getWorldSize();
         const Vec3f delta = (newSize - oldSize) * 0.5f;
@@ -39,21 +38,37 @@ namespace {
         world.setRenderOffset(world.getRenderOffset() - delta);
         simulation.setSizeBox(newSize);
     }
+
+    void toggleXYZRecording(CaptureController& captureController, Lattice::Simulation& simulation) {
+        if (simulation.isXYZRecording()) {
+            simulation.stopXYZRecording();
+            return;
+        }
+
+        std::error_code fsError;
+        const std::filesystem::path outputDirectory = captureController.outputDirectory();
+        std::filesystem::create_directories(outputDirectory, fsError);
+        if (fsError) {
+            return;
+        }
+
+        simulation.startXYZRecording(capture_utils::makeDatedCaptureOutputPath(outputDirectory, ".xyz").string());
+    }
 }
 
 namespace AppActions {
-    void Handler::trackIOPanel(CaptureController& captureController, UiState& uiState, Simulation& simulation,
-                               std::unique_ptr<IRenderer>& renderer) {
+    void Handler::trackIOPanel(CaptureController& captureController, UiState& uiState, Lattice::Simulation& simulation, SceneViewport& renderer) {
         track(AppSignals::UI::SaveSimulation.connect([&](std::string_view path) {
             // В GPU-режиме позиции/скорости живут в VRAM; Инкремент B убрал безусловный
             // per-frame download, поэтому CPU AtomStorage может быть устаревшим. Синкаем
             // ПЕРЕД save (AppStateIO читает atoms() через const Simulation& и сам синкнуть
             // не может). Без этого файл нёс бы устаревшие координаты. В CPU-режиме no-op.
             simulation.syncFromGpuIfNeeded();
-            AppStateIO::save(captureController, uiState.scenePreviewRect, simulation, *renderer, path);
+            AppStateIO::save(captureController, uiState.scenePreviewRect, simulation, renderer.renderer(), path);
         }));
         track(AppSignals::UI::LoadSimulation.connect([&](std::string_view path) {
-            AppStateIO::load(simulation, *renderer, path);
+            AppStateIO::load(simulation, renderer.renderer(), path);
+            renderer.syncScene(simulation);
             ToolsManager::resetInteractionState();
         }));
         track(AppSignals::UI::ResizeBox.connect([&](const Vec3f& newSize) { applyResizeBox(simulation, newSize); }));
@@ -64,57 +79,41 @@ namespace AppActions {
         track(AppSignals::UI::CreateGas.connect([&](int atomCount, AtomData::Type atomType, bool is3D, float density) {
             simulation.clear();
             ToolsManager::resetInteractionState();
-            Scenes::randomGas(simulation, atomCount, atomType, is3D, 6.0f, 6.0f, density);
+            Generators::randomGas(simulation, atomCount, atomType, is3D, 6.0f, 6.0f, density);
         }));
         track(AppSignals::UI::CreateCrystal.connect([&](int axisCount, AtomData::Type atomType, bool is3D) {
             simulation.clear();
             ToolsManager::resetInteractionState();
-            Scenes::crystal(simulation, axisCount, atomType, is3D);
+            Generators::massive(simulation, axisCount, atomType, is3D);
         }));
+        track(AppSignals::Capture::ToggleXYZRecording.connect([&]() { toggleXYZRecording(captureController, simulation); }));
     }
 
-    void Handler::trackToolsPanel(Simulation& simulation, std::unique_ptr<IRenderer>& renderer) {
+    void Handler::trackToolsPanel(Lattice::Simulation& simulation, SceneViewport& renderer) {
         track(AppSignals::UI::SetRender.connect([&](RendererType type) {
-            std::unique_ptr<IRenderer> newRenderer;
-            switch (type) {
-            case RendererType::Renderer2D:
-                newRenderer = std::make_unique<Renderer2DWGPU>(simulation.world(), WGPUContext::instance().surfaceFormat());
-                break;
-            case RendererType::Renderer3D:
-                newRenderer = std::make_unique<Renderer3DWGPU>(simulation.world(), WGPUContext::instance().surfaceFormat());
-                break;
-            }
-
-            if (newRenderer) {
+            const SceneViewport::RendererType rendererType =
+                (type == RendererType::Renderer2D) ? SceneViewport::RendererType::Renderer2D : SceneViewport::RendererType::Renderer3D;
+            if (renderer.setRendererType(rendererType, simulation)) {
                 ToolsManager::resetInteractionState();
-                newRenderer->drawGrid = renderer->drawGrid;
-                newRenderer->drawBonds = renderer->drawBonds;
-                newRenderer->drawBox = renderer->drawBox;
-                newRenderer->speedColorMode = renderer->speedColorMode;
-                newRenderer->speedGradientMax = renderer->speedGradientMax;
-                newRenderer->camera.setScreenSize(renderer->camera.getScreenSize());
-                newRenderer->camera.resetView();
-                renderer = std::move(newRenderer);
             }
         }));
 
-        track(AppSignals::UI::SetCameraMode.connect([&](Camera::Mode mode) { renderer->camera.setMode(mode); }));
+        track(AppSignals::UI::SetCameraMode.connect([&](Camera::Mode mode) { renderer.renderer().camera.setMode(mode); }));
     }
 
     void Handler::trackSettingsPanel(GLFWwindow* window) {
         track(AppSignals::UI::ExitApplication.connect([window]() { glfwSetWindowShouldClose(window, GLFW_TRUE); }));
     }
 
-    void Handler::trackKeyboard(Simulation& simulation) {
+    void Handler::trackKeyboard(Lattice::Simulation& simulation) {
         track(AppSignals::Keyboard::StepPhysics.connect([&]() { simulation.update(); }));
     }
 
-    void Handler::trackSimControlPanel(Simulation& simulation) {
+    void Handler::trackSimControlPanel(Lattice::Simulation& simulation) {
         track(AppSignals::UI::StepPhysics.connect([&]() { simulation.update(); }));
     }
 
-    Handler::Handler(GLFWwindow* window, CaptureController& captureController, Simulation& simulation, std::unique_ptr<IRenderer>& renderer,
-                     UiState& uiState) {
+    Handler::Handler(GLFWwindow* window, CaptureController& captureController, Lattice::Simulation& simulation, SceneViewport& renderer, UiState& uiState) {
         trackIOPanel(captureController, uiState, simulation, renderer);
         trackToolsPanel(simulation, renderer);
         trackSettingsPanel(window);
