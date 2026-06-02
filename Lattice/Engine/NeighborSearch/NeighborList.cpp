@@ -12,6 +12,18 @@
 #include "Engine/physics/AtomStorage.h"
 #include "Engine/restrict.h"
 
+#ifdef LATTICELAB_USE_TBB
+#include <tbb/blocked_range.h>
+#include <tbb/parallel_for.h>
+#endif
+
+namespace {
+// Порог распараллеливания построения NL: ниже — серийно (накладные TBB не окупаются).
+// Значение совпадает с ForceField::kParallelMobileThreshold, но НЕЗАВИСИМ — тюнится
+// отдельно (стоимость построения NL не равна стоимости force-loop).
+constexpr uint32_t kParallelBuildThreshold = 5000;
+} // namespace
+
 void NeighborList::setCutoff(float cutoff) {
     cutoff_ = cutoff;
     listRadius_ = cutoff_ + skin_;
@@ -105,14 +117,49 @@ void NeighborList::build(const AtomStorage& atoms, World& box) {
 
     reserveListBuffers(atoms);
 
-    offsets_[0] = 0;
-    for (uint32_t i = 0; i < atomCount; ++i) {
-        const float xi = x[i];
-        const float yi = y[i];
-        const float zi = z[i];
-        // запись всех соседей атома в массив
-        writeAtomNeighbors(grid, x, y, z, i, xi, yi, zi, neighbors_);
-        offsets_[i + 1] = neighbors_.size();
+    // Построение списка соседей.
+    //  • Большие сцены (TBB): count → scan смещений → write. Фаза 1 параллельно считает
+    //    соседей каждого атома (offsets_[i+1]), фаза 2 — exclusive prefix-sum, фаза 3
+    //    параллельно пишет соседей в СВОЙ срез neighbors_[offsets_[i]..]. Атомы независимы
+    //    (грид/позиции read-only, срезы не пересекаются) → без гонок, результат ПОБИТОВО
+    //    как серийный (тот же порядок).
+    //  • Малые сцены / без TBB: один проход emplace_back (накладные параллелизма не окупаются).
+#ifdef LATTICELAB_USE_TBB
+    if (atomCount >= kParallelBuildThreshold) {
+        tbb::parallel_for(tbb::blocked_range<uint32_t>(0, atomCount), [&](const tbb::blocked_range<uint32_t>& r) {
+            for (uint32_t i = r.begin(); i != r.end(); ++i) {
+                offsets_[i + 1] = countAtomNeighbors(grid, x, y, z, i, x[i], y[i], z[i]);
+            }
+        });
+
+        // exclusive prefix-sum в uint64 со страховкой: суммарное число пар не должно
+        // превысить uint32-ёмкость CSR (offsets_/neighbors_ — uint32), иначе фаза 3 писала
+        // бы в обёрнутые/выходящие за буфер срезы. Fail-closed: бросаем ДО resize/записи
+        // (серийный путь лишь молча обрезал offsets — тоже неверно, но без OOB).
+        uint64_t running = 0;
+        offsets_[0] = 0;
+        for (uint32_t i = 0; i < atomCount; ++i) {
+            running += offsets_[i + 1]; // держит счётчик соседей атома i (из фазы 1)
+            if (running > std::numeric_limits<uint32_t>::max()) {
+                throw std::overflow_error("NeighborList::build: суммарное число пар превышает uint32-ёмкость CSR");
+            }
+            offsets_[i + 1] = static_cast<uint32_t>(running);
+        }
+
+        neighbors_.resize(offsets_[atomCount]);
+        tbb::parallel_for(tbb::blocked_range<uint32_t>(0, atomCount), [&](const tbb::blocked_range<uint32_t>& r) {
+            for (uint32_t i = r.begin(); i != r.end(); ++i) {
+                writeAtomNeighborsAt(grid, x, y, z, i, x[i], y[i], z[i], neighbors_.data() + offsets_[i]);
+            }
+        });
+    } else
+#endif
+    {
+        offsets_[0] = 0;
+        for (uint32_t i = 0; i < atomCount; ++i) {
+            writeAtomNeighbors(grid, x, y, z, i, x[i], y[i], z[i], neighbors_);
+            offsets_[i + 1] = neighbors_.size();
+        }
     }
 
     std::copy(x, x + atoms.mobileCount(), refPosX_.data());

@@ -50,18 +50,23 @@ public:
     [[nodiscard]] const NeighborListStats& stats() const { return stats_; }
     void resetStats();
 
-    // Hot-path helper для записи соседей одного атома.
-    inline void writeAtomNeighbors(const SpatialGrid& grid, const float* x, const float* y, const float* z, const uint32_t atomIndex,
-                                   const float xi, const float yi, const float zi, std::vector<uint32_t>& outNeighbors) const {
+private:
+    // Единственный источник логики обхода 27-стенсила соседей атома i: для каждого
+    // подходящего соседа (Half/Full + cutoff) вызывает cb(neighborIndex). Обёртки ниже
+    // (count / write-в-срез / append) разделяют ЭТУ логику — без дублирования. Грид и
+    // позиции читаются ТОЛЬКО для чтения → безопасно из многих потоков. Зеркалится в
+    // gpu_cell_list.wgsl. cb инлайнится компилятором, накладных нет.
+    template <typename OnNeighbor>
+    inline void forEachNeighbor(const SpatialGrid& grid, const float* x, const float* y, const float* z,
+                                const uint32_t atomIndex, const float xi, const float yi, const float zi, OnNeighbor&& cb) const {
         const auto& offsets27 = grid.neighborOffsets27();
         const int center = grid.linearCellOfAtom(atomIndex); // центральная ячейка атома i
         const bool fullMode = (mode_ == NeighborListMode::Full);
 
         for (int k = 0; k < 27; ++k) {
             for (uint32_t neighborIndex : grid.atomsInCell(center + offsets27[k])) {
-                // grid.atomsInCellByLinearIndex возвращает соседей в порядке возрастания индексов.
-                // В Half-режиме обрываем как только дошли до собственного индекса — храним только j<i.
-                // В Full-режиме храним все пары, кроме самого себя.
+                // atomsInCell возвращает соседей по возрастанию индексов. Half: обрываем на
+                // собственном индексе (только j<i); Full: все, кроме себя.
                 if (neighborIndex == atomIndex) {
                     continue;
                 }
@@ -73,13 +78,33 @@ public:
                 const float dy = y[neighborIndex] - yi;
                 const float dz = z[neighborIndex] - zi;
                 if (dx * dx + dy * dy + dz * dz <= listRadiusSqr_) {
-                    outNeighbors.emplace_back(neighborIndex);
+                    cb(neighborIndex);
                 }
             }
         }
     }
 
-private:
+    // Число соседей атома (count-фаза параллельного build).
+    inline uint32_t countAtomNeighbors(const SpatialGrid& grid, const float* x, const float* y, const float* z,
+                                       const uint32_t atomIndex, const float xi, const float yi, const float zi) const {
+        uint32_t count = 0;
+        forEachNeighbor(grid, x, y, z, atomIndex, xi, yi, zi, [&](uint32_t) { ++count; });
+        return count;
+    }
+
+    // Запись соседей атома в out[] по порядку (write-фаза параллельного build).
+    inline void writeAtomNeighborsAt(const SpatialGrid& grid, const float* x, const float* y, const float* z,
+                                     const uint32_t atomIndex, const float xi, const float yi, const float zi, uint32_t* out) const {
+        uint32_t pos = 0;
+        forEachNeighbor(grid, x, y, z, atomIndex, xi, yi, zi, [&](uint32_t n) { out[pos++] = n; });
+    }
+
+    // Дописывание соседей атома в конец вектора (серийный build, один проход).
+    inline void writeAtomNeighbors(const SpatialGrid& grid, const float* x, const float* y, const float* z, const uint32_t atomIndex,
+                                   const float xi, const float yi, const float zi, std::vector<uint32_t>& outNeighbors) const {
+        forEachNeighbor(grid, x, y, z, atomIndex, xi, yi, zi, [&](uint32_t n) { outNeighbors.emplace_back(n); });
+    }
+
     void reserveListBuffers(const AtomStorage& atoms);
 
     // uint32_t - 4 байта, максимальное количество пар в NL ~ 4 млрд

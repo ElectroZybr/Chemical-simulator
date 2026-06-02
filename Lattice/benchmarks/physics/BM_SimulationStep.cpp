@@ -36,4 +36,5 @@ BENCHMARK_REGISTER_F(Fixture, FullStepWithNeighborList)
     ->Arg(5)
     ->Arg(10)
     ->Arg(25)
-    ->Arg(47);
+    ->Arg(47)
+    ->Arg(100);

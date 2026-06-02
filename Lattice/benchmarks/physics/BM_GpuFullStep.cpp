@@ -423,7 +423,7 @@ void BM_GpuFullStep_Resident(benchmark::State& state) { runFullStep(state); }
 // @bench_meta {"id":"GpuFullStep/WithRebuild","ru":"GPU full step с rebuild-round-trip (perf-корень)","group":"Симуляция/GPU"}
 void BM_GpuFullStep_WithRebuild(benchmark::State& state) { runFullStepWithRebuild(state); }
 
-BENCHMARK(BM_GpuFullStep_Resident)->Arg(15625)->Arg(103823)->Unit(benchmark::kMicrosecond);
+BENCHMARK(BM_GpuFullStep_Resident)->Arg(15625)->Arg(103823)->Arg(1000000)->Unit(benchmark::kMicrosecond);
 // Матрица {N, steps_per_frame}: spf=1,2 моделируют per-frame app pacing (async
 // работает), spf=8 — потолок App (maxStepsPerFrame), spf=20 — batch (бенч глушит
 // async). disp_backstops/disp_begins показывает деградацию async по каденции.
