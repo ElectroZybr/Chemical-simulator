@@ -167,22 +167,23 @@ int Application::run() {
             const bool singleSelection =
                 ToolsManager::pickingSystem != nullptr && ToolsManager::pickingSystem->getSelectedIndices().size() == 1;
 
-            // Render-настройки живут пер-мир в BaseRenderer::getRenderData(worldId).
-            // UI-чекбоксы (SettingsPanel) пишут в getRenderData(activeWorldId), поэтому
-            // предикат читаем оттуда же; bounds-guard как в SettingsPanel.
-            const auto activeWorld = simulation.activeWorldId(); // Lattice::Simulation::WorldId (size_t)
-            const bool hasActiveRenderData = renderer.renderer().getRenderDataCount() > activeWorld;
+            // Render-настройки живут пер-мир в BaseRenderer::getRenderData(worldId). UI пишет в
+            // активный мир, но для sync-предиката берём ИЛИ по ВСЕМ мирам: при мультимире
+            // неактивный GPU-мир с bonds/grid тоже рендерится и не должен читать устаревшие CPU-
+            // данные. Для одного мира цикл из 1 итерации = флаги активного мира — поведение
+            // прежнее, zero-copy single-world не меняется.
             bool drawBonds = false;
             bool drawGrid = false;
             bool speedColorAutoMax = false;
-            if (hasActiveRenderData) {
-                const RenderData& rd = renderer.renderer().getRenderData(activeWorld);
-                drawBonds = rd.drawBonds;
-                drawGrid = rd.drawGrid;
-                // speed-color АВТО-max: рендер CPU-сканит max|vel| по AtomStorage для
-                // нормировки (R3/§11 edit 6). При заданном вручную speedGradientMax > 0
-                // скан НЕ делается → синк не нужен.
-                speedColorAutoMax = rd.speedColorMode != RenderData::SpeedColorMode::AtomColor && rd.speedGradientMax <= 0.0f;
+            const size_t renderDataCount = renderer.renderer().getRenderDataCount();
+            for (size_t w = 0; w < renderDataCount; ++w) {
+                const RenderData& rd = renderer.renderer().getRenderData(w);
+                drawBonds = drawBonds || rd.drawBonds;
+                drawGrid = drawGrid || rd.drawGrid;
+                // speed-color АВТО-max: рендер CPU-сканит max|vel| по AtomStorage для нормировки.
+                // При заданном вручную speedGradientMax > 0 скан НЕ делается → синк не нужен.
+                speedColorAutoMax = speedColorAutoMax ||
+                    (rd.speedColorMode != RenderData::SpeedColorMode::AtomColor && rd.speedGradientMax <= 0.0f);
             }
 
             // Инкремент B (zero-copy): атомы рендерятся ПРЯМО из резидентных VRAM-буферов
@@ -197,6 +198,10 @@ int Application::run() {
             // download ПРОПУСКАЕТСЯ целиком, атомы рисуются zero-copy. Это и есть выигрыш.
             // Консервативно: при любом сомнении синк делается (лишний download безопасен,
             // syncFromGpuIfNeeded идемпотентен по cpuPositionsDirty). В CPU-режиме — no-op.
+            // Флаги выше — ИЛИ по ВСЕМ мирам (не только активному), поэтому download включается,
+            // если хоть один мир (в т.ч. неактивный) имеет CPU-потребителя позиций (bonds/grid/
+            // speed-auto/debug). Атомы рисуются zero-copy из VRAM для ВСЕХ миров — отдельный
+            // per-frame download для самих атомов не нужен (в этом и выигрыш).
             const bool cpuPositionConsumerActive =
                 drawBonds || drawGrid || singleSelection || appInterface.debugPanel.isVisible() || speedColorAutoMax;
             if (cpuPositionConsumerActive) {
