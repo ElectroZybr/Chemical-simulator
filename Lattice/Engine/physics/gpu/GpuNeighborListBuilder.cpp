@@ -141,7 +141,13 @@ void GpuNeighborListBuilder::ensureInitialized() {
 void GpuNeighborListBuilder::ensureCapacity(uint32_t atomCount, uint32_t cellCount) {
     // Все буфера биндятся безусловно (общий layout), значит должны существовать
     // даже при 0 — резервируем минимум 1 (как GpuResidentPhysics::ensureCapacity).
-    const uint32_t atomNeed = std::max<uint32_t>(atomCount, 1u);
+    // +1: NL-offsets exclusive-scan идёт по atomCount+1 (хвостовой total-слот), значит
+    // neighborCounts_/nlOffsets_ и scan-scratch обязаны вмещать atomCount+1. Берём ёмкость
+    // под atomCount+1: ИНАЧЕ при росте сцены до РОВНО прежней capacity (atomCount ==
+    // atomCapacity_ — рост НЕ триггерит resize при проверке atomNeed > atomCapacity_) слот
+    // [atomCount] выходит за буфер → "GNL_NeighborCounts overflow" → wgpu fatal на
+    // QueueSubmit (мультимир-правка сцены ловит это на границе). headroom() даёт запас сверху.
+    const uint32_t atomNeed = std::max<uint32_t>(atomCount + 1u, 1u);
     const uint32_t cellNeed = std::max<uint32_t>(cellCount, 1u);
 
     const wgpu::BufferUsage st = wgpu::BufferUsage::Storage | wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::CopySrc;
