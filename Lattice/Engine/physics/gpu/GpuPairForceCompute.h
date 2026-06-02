@@ -40,7 +40,7 @@ public:
 private:
     void ensureInitialized();
     void uploadLJPairTable(const LJForceField& ljForceField);
-    void ensureBufferCapacity(size_t mobileCount, size_t totalCount, size_t neighborCount);
+    void ensureBufferCapacity(size_t totalCount, size_t neighborCount);
     void uploadInputs(const AtomStorage& atoms, const NeighborList& neighborList);
     void dispatch(uint32_t mobileCount);
     void readbackForces(AtomStorage& atoms);

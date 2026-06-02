@@ -116,7 +116,7 @@ void GpuPairForceCompute::uploadLJPairTable(const LJForceField& ljForceField) {
     ljTableUploaded_ = true;
 }
 
-void GpuPairForceCompute::ensureBufferCapacity(size_t mobileCount, size_t totalCount, size_t neighborCount) {
+void GpuPairForceCompute::ensureBufferCapacity(size_t totalCount, size_t neighborCount) {
     // Буферы атомов и соседей входят в bind group, который разыменовывает их
     // указатели. При totalCount==0 / neighborCount==0 условия роста "> capacity"
     // не срабатывают (0 > 0 ложно), буферы остались бы null и bind group упал бы.
@@ -143,9 +143,12 @@ void GpuPairForceCompute::ensureBufferCapacity(size_t mobileCount, size_t totalC
         atomGrew = true;
     }
 
+    // nlOffsets под totalCount+1 (= NeighborList::offsets().size() = atomCount+1, ВКЛ.
+    // fixed-атомы), а не mobileCount+1: иначе при fixed-атомах (atomCount > mobileCount)
+    // заливка offsets().size() переполняла бы буфер. Resident-путь использует totalCount+1.
     bool nlOffsetsGrew = false;
-    if (mobileCount + 1 > nlOffsetsCapacity_) {
-        const size_t newCapacity = kAtomCapacityHeadroom(mobileCount + 1);
+    if (totalCount + 1 > nlOffsetsCapacity_) {
+        const size_t newCapacity = kAtomCapacityHeadroom(totalCount + 1);
         nlOffsetsBuffer_ = WGPUContext::instance().createBuffer(newCapacity * sizeof(uint32_t), storageUsage,
                                                                 "GpuPairForce_NLOffsets");
         nlOffsetsCapacity_ = newCapacity;
@@ -321,7 +324,7 @@ void GpuPairForceCompute::compute(AtomStorage& atoms, const NeighborList& neighb
     const size_t totalCount = atoms.size();
     const size_t neighborCount = neighborList.neighbors().size();
 
-    ensureBufferCapacity(mobileCount, totalCount, neighborCount);
+    ensureBufferCapacity(totalCount, neighborCount);
     uploadInputs(atoms, neighborList);
 
     ComputeUniforms uniforms{};
