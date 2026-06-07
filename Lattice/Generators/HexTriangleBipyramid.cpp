@@ -51,7 +51,7 @@ namespace Generators {
             }
         }
 
-        sim.setSizeBox(maxRadius * 2.0f + glm::vec3(margin * 2.0));
+        sim.setBoxSize(maxRadius * 2.0f + glm::vec3(margin * 2.0));
         const glm::vec3 boxCenter = sim.world().getWorldSize() * 0.5f;
         sim.reserveAtoms(sim.atoms().size() + positions.size());
         for (const glm::vec3& position : positions) {

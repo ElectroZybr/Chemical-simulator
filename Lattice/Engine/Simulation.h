@@ -101,7 +101,8 @@ public:
     }
     void finalizeAtomBatch() { world().finalizeAtomBatch(); }
 
-    void setSizeBox(glm::vec3 newSize, int cellSize = -1);
+    void setBoxSize(glm::vec3 newSize, int cellSize = -1);
+    void setTargetBoxSize(glm::vec3 newSize, int cellSize = -1);
     void clear();
     void startXYZRecording(std::string_view outputPath);
     void stopXYZRecording();

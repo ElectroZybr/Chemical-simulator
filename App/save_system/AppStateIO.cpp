@@ -434,7 +434,7 @@ void AppStateIO::loadBinary(Lattice::Simulation& simulation, BaseRenderer& rende
 
     simulation.clear();
 
-    simulation.setSizeBox(simState.boxSize, simState.gridCellSize);
+    simulation.setBoxSize(simState.boxSize, simState.gridCellSize);
     simulation.world().getNeighborList().setCutoff(simState.neighborListCutoff);
     simulation.world().getNeighborList().setSkin(simState.neighborListSkin);
 

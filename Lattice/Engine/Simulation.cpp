@@ -95,8 +95,12 @@ void Simulation::updateAll() {
     xyzRecording_.onSimulationStep(*this);
 }
 
-void Simulation::setSizeBox(glm::vec3 newSize, int cellSize) {
-    world().resizeBox(newSize, static_cast<float>(cellSize));
+void Simulation::setBoxSize(glm::vec3 newSize, int cellSize) {
+    world().setNewBoxSize(newSize, static_cast<float>(cellSize));
+}
+
+void Simulation::setTargetBoxSize(glm::vec3 newSize, int cellSize) {
+    world().setNewTargetBoxSize(newSize, static_cast<float>(cellSize));
 }
 
 void Simulation::createAtom(glm::vec3 start_coords, glm::vec3 start_speed, AtomData::Type type, bool fixed) {

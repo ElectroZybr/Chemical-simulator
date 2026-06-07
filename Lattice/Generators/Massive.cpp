@@ -73,7 +73,7 @@ namespace Generators {
         const double side = n * padding + padding + 2.0 * margin;
         const detail::CrystalLayout layout = detail::layoutFor(plane);
 
-        sim.setSizeBox(detail::makeCrystalBoxSize(side, is3d, layout));
+        sim.setBoxSize(detail::makeCrystalBoxSize(side, is3d, layout));
 
         const glm::vec3 vecMargin = detail::makeCrystalMargin(is3d, layout, margin);
         const int depthMax = is3d ? n : 1;

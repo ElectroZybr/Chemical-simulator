@@ -11,7 +11,8 @@
 
 namespace AppSignals {
     namespace UI {
-        inline Signals::Signal<void(const glm::vec3& newSize)> ResizeBox;
+        inline Signals::Signal<void(const glm::vec3& newSize)> NewBoxSize;
+        inline Signals::Signal<void(const glm::vec3& newSize)> NewTargetBoxSize;
 
         inline Signals::Signal<void()> ClearSimulation;
         inline Signals::Signal<void(int atomCount, AtomData::Type atomType, bool is3D, float density)> CreateGas;

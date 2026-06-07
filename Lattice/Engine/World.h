@@ -21,13 +21,43 @@ public:
 
     void clear();
     void reset();
-    void resizeBox(const glm::vec3& newSize, float cellSize = -1.0f);
+    void setNewBoxSize(const glm::vec3& newSize, float cellSize = -1.0f);
 
     void setWorldSize(const glm::vec3& newSize) {
         size = newSize;
         grid.resize(size);
     }
     const glm::vec3& getWorldSize() const noexcept { return size; }
+
+    void setNewTargetBoxSize(const glm::vec3& newSize, float cellSize = -1.0f);
+
+    void setTargetWorldSize(const glm::vec3& newSize) {
+        targetSize = newSize;
+    }
+
+    const glm::vec3& getTargetWorldSize() const noexcept { return targetSize; }
+
+    void shiftAtoms(AtomStorage& atomStorage, glm::vec3 delta) {
+        float* x = atomStorage.xData();
+        float* y = atomStorage.yData();
+        float* z = atomStorage.zData();
+        const size_t atomCount = atomStorage.size();
+
+        for (size_t i = 0; i < atomCount; ++i) {
+            x[i] += delta.x;
+            y[i] += delta.y;
+            z[i] += delta.z;
+        }
+    }
+
+    void updateWorldSize(){
+        const glm::vec3 oldSize = size;
+        size = size + (targetSize - size) * Units::WorldBorderSpeed;
+        const glm::vec3 delta = (size - oldSize) * 0.5f;
+
+        shiftAtoms(getAtomStorage(), delta);
+        setRenderOffset(getRenderOffset() - delta);
+    }
 
     void setRenderOffset(const glm::vec3& offset) noexcept { renderOffset = offset; }
     const glm::vec3& getRenderOffset() const noexcept { return renderOffset; }
@@ -132,6 +162,7 @@ public:
 
 private:
     glm::vec3 size;
+    glm::vec3 targetSize;
     glm::vec3 renderOffset;
     glm::vec3 gravity;
 

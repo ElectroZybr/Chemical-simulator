@@ -244,7 +244,7 @@ void SettingsPanel::draw(float uiScale, glm::ivec2 windowSize, Lattice::Simulati
     }
     ImGui::PopItemWidth();
 
-    glm::vec3 boxSize = simulation.world().getWorldSize();
+    glm::vec3 targetBoxSize = simulation.world().getTargetWorldSize();
     ImGui::PushItemWidth(150.0f * uiScale);
     bool boxSizeChanged = false;
     const auto drawBoxSizeDrag = [&](const char* label, const char* id, float& value) {
@@ -258,12 +258,12 @@ void SettingsPanel::draw(float uiScale, glm::ivec2 windowSize, Lattice::Simulati
         ImGui::TextUnformatted(label);
         return changed;
     };
-    boxSizeChanged |= drawBoxSizeDrag("Size X", "##settings_box_size_x", boxSize.x);
-    boxSizeChanged |= drawBoxSizeDrag("Size Y", "##settings_box_size_y", boxSize.y);
-    boxSizeChanged |= drawBoxSizeDrag("Size Z", "##settings_box_size_z", boxSize.z);
+    boxSizeChanged |= drawBoxSizeDrag("Size X", "##settings_box_size_x", targetBoxSize.x);
+    boxSizeChanged |= drawBoxSizeDrag("Size Y", "##settings_box_size_y", targetBoxSize.y);
+    boxSizeChanged |= drawBoxSizeDrag("Size Z", "##settings_box_size_z", targetBoxSize.z);
     ImGui::PopItemWidth();
     if (boxSizeChanged) {
-        AppSignals::UI::ResizeBox.emit(boxSize);
+        AppSignals::UI::NewTargetBoxSize.emit(targetBoxSize);
     }
 
     bool bondFormationEnabled = simulation.world().isBondFormationEnabled();
@@ -363,7 +363,7 @@ void SettingsPanel::draw(float uiScale, glm::ivec2 windowSize, Lattice::Simulati
     ImGui::SeparatorText("imgui_neighbour_list"_tr.data());
     int cellSize = simulation.world().getGridCellSize();
     if (ImGui::SliderInt("imgui_cell_size"_tr.data(), &cellSize, 1, 32)) {
-        simulation.setSizeBox(simulation.world().getWorldSize(), cellSize);
+        simulation.setBoxSize(simulation.world().getWorldSize(), cellSize);
     }
 
     float cutoff = simulation.getNeighborListCutoff();

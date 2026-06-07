@@ -11,27 +11,13 @@
 #include "GUI/interface/UiState.h"
 
 namespace {
-    void shiftAtoms(AtomStorage& atomStorage, glm::vec3 delta) {
-        float* x = atomStorage.xData();
-        float* y = atomStorage.yData();
-        float* z = atomStorage.zData();
-        const size_t atomCount = atomStorage.size();
 
-        for (size_t i = 0; i < atomCount; ++i) {
-            x[i] += delta.x;
-            y[i] += delta.y;
-            z[i] += delta.z;
-        }
+    void applyNewBoxSize(Lattice::Simulation& simulation, const glm::vec3& newSize) {
+        simulation.setBoxSize(newSize);
     }
 
-    void applyResizeBox(Lattice::Simulation& simulation, const glm::vec3& newSize) {
-        World& world = simulation.world();
-        const glm::vec3 oldSize = world.getWorldSize();
-        const glm::vec3 delta = (newSize - oldSize) * 0.5f;
-
-        shiftAtoms(simulation.atoms(), delta);
-        world.setRenderOffset(world.getRenderOffset() - delta);
-        simulation.setSizeBox(newSize);
+    void applyNewTargetBoxSize(Lattice::Simulation& simulation, const glm::vec3& newSize) {
+        simulation.setTargetBoxSize(newSize);
     }
 
     void toggleXYZRecording(CaptureController& captureController, Lattice::Simulation& simulation) {
@@ -60,7 +46,8 @@ namespace AppActions {
             renderer.syncScene(simulation);
             ToolsManager::resetInteractionState();
         }));
-        track(AppSignals::UI::ResizeBox.connect([&](const glm::vec3& newSize) { applyResizeBox(simulation, newSize); }));
+        track(AppSignals::UI::NewBoxSize.connect([&](const glm::vec3& newSize) { applyNewBoxSize(simulation, newSize); }));
+        track(AppSignals::UI::NewTargetBoxSize.connect([&](const glm::vec3& newSize) { applyNewTargetBoxSize(simulation, newSize); }));
         track(AppSignals::UI::ClearSimulation.connect([&]() {
             simulation.clear();
             ToolsManager::resetInteractionState();
