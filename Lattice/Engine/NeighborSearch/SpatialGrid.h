@@ -7,19 +7,19 @@
 #include <span>
 #include <vector>
 
-#include "Engine/math/Vec3.h"
+#include <glm/glm.hpp>
 #include "Engine/metrics/SpatialGridStats.h"
 
 class SpatialGrid {
 public:
-    Vec3u size;
+    glm::uvec3 size{0u};
     float cellSize;
     size_t countCells;
 
-    SpatialGrid(const Vec3f& worldSize, float cellSize = 6.f);
+    SpatialGrid(const glm::vec3& worldSize, float cellSize = 6.f);
 
     void rebuild(std::span<const float> posX, std::span<const float> posY, std::span<const float> posZ);
-    void resize(const Vec3f& newWorldSize, float newCellSize = -1);
+    void resize(const glm::vec3& newWorldSize, float newCellSize = -1);
 
     // метрики SG
     [[nodiscard]] const SpatialGridStats& stats() const noexcept { return stats_; }
@@ -34,9 +34,9 @@ public:
         return std::span<const uint32_t>(atomsInCells.data() + begin, offsets[linearIndex + 1] - begin);
     }
 
-    int worldToCellX(float x) const { return toCell(x, size.x); }
-    int worldToCellY(float y) const { return toCell(y, size.y); }
-    int worldToCellZ(float z) const { return toCell(z, size.z); }
+    uint32_t worldToCellX(float x) const { return toCell(x, size.x); }
+    uint32_t worldToCellY(float y) const { return toCell(y, size.y); }
+    uint32_t worldToCellZ(float z) const { return toCell(z, size.z); }
 
     [[nodiscard]] int countAtomsInCell(int cx, int cy, int cz) const {
         const size_t idx = static_cast<size_t>(index(cx, cy, cz));

@@ -4,13 +4,15 @@
 #include <memory>
 #include <string>
 #include <string_view>
+#include <vector>
+
+#include <glm/glm.hpp>
 
 #include "Engine/NeighborSearch/NeighborList.h"
 #include "Engine/NeighborSearch/SpatialGrid.h"
 #include "Engine/metrics/EnergyMetrics.h"
-#include "Engine/math/Vec3.h"
-#include "Engine/physics/AtomData.h"
-#include "Engine/physics/AtomStorage.h"
+#include "Engine/physics/Atom/AtomData.h"
+#include "Engine/physics/Atom/AtomStorage.h"
 #include "Engine/physics/Bond.h"
 #include "Engine/physics/ForceField.h"
 #include "Engine/physics/Integrator.h"
@@ -22,7 +24,7 @@ class GpuResidentPhysics;
 
 class World {
 public:
-    explicit World(Vec3f size, Vec3f renderOffset = Vec3f{0.0f, 0.0f, 0.0f});
+    explicit World(glm::vec3 size, glm::vec3 renderOffset = glm::vec3{0.0f, 0.0f, 0.0f});
     // Out-of-line: unique_ptr<GpuResidentPhysics> требует полного типа в точке
     // уничтожения, а в заголовке он forward-declared. World держит резидентный GPU
     // (некопируемый/неперемещаемый ресурс VRAM), поэтому World тоже non-copyable
@@ -35,22 +37,22 @@ public:
 
     void clear();
     void reset();
-    void resizeBox(const Vec3f& newSize, float cellSize = -1.0f);
+    void resizeBox(const glm::vec3& newSize, float cellSize = -1.0f);
 
-    void setWorldSize(const Vec3f& newSize) {
+    void setWorldSize(const glm::vec3& newSize) {
         size = newSize;
         grid.resize(size);
     }
-    const Vec3f& getWorldSize() const noexcept { return size; }
+    const glm::vec3& getWorldSize() const noexcept { return size; }
 
-    void setRenderOffset(const Vec3f& offset) noexcept { renderOffset = offset; }
-    const Vec3f& getRenderOffset() const noexcept { return renderOffset; }
+    void setRenderOffset(const glm::vec3& offset) noexcept { renderOffset = offset; }
+    const glm::vec3& getRenderOffset() const noexcept { return renderOffset; }
 
-    void setGravity(const Vec3f& g) {
+    void setGravity(const glm::vec3& g) {
         gravity = g;
         notifySceneEdited(); // gravity в VRAM устарела — нужен re-upload (wall-kernel читает её как СИЛУ)
     }
-    const Vec3f& getGravity() const noexcept { return gravity; }
+    const glm::vec3& getGravity() const noexcept { return gravity; }
 
     void setGridCellSize(float newSize) { grid.resize(size, newSize); }
     float getGridCellSize() const noexcept { return grid.cellSize; }
@@ -76,6 +78,8 @@ public:
         coulombEnabled = v;
         notifySceneEdited(); // GPU-шаг диспатчит Coulomb под флагом coulombEnabled_, снятым на upload — рантайм-смена требует re-upload
     }
+    bool isCoulombLongRangeEnabled() const { return longRangeForcesEnabled; }
+    void setCoulombLongRangeEnabled(bool v) { longRangeForcesEnabled = v; }
 
     AtomStorage& getAtomStorage() noexcept { return atomStorage_; }
     const AtomStorage& getAtomStorage() const noexcept { return atomStorage_; }
@@ -89,13 +93,14 @@ public:
     NeighborList& getNeighborList() noexcept { return neighborList_; }
     const NeighborList& getNeighborList() const noexcept { return neighborList_; }
 
-    void addAtom(const Vec3f& start_coords, const Vec3f& start_speed, AtomData::Type type, bool fixed);
+    void addAtom(const glm::vec3& start_coords, const glm::vec3& start_speed, AtomData::Type type, bool fixed);
     void addBond(size_t aIndex, size_t bIndex);
     void removeAtom(size_t atomIndex);
+    void remapAtomIndices(std::span<const uint32_t> oldToNew);
     void clearAtoms() { atomStorage_.clear(); };
     void clearBonds() { bonds_.clear(); }
     void reserveAtoms(size_t count) { atomStorage_.reserve(count); }
-    void appendAtomFast(const Vec3f& startCoords, const Vec3f& startSpeed, AtomData::Type type, bool fixed = false) {
+    void appendAtomFast(const glm::vec3& startCoords, const glm::vec3& startSpeed, AtomData::Type type, bool fixed = false) {
         // Под активным GPU подтянуть свежие позиции ДО вставки: addAtom вставляет
         // mobile-атом в середину массива (swap для инварианта "mobile первыми"),
         // поэтому слепое слияние префикса на upload перезатёрло бы новый атом.
@@ -227,12 +232,16 @@ private:
     // Общий путь для входа в GPU-режим и для пере-синка после правки сцены.
     void uploadSceneToGpu();
 
-    Vec3f size;
-    Vec3f renderOffset;
-    Vec3f gravity;
+    glm::vec3 size;
+    glm::vec3 renderOffset;
+    glm::vec3 gravity;
 
     bool ljEnabled = true;
     bool coulombEnabled = true;
+    // Форк-дефолт false (апстрим: true). Octree long-range Coulomb — аппроксимация Барнса-Хата:
+    // не сохраняет импульс точно (наши ConservationTest падали на ~20 при дефолт-on) и расходится
+    // с золотым baseline. Оставлен opt-in через setCoulombLongRangeEnabled; GPU-путь его не делает.
+    bool longRangeForcesEnabled = false;
 
     AtomStorage atomStorage_;
     SpatialGrid grid;

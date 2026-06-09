@@ -16,6 +16,7 @@ capture_preset_medium;medium;medium
 capture_pixel_format_Yuv420p;I420;I420
 capture_pixel_format_Yuv444p;I444;I444
 imgui_language_toggle;EN##language_toggle;RU##language_toggle
+imgui_misc;Other;Прочее
 imgui_localization;Localization;Локализация
 imgui_simulation;Simulation;Симуляция
 imgui_gravity;Gravity;Гравитация
@@ -39,10 +40,13 @@ imgui_offset_z;Offset Z##world_offset_z;Offset Z##world_offset_z
 imgui_bond_formation;Bond formation;Образовывать связи
 imgui_lj;LJ;LJ
 imgui_coulomb;Coulomb;Coulomb
+imgui_coulomb_long_range;Long-range Coulomb;Дальний кулон
 imgui_render;Render;Рендер
 imgui_grid;Grid;Сетка
 imgui_connections;Connections;Связи
 imgui_box;Box bounds;Границы куба
+imgui_atoms;Draw atoms;Атомы
+imgui_memory_order;Memory line;Линия памяти
 imgui_color_scheme;Color scheme;Цветовая схема
 imgui_speed_color_mode;##speed_color_mode;##speed_color_mode
 imgui_max_gradien_velocity;Max gradient velocity;Макс. скорость градиента
@@ -53,7 +57,7 @@ imgui_cell_size;Cell size;Cell size
 imgui_cutoff_nl;Cutoff NL;Cutoff NL
 imgui_skin_nl;Skin NL;Skin NL
 imgui_gpu_physics;GPU physics (LJ + walls + bonds + Coulomb);GPU физика (LJ + стены + связи + Кулон)
-imgui_gpu_physics_lj_only;GPU mode: LJ + walls + gravity + static bonds (Morse + angle) + Coulomb; bond formation/breaking disabled;GPU-режим: LJ + стены + гравитация + статичные связи (Morse + угол) + Кулон; образование/разрыв связей отключены
+imgui_gpu_physics_lj_only;GPU mode: LJ + walls + gravity + static bonds (Morse + angle) + Coulomb, bond formation/breaking disabled;GPU-режим: LJ + стены + гравитация + статичные связи (Morse + угол) + Кулон, образование/разрыв связей отключены
 imgui_write;Record;Запись
 imgui_video_saving_folder;Video save folder;Папка сохранения видео
 imgui_capture_dir;##capture_dir;##capture_dir
@@ -64,6 +68,13 @@ imgui_crf_capture;CRF##capture_crf;CRF##capture_crf
 imgui_preset_capture;Preset##capture_preset;Preset##capture_preset
 imgui_color_capture;Color##capture_color;Цвет##capture_color
 imgui_reset_settings;Reset settings;Reset settings
+imgui_fullscreen;Fullscreen;Полноэкранный
+imgui_windowed;Windowed;Оконный режим
 imgui_exit_button;Exit;Exit
 version_text_pre;LatticeLab v;LatticeLab v
 version_text_after; demo; demo
+imgui_box_size_x;Size X;Размер X
+imgui_box_size_y;Size Y;Размер Y
+imgui_box_size_z;Size Z;Размер Z
+imgui_interface;Interface;Интерфейс
+imgui_interface_scale;Interface scale;Масштаб интерфейса

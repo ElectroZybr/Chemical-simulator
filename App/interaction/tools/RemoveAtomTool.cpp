@@ -5,12 +5,12 @@
 
 #include "App/interaction/picking/PickingSystem.h"
 #include "Lattice/Engine/Simulation.h"
-#include "Lattice/Engine/physics/AtomStorage.h"
+#include "Lattice/Engine/physics/Atom/AtomStorage.h"
 #include "GUI/interface/UiState.h"
 
 RemoveAtomTool::RemoveAtomTool(ToolContext& context) noexcept : ITool(context) {}
 
-void RemoveAtomTool::onLeftPressed(Vec2i mousePos) {
+void RemoveAtomTool::onLeftPressed(glm::ivec2 mousePos) {
     ToolContext& ctx = context();
     if (ctx.simulation == nullptr || ctx.simulation->atoms().empty() || ctx.pickingSystem == nullptr) {
         return;
@@ -27,25 +27,33 @@ void RemoveAtomTool::onLeftPressed(Vec2i mousePos) {
         return;
     }
 
-    const size_t target = hit.index;
-    const auto& selected = ctx.pickingSystem->getSelectedIndices();
-    const bool removeSelection = selected.contains(target);
+    const AtomStorage::AtomId targetId = hit.id;
+    const auto& selected = ctx.pickingSystem->getSelectedAtomIds();
+    const bool removeSelection = selected.contains(targetId);
 
     if (removeSelection) {
-        std::vector<size_t> toRemove(selected.begin(), selected.end());
+        std::vector<size_t> toRemove;
+        toRemove.reserve(selected.size());
+        for (const AtomStorage::AtomId atomId : selected) {
+            const size_t index = ctx.simulation->atoms().indexOf(atomId);
+            if (index < ctx.simulation->atoms().size()) {
+                toRemove.push_back(index);
+            }
+        }
         std::sort(toRemove.begin(), toRemove.end(), std::greater<>());
 
         for (size_t index : toRemove) {
             ctx.simulation->removeAtom(index);
-            ctx.pickingSystem->handleAtomRemoval(index);
         }
     }
     else {
-        ctx.simulation->removeAtom(target);
-        ctx.pickingSystem->handleAtomRemoval(target);
+        const size_t targetIndex = ctx.simulation->atoms().indexOf(targetId);
+        if (targetIndex < ctx.simulation->atoms().size()) {
+            ctx.simulation->removeAtom(targetIndex);
+        }
     }
 
     if (ctx.uiState != nullptr) {
-        ctx.uiState->selectedAtomCount = static_cast<int>(ctx.pickingSystem->getSelectedIndices().size());
+        ctx.uiState->selectedAtomCount = static_cast<int>(ctx.pickingSystem->getSelectedAtomIds().size());
     }
 }

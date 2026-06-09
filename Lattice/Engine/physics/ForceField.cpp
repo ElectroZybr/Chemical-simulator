@@ -2,7 +2,7 @@
 #include "Engine/World.h"
 #include "Engine/NeighborSearch/NeighborList.h"
 #include "Engine/metrics/Profiler.h"
-#include "Engine/physics/AtomStorage.h"
+#include "Engine/physics/Atom/AtomStorage.h"
 
 #ifdef LATTICELAB_USE_TBB
 #include <tbb/blocked_range.h>
@@ -94,8 +94,7 @@ namespace {
     }
 
     template <bool UseLJ, bool UseCoulomb>
-    void computePairInteractionsImpl(AtomStorage& atoms, const NeighborList& neighborList, const LJForceField& ljForceField,
-                                     const CoulombForceField& coulombForceField) {
+    void computePairInteractionsImpl(AtomStorage& atoms, const NeighborList& neighborList, const LJForceField& ljForceField, const CoulombForceField& coulombForceField) {
         const auto& offsets = neighborList.offsets();
         const auto& neighbours = neighborList.neighbors();
         // NL хранит пары до listRadius = cutoff + skin. Физическая сила должна
@@ -138,33 +137,42 @@ namespace {
     }
 }
 
-ForceField::ForceField() = default;
-
 bool ForceField::compute(World& world, bool allowBondFormation, float dt) const {
     PROFILE_SCOPE("ForceField::compute");
 
     AtomStorage& atoms = world.getAtomStorage();
     Bond::List& bonds = world.getBonds();
-    NeighborList& neighborList = world.getNeighborList();
 
+    // расчет сил стен и гравитации
     wallForceField_.compute(world);
     computePairInteractions(world);
-    return bondForceField_.compute(atoms, bonds, neighborList, allowBondFormation, dt);
+
+    // расчет дальнодействующих кулоновских сил
+    if (world.isCoulombLongRangeEnabled()) {
+        coulombForceField_.computeLongRange(atoms, world.getGrid());
+    }
+
+    return bondForceField_.compute(atoms, bonds, world.getNeighborList(), allowBondFormation, dt);
 }
 
 void ForceField::computePairInteractions(World& world) const {
-    PROFILE_SCOPE("ForceField::pairInteractions");
-
     AtomStorage& atoms = world.getAtomStorage();
-    const NeighborList& neighborList = world.getNeighborList();
+    NeighborList& neighborList = world.getNeighborList();
 
-    if (world.isLJEnabled() && world.isCoulombEnabled()) {
+    // Short-range Coulomb в pair-loop считаем ТОЛЬКО когда long-range octree выключен: octree
+    // (computeLongRange) считает ПОЛНЫЙ Coulomb — ближние пары прямой суммой в листе + дальние
+    // multipole, — поэтому при включённом long-range ближние пары были бы учтены дважды. И при
+    // выключенном Coulomb pair-loop его не делает (иначе bare-else гнал бы Coulomb даже при
+    // isCoulombEnabled()==false — фантомные силы, расхождение с GPU-путём, где есть if(coulombEnabled_)).
+    const bool pairCoulomb = world.isCoulombEnabled() && !world.isCoulombLongRangeEnabled();
+
+    if (world.isLJEnabled() && pairCoulomb) {
         computePairInteractionsImpl<true, true>(atoms, neighborList, ljForceField_, coulombForceField_);
     }
     else if (world.isLJEnabled()) {
         computePairInteractionsImpl<true, false>(atoms, neighborList, ljForceField_, coulombForceField_);
     }
-    else if (world.isCoulombEnabled()) {
+    else if (pairCoulomb) {
         computePairInteractionsImpl<false, true>(atoms, neighborList, ljForceField_, coulombForceField_);
     }
 }

@@ -1,66 +1,25 @@
-# ПРЕДЛАГАЕМАЯ версия Lattice/CMakeLists.txt.
-#
-# ЭТОТ ФАЙЛ НЕ БЫЛ UU-КОНФЛИКТОМ: git принял upstream-версию «чисто» (он создал её
-# в новой раскладке). НО собранный как есть проект НЕ соберётся, потому что наш форк
-# добавил в движок GPU-резидентную физику (Lattice/Engine/physics/gpu/*), которой у
-# upstream нет, и она тянет webgpu + generated-шейдеры. Плюс наш googlebenchmark-блок
-# (который upstream перенёс СЮДА) у нас имел доп. флаг BENCHMARK_ENABLE_WERROR=OFF, а
-# движок — единственный потребитель TBB. Поэтому это «объединить both» и для данного файла.
-#
-# Что взято у upstream (THEIRS) без изменений:
-#   - GLOB Lattice/**/*.cpp|*.h с исключением CLI|benchmarks|build|_deps;
-#   - add_library(Lattice STATIC ...), add_executable(Lattice-cli ...) + CLI11;
-#   - if(BUILD_BENCHMARKS) { FetchContent googlebenchmark; add_subdirectory(benchmarks) }.
-#
-# НАШИ добавления (помечены «ДОБАВЛЕНО (форк)»):
-#   1) webgpu + GENERATED_ROOT в include-путях Lattice и линковка webgpu — чтобы
-#      компилировались наши Lattice/Engine/physics/gpu/*.cpp (включают
-#      <webgpu/webgpu.hpp>, "Rendering/WGPUContext.h" (header-only) и
-#      generated/shaders/*.wgsl.h). ВАЖНО: цикла Lattice<->Rendering НЕТ — gpu-код
-#      использует ТОЛЬКО header-only WGPUContext + сам webgpu (леаф-зависимость), и
-#      НИ ОДНОГО символа из .cpp Rendering (проверено: 0 ссылок на Renderer*/Camera/
-#      BaseRenderer в gpu/*.cpp). Simulation.cpp зовёт gpu-методы — они в ТОМ ЖЕ
-#      архиве Lattice, резолвятся внутри. Rendering по-прежнему линкует Lattice (PUBLIC).
-#   2) add_dependencies(Lattice wgsl_shaders) — gpu-код использует сгенерированные хедеры.
-#   3) if(USE_TBB) линковка TBB::tbb + LATTICELAB_USE_TBB=1 (движок — потребитель;
-#      сам onetbb выкачан в корневом CMake до add_subdirectory(Lattice)).
-#   4) BENCHMARK_ENABLE_WERROR OFF в googlebenchmark FetchContent.
-#   5) -ffast-math gate на цель Lattice (физический код движка) под FASTMATH_PHYSICS.
-
-cmake_minimum_required(VERSION 3.28)
-project(LatticeEngine LANGUAGES CXX)
-
 file(GLOB_RECURSE LATTICE_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp"
 )
-list(FILTER LATTICE_SOURCES EXCLUDE REGEX ".*/(CLI|benchmarks|build|_deps)/.*")
 
-file(GLOB_RECURSE LATTICE_HEADERS CONFIGURE_DEPENDS
+file(GLOB_RECURSE LATTICE_PUBLIC_HEADERS CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/*.h"
 )
-list(FILTER LATTICE_HEADERS EXCLUDE REGEX ".*/(CLI|benchmarks|build|_deps)/.*")
+
+foreach(lattice_file_list IN ITEMS LATTICE_SOURCES LATTICE_PUBLIC_HEADERS)
+    list(FILTER ${lattice_file_list} EXCLUDE REGEX ".*/(CLI|benchmarks|build|tests|_deps)/.*")
+endforeach()
 
 add_library(Lattice STATIC
     ${LATTICE_SOURCES}
-    ${LATTICE_HEADERS}
+    ${LATTICE_PUBLIC_HEADERS}
 )
 
-# ДОБАВЛЕНО (форк): наш GPU-compute код (Lattice/Engine/physics/gpu/*.cpp,
-# подхватывается GLOB выше после переезда из старого Engine/physics/gpu/) использует
+# ДОБАВЛЕНО (форк): наш GPU-compute код (Lattice/Engine/physics/gpu/*.cpp) использует
 # generated/shaders/*.wgsl.h → зависимость на цель генерации шейдеров.
 add_dependencies(Lattice wgsl_shaders)
 
-add_executable(Lattice-cli CLI/main.cpp)
-target_link_libraries(Lattice-cli PRIVATE Lattice)
-set_target_properties(Lattice-cli PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-)
-
-set_target_properties(Lattice-cli Lattice PROPERTIES
-    CXX_STANDARD 20
-    CXX_STANDARD_REQUIRED YES
-    CXX_EXTENSIONS NO
-)
+add_library(LatticeLab::Lattice ALIAS Lattice)
 
 target_compile_options(Lattice PRIVATE
     $<$<AND:$<BOOL:${OPTIMIZE_FOR_NATIVE}>,$<NOT:$<CONFIG:Debug>>,$<CXX_COMPILER_ID:GNU,Clang,AppleClang>>:-march=native>
@@ -71,6 +30,9 @@ target_compile_options(Lattice PRIVATE
 target_compile_definitions(Lattice PUBLIC
     $<$<PLATFORM_ID:Windows>:NOMINMAX>
     $<$<PLATFORM_ID:Windows>:WIN32_LEAN_AND_MEAN>
+    # GLM_FORCE_CTOR_INIT (zero-init дефолт-векторов, нужен после миграции с Vec3f) ставится
+    # на сам glm interface-таргет в cmake/dependencies.cmake — глобально для всех потребителей,
+    # включая Rendering (линкует glm напрямую, не Lattice).
 )
 
 target_include_directories(Lattice PUBLIC
@@ -81,11 +43,12 @@ target_include_directories(Lattice PUBLIC
     ${webgpu_cpp_SOURCE_DIR}/wgpu-native     # <webgpu/webgpu.hpp>, webgpu-raii.hpp
 )
 
+target_link_libraries(Lattice PUBLIC glm::glm)
+
 # ДОБАВЛЕНО (форк): движок (через gpu/*.cpp и Simulation.cpp) реально использует webgpu.
-# webgpu — леаф-зависимость (определена в dependencies.cmake / FetchContent в корне),
-# поэтому линковка её в Lattice НЕ создаёт цикла с Rendering.
+# webgpu — леаф-зависимость, линковка её в Lattice НЕ создаёт цикла с Rendering.
 target_link_libraries(Lattice PUBLIC webgpu)
-# ДОБАВЛЕНО (форк): Rendering/WGPUContext.h (его инклудят gpu/*.cpp) тянет GLFW/glfw3.h —
+# ДОБАВЛЕНО (форк): Rendering/backend/WGPUContext.h (его инклудят gpu/*.cpp) тянет GLFW/glfw3.h —
 # glfw леаф, цикла с Rendering не создаёт.
 target_link_libraries(Lattice PUBLIC glfw)
 
@@ -106,17 +69,29 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(CLI11)
 
-target_link_libraries(Lattice-cli PRIVATE CLI11::CLI11)
+add_executable(Lattice-cli CLI/main.cpp)
+
+set_target_properties(Lattice-cli PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+)
+
+target_link_libraries(Lattice-cli PRIVATE
+    Lattice
+    CLI11::CLI11
+)
+
+add_subdirectory(tests)
 
 if(BUILD_BENCHMARKS)
     FetchContent_Declare(
         googlebenchmark
         GIT_REPOSITORY https://github.com/google/benchmark.git
-        GIT_TAG        v1.9.5
-        GIT_SHALLOW    ON
+        GIT_TAG v1.9.5
+        GIT_SHALLOW ON
     )
-    set(BENCHMARK_ENABLE_TESTING     OFF CACHE BOOL "" FORCE)
-    set(BENCHMARK_INSTALL_DOCS       OFF CACHE BOOL "" FORCE)
+
+    set(BENCHMARK_ENABLE_TESTING OFF CACHE BOOL "" FORCE)
+    set(BENCHMARK_INSTALL_DOCS OFF CACHE BOOL "" FORCE)
     set(BENCHMARK_ENABLE_GTEST_TESTS OFF CACHE BOOL "" FORCE)
     set(BENCHMARK_ENABLE_INSTALL     OFF CACHE BOOL "" FORCE)
     set(BENCHMARK_ENABLE_WERROR      OFF CACHE BOOL "" FORCE)   # ДОБАВЛЕНО (форк)

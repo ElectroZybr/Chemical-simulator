@@ -11,9 +11,9 @@ public:
 
     explicit ThermalTool(ToolContext& context) noexcept;
 
-    void onLeftPressed(Vec2i mousePos) override;
-    void onLeftReleased(Vec2i mousePos) override;
-    void onFrame(Vec2i mousePos, float deltaTime) override;
+    void onLeftPressed(glm::ivec2 mousePos) override;
+    void onLeftReleased(glm::ivec2 mousePos) override;
+    void onFrame(glm::ivec2 mousePos, float deltaTime) override;
     void reset() override;
 
     void setMode(Mode mode) noexcept { mode_ = mode; }
@@ -26,7 +26,7 @@ public:
     [[nodiscard]] float strength() const noexcept { return strength_; }
 
 private:
-    void applyAt(Vec2i mousePos, float deltaTime);
+    void applyAt(glm::ivec2 mousePos, float deltaTime);
 
     Mode mode_ = Mode::Heat;
     float radius_ = 8.0f;

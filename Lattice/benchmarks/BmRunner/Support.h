@@ -28,4 +28,6 @@ namespace Benchmarks::BmRunner {
     std::string metaLookupId(std::string_view runName);
     std::string benchArg(std::string_view fullName);
     int atomCountForSceneKey(std::string_view key, int sceneExtent);
+    int temporalAgeStepsFromArg(int arg);
+    std::string degradationLabel(std::string_view key);
 }

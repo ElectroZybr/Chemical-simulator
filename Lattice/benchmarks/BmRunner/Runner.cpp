@@ -660,6 +660,20 @@ namespace Benchmarks::BmRunner {
                 config.scene = scenes[static_cast<std::size_t>(idx)].first;
             }
 
+            std::cout << '\n' << paint("Degradation criterion:", kColorTitle) << '\n';
+            std::cout << "  " << paint("0)", kColorIndex) << " Size (default)\n";
+            std::cout << "  " << paint("1)", kColorIndex) << " Time\n";
+            std::cout << "Criterion [0]: ";
+            std::string degradationChoice;
+            std::getline(std::cin, degradationChoice);
+            if (!degradationChoice.empty() && degradationChoice != "0") {
+                if (degradationChoice == "1") {
+                    config.degradation = "time";
+                } else {
+                    die("Invalid degradation criterion.");
+                }
+            }
+
             const auto& profile = kRunProfiles[0];
             config.repetitions = profile.repetitions;
             config.minTime = std::string(profile.minTime);
@@ -750,6 +764,8 @@ namespace Benchmarks::BmRunner {
         const fs::path outputPath = resultsPath / "_tmp_last_run.json";
 
         std::cout << '\n' << paint("Selected scene: " + sceneLabel(config.scene), kColorIndexLightBlue) << '\n';
+        std::cout << paint("Degradation: " + degradationLabel(config.degradation), kColorIndexLightBlue) << '\n';
+        std::cout << paint("Warmup steps: " + std::to_string(config.warmupSteps), kColorIndexLightBlue) << '\n';
         std::cout << paint("Benchmark binary: " + binary.string(), kColorHint) << "\n\n";
         std::cout.flush();
 
@@ -781,6 +797,8 @@ namespace Benchmarks::BmRunner {
             std::string command;
             command += quoteShell(binary.string());
             command += " --scene=" + quoteShell(config.scene);
+            command += " --degradation=" + quoteShell(config.degradation);
+            command += " --warmup-steps=" + std::to_string(config.warmupSteps);
             command += " --benchmark_format=console";
             command += " --benchmark_out=" + quoteShell(caseJsonPath.string());
             command += " --benchmark_out_format=json";
@@ -868,7 +886,10 @@ int main(int argc, char** argv) {
     }
 
     const auto data = Benchmarks::BmRunner::runBenchmarks(config, repoRoot, benchmarksRoot);
-    Benchmarks::BmRunner::printResultsTable(data, metadata, Benchmarks::BmRunner::resultsDir(benchmarksRoot), config.scene);
-    Benchmarks::BmRunner::maybeUpdateBaseline(data, Benchmarks::BmRunner::resultsDir(benchmarksRoot));
+    Benchmarks::BmRunner::printResultsTable(
+        data, metadata, Benchmarks::BmRunner::resultsDir(benchmarksRoot), config.scene, config.degradation);
+    if (config.degradation == "size") {
+        Benchmarks::BmRunner::maybeUpdateBaseline(data, Benchmarks::BmRunner::resultsDir(benchmarksRoot));
+    }
     return 0;
 }

@@ -22,9 +22,9 @@
 #include "fixtures/RendererFixture.h" // benchmarkDevice()
 #include "Engine/NeighborSearch/NeighborList.h"
 #include "Engine/Simulation.h"
-#include "Engine/math/Vec3.h"
-#include "Engine/physics/AtomData.h"
-#include "Engine/physics/AtomStorage.h"
+#include <glm/glm.hpp>
+#include "Engine/physics/Atom/AtomData.h"
+#include "Engine/physics/Atom/AtomStorage.h"
 #include "Engine/physics/ForceFields/LJForceField.h"
 #include "Engine/physics/gpu/GpuResidentPhysics.h"
 using namespace Lattice;
@@ -44,8 +44,8 @@ void fillScene(Simulation& sim, int atomCount, float worldSize, float spacing) {
     for (int z = 0; z < side && placed < atomCount; ++z) {
         for (int y = 0; y < side && placed < atomCount; ++y) {
             for (int x = 0; x < side && placed < atomCount; ++x) {
-                sim.appendAtomFast(Vec3f{20.0f + x * spacing, 20.0f + y * spacing, 20.0f + z * spacing},
-                                   Vec3f{vel(rng), vel(rng), vel(rng)}, AtomData::Type::H, false);
+                sim.appendAtomFast(glm::vec3{20.0f + x * spacing, 20.0f + y * spacing, 20.0f + z * spacing},
+                                   glm::vec3{vel(rng), vel(rng), vel(rng)}, AtomData::Type::H, false);
                 ++placed;
             }
         }
@@ -62,23 +62,23 @@ void runCorrectness(benchmark::State& state) {
 
     // --- CPU reference ---
     Simulation cpu;
-    cpu.createWorld(Vec3f{worldSize, worldSize, worldSize});
+    cpu.createWorld(glm::vec3{worldSize, worldSize, worldSize});
     cpu.setSizeBox(cpu.world().getWorldSize(), 6);
     cpu.setLJEnabled(true);
     cpu.setCoulombEnabled(false);
     cpu.setBondFormationEnabled(false);
-    cpu.setGravity(Vec3f{0.0f, 0.0f, 0.0f});
+    cpu.setGravity(glm::vec3{0.0f, 0.0f, 0.0f});
     cpu.setDt(kDt);
     cpu.setAccelDamping(kAccelDamping);
     fillScene(cpu, atomCount, worldSize, spacing);
 
     // --- GPU: тот же стартовый стейт ---
     Simulation gpu;
-    gpu.createWorld(Vec3f{worldSize, worldSize, worldSize});
+    gpu.createWorld(glm::vec3{worldSize, worldSize, worldSize});
     gpu.setSizeBox(gpu.world().getWorldSize(), 6);
     gpu.setLJEnabled(true);
     gpu.setCoulombEnabled(false);
-    gpu.setGravity(Vec3f{0.0f, 0.0f, 0.0f});
+    gpu.setGravity(glm::vec3{0.0f, 0.0f, 0.0f});
     gpu.neighborList().setMode(NeighborListMode::Full);
     fillScene(gpu, atomCount, worldSize, spacing);
     gpu.neighborList().build(gpu.atoms(), gpu.world());
@@ -93,12 +93,12 @@ void runCorrectness(benchmark::State& state) {
     // Прогон.
     for (auto _ : state) {
         Simulation cpuRun;
-        cpuRun.createWorld(Vec3f{worldSize, worldSize, worldSize});
+        cpuRun.createWorld(glm::vec3{worldSize, worldSize, worldSize});
         cpuRun.setSizeBox(cpuRun.world().getWorldSize(), 6);
         cpuRun.setLJEnabled(true);
         cpuRun.setCoulombEnabled(false);
         cpuRun.setBondFormationEnabled(false);
-        cpuRun.setGravity(Vec3f{0.0f, 0.0f, 0.0f});
+        cpuRun.setGravity(glm::vec3{0.0f, 0.0f, 0.0f});
         cpuRun.setDt(kDt);
         cpuRun.setAccelDamping(kAccelDamping);
         fillScene(cpuRun, atomCount, worldSize, spacing);
@@ -107,7 +107,7 @@ void runCorrectness(benchmark::State& state) {
         }
 
         Simulation gpuRun;
-        gpuRun.createWorld(Vec3f{worldSize, worldSize, worldSize});
+        gpuRun.createWorld(glm::vec3{worldSize, worldSize, worldSize});
         gpuRun.setSizeBox(gpuRun.world().getWorldSize(), 6);
         gpuRun.setLJEnabled(true);
         gpuRun.setCoulombEnabled(false);

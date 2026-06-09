@@ -10,9 +10,9 @@
 #include "Engine/NeighborSearch/NeighborList.h"
 #include "Engine/NeighborSearch/SpatialGrid.h"
 #include "Engine/Simulation.h"
-#include "Engine/math/Vec3.h"
-#include "Engine/physics/AtomData.h"
-#include "Engine/physics/AtomStorage.h"
+#include <glm/glm.hpp>
+#include "Engine/physics/Atom/AtomData.h"
+#include "Engine/physics/Atom/AtomStorage.h"
 using namespace Lattice;
 
 namespace {
@@ -54,16 +54,16 @@ PairSet bruteForcePairsWithin(const AtomStorage& atoms, float radius) {
 
 Simulation makeRandomScene(uint32_t n, uint32_t seed) {
     Simulation sim;
-    sim.createWorld(Vec3f{40.0f, 40.0f, 40.0f});
+    sim.createWorld(glm::vec3{40.0f, 40.0f, 40.0f});
     // cellSize=6 совпадает с дефолтом WorldState, listRadius = cutoff(5)+skin(1) = 6.
-    sim.setSizeBox(Vec3f{40.0f, 40.0f, 40.0f}, 6);
+    sim.setSizeBox(glm::vec3{40.0f, 40.0f, 40.0f}, 6);
 
     std::mt19937 rng(seed);
     // Атомы в окне [6, 34] чтобы попасть в interior cells (ghost layer = 1, cellSize = 6).
     std::uniform_real_distribution<float> coord(6.0f, 34.0f);
 
     for (uint32_t i = 0; i < n; ++i) {
-        sim.appendAtomFast(Vec3f{coord(rng), coord(rng), coord(rng)}, Vec3f{0.0f, 0.0f, 0.0f}, AtomData::Type::H);
+        sim.appendAtomFast(glm::vec3{coord(rng), coord(rng), coord(rng)}, glm::vec3{0.0f, 0.0f, 0.0f}, AtomData::Type::H);
     }
     sim.finalizeAtomBatch();
     return sim;
@@ -162,10 +162,10 @@ TEST(NeighborListTest, RebuildTriggersOnDisplacement) {
 // работать на ущербном NL.
 TEST(NeighborListTest, RebuildPipelineThrowsOnTooSmallCellSize) {
     Simulation sim;
-    sim.createWorld(Vec3f{40.0f, 40.0f, 40.0f});
+    sim.createWorld(glm::vec3{40.0f, 40.0f, 40.0f});
     // listRadius = cutoff(5) + skin(1) = 6, cellSize = 3 — заведомо меньше.
-    sim.setSizeBox(Vec3f{40.0f, 40.0f, 40.0f}, /*cellSize=*/3);
-    sim.appendAtomFast(Vec3f{20.0f, 20.0f, 20.0f}, Vec3f{0.0f, 0.0f, 0.0f}, AtomData::Type::H);
+    sim.setSizeBox(glm::vec3{40.0f, 40.0f, 40.0f}, /*cellSize=*/3);
+    sim.appendAtomFast(glm::vec3{20.0f, 20.0f, 20.0f}, glm::vec3{0.0f, 0.0f, 0.0f}, AtomData::Type::H);
     sim.finalizeAtomBatch();
 
     EXPECT_THROW(sim.neighborList().rebuildPipeline(sim.atoms(), sim.world(), 0), std::invalid_argument);
@@ -176,9 +176,9 @@ TEST(NeighborListTest, RebuildPipelineThrowsOnTooSmallCellSize) {
 // проверка живёт только в pipeline и build() тихо строит ущербный NL.
 TEST(NeighborListTest, BuildThrowsOnTooSmallCellSize) {
     Simulation sim;
-    sim.createWorld(Vec3f{40.0f, 40.0f, 40.0f});
-    sim.setSizeBox(Vec3f{40.0f, 40.0f, 40.0f}, /*cellSize=*/3); // listRadius 6 > 3
-    sim.appendAtomFast(Vec3f{20.0f, 20.0f, 20.0f}, Vec3f{0.0f, 0.0f, 0.0f}, AtomData::Type::H);
+    sim.createWorld(glm::vec3{40.0f, 40.0f, 40.0f});
+    sim.setSizeBox(glm::vec3{40.0f, 40.0f, 40.0f}, /*cellSize=*/3); // listRadius 6 > 3
+    sim.appendAtomFast(glm::vec3{20.0f, 20.0f, 20.0f}, glm::vec3{0.0f, 0.0f, 0.0f}, AtomData::Type::H);
     sim.finalizeAtomBatch();
 
     EXPECT_THROW(sim.neighborList().build(sim.atoms(), sim.world()), std::invalid_argument);

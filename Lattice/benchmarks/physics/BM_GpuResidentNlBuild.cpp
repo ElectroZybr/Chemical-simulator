@@ -35,9 +35,9 @@
 #include "fixtures/RendererFixture.h" // benchmarkDevice()
 #include "Engine/NeighborSearch/NeighborList.h"
 #include "Engine/World.h"
-#include "Engine/math/Vec3.h"
-#include "Engine/physics/AtomData.h"
-#include "Engine/physics/AtomStorage.h"
+#include <glm/glm.hpp>
+#include "Engine/physics/Atom/AtomData.h"
+#include "Engine/physics/Atom/AtomStorage.h"
 #include "Engine/physics/ForceFields/LJForceField.h"
 #include "Engine/physics/gpu/GpuResidentPhysics.h"
 using namespace Lattice;
@@ -52,7 +52,7 @@ constexpr float kListRadiusSqr = (kCutoff + kSkin) * (kCutoff + kSkin); // 36
 
 struct Scene {
     const char* name;
-    Vec3f world;
+    glm::vec3 world;
     std::vector<float> x, y, z;
 };
 
@@ -65,7 +65,7 @@ void addAtom(Scene& s, float px, float py, float pz) {
 // --- генераторы сцен (cellSize=6) — те же формы, что BM_GpuNeighborList ---
 
 Scene makeSmallGrid() {
-    Scene s{"small-grid", Vec3f(60, 60, 60), {}, {}, {}};
+    Scene s{"small-grid", glm::vec3(60, 60, 60), {}, {}, {}};
     for (int i = 0; i < 64; ++i) {
         const float px = 6.0f + 6.0f * static_cast<float>(i % 4);
         const float py = 6.0f + 6.0f * static_cast<float>((i / 4) % 4);
@@ -76,7 +76,7 @@ Scene makeSmallGrid() {
 }
 
 Scene makeDense() {
-    Scene s{"dense-cluster", Vec3f(120, 120, 120), {}, {}, {}};
+    Scene s{"dense-cluster", glm::vec3(120, 120, 120), {}, {}, {}};
     std::mt19937 rng(12345);
     std::uniform_real_distribution<float> d(20.0f, 32.0f); // ~2x2x2 клеток
     for (int i = 0; i < 4000; ++i) {
@@ -86,7 +86,7 @@ Scene makeDense() {
 }
 
 Scene makeRandom(const char* name, int count, float box, uint32_t seed) {
-    Scene s{name, Vec3f(box, box, box), {}, {}, {}};
+    Scene s{name, glm::vec3(box, box, box), {}, {}, {}};
     std::mt19937 rng(seed);
     std::uniform_real_distribution<float> d(0.0f, box);
     for (int i = 0; i < count; ++i) {
@@ -96,7 +96,7 @@ Scene makeRandom(const char* name, int count, float box, uint32_t seed) {
 }
 
 Scene makeBoundaryPairs() {
-    Scene s{"boundary-pairs", Vec3f(90, 90, 90), {}, {}, {}};
+    Scene s{"boundary-pairs", glm::vec3(90, 90, 90), {}, {}, {}};
     const float bases[] = {12.0f, 30.0f, 48.0f};
     const float seps[] = {5.5f, 5.9f, 5.999f, 6.0f, 6.001f, 6.1f, 6.5f};
     for (float b : bases) {
@@ -114,7 +114,7 @@ Scene makeBoundaryPairs() {
 }
 
 Scene makeNearWall() {
-    Scene s{"near-wall", Vec3f(90, 90, 90), {}, {}, {}};
+    Scene s{"near-wall", glm::vec3(90, 90, 90), {}, {}, {}};
     const float w = 90.0f;
     std::mt19937 rng(777);
     std::uniform_real_distribution<float> jit(-0.5f, 0.5f);
@@ -135,7 +135,7 @@ void fillWorld(World& world, const Scene& s) {
     const uint32_t atomCount = static_cast<uint32_t>(s.x.size());
     atoms.reserve(atomCount);
     for (uint32_t i = 0; i < atomCount; ++i) {
-        atoms.addAtom(Vec3f(s.x[i], s.y[i], s.z[i]), Vec3f(0, 0, 0), AtomData::Type::H);
+        atoms.addAtom(glm::vec3(s.x[i], s.y[i], s.z[i]), glm::vec3(0, 0, 0), AtomData::Type::H);
     }
     world.getGrid().rebuild(atoms.xDataSpan(), atoms.yDataSpan(), atoms.zDataSpan());
 }

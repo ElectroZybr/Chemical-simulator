@@ -10,7 +10,7 @@
 #include "GUI/interface/UiState.h"
 #include "GUI/io/keyboard/Keyboard.h"
 #include "Rendering/BaseRenderer.h"
-#include "Rendering/WGPUContext.h"
+#include "Rendering/backend/WGPUContext.h"
 
 CaptureController::CaptureController() {
 

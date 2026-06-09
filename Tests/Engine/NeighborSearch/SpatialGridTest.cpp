@@ -12,19 +12,19 @@
 #include "Engine/NeighborSearch/NeighborList.h"
 #include "Engine/NeighborSearch/SpatialGrid.h"
 #include "Engine/Simulation.h"
-#include "Engine/math/Vec3.h"
-#include "Engine/physics/AtomData.h"
+#include <glm/glm.hpp>
+#include "Engine/physics/Atom/AtomData.h"
 using namespace Lattice;
 
 TEST(SpatialGridTest, NonEmptyCellsMatchesBruteForce) {
     Simulation sim;
-    sim.createWorld(Vec3f{60.0f, 60.0f, 60.0f});
-    sim.setSizeBox(Vec3f{60.0f, 60.0f, 60.0f}, 6);
+    sim.createWorld(glm::vec3{60.0f, 60.0f, 60.0f});
+    sim.setSizeBox(glm::vec3{60.0f, 60.0f, 60.0f}, 6);
 
     std::mt19937 rng(123);
     std::uniform_real_distribution<float> coord(8.0f, 52.0f);
     for (int i = 0; i < 200; ++i) {
-        sim.appendAtomFast(Vec3f{coord(rng), coord(rng), coord(rng)}, Vec3f{0, 0, 0}, AtomData::Type::H);
+        sim.appendAtomFast(glm::vec3{coord(rng), coord(rng), coord(rng)}, glm::vec3{0, 0, 0}, AtomData::Type::H);
     }
     sim.finalizeAtomBatch();
     sim.neighborList().build(sim.atoms(), sim.world()); // перестраивает grid
@@ -57,10 +57,10 @@ TEST(SpatialGridTest, NonEmptyCellsMatchesBruteForce) {
 // атомов). Регресс: clear() мира при включённом рендере сетки.
 TEST(SpatialGridTest, NonEmptyCellsClearedOnEmptyRebuild) {
     Simulation sim;
-    sim.createWorld(Vec3f{60.0f, 60.0f, 60.0f});
-    sim.setSizeBox(Vec3f{60.0f, 60.0f, 60.0f}, 6);
+    sim.createWorld(glm::vec3{60.0f, 60.0f, 60.0f});
+    sim.setSizeBox(glm::vec3{60.0f, 60.0f, 60.0f}, 6);
     for (int i = 0; i < 50; ++i) {
-        sim.appendAtomFast(Vec3f{12.0f + i % 10 * 3.0f, 20.0f, 20.0f}, Vec3f{0, 0, 0}, AtomData::Type::H);
+        sim.appendAtomFast(glm::vec3{12.0f + i % 10 * 3.0f, 20.0f, 20.0f}, glm::vec3{0, 0, 0}, AtomData::Type::H);
     }
     sim.finalizeAtomBatch();
     sim.neighborList().build(sim.atoms(), sim.world());

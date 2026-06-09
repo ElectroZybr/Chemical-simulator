@@ -32,6 +32,7 @@
 
 #include <iostream>
 
+#include "App/UserSettings.h"
 #include "generated/AppVersion.h"
 
 #ifndef _WIN32
@@ -71,28 +72,43 @@ inline void setLinuxWindowIcon(GLFWwindow* window) {
 }
 #endif
 
-inline GLFWwindow* createWindow() {
+inline GLFWwindow* createWindow(const UserSettings::WindowState& initialWindowState) {
     if (!glfwInit()) {
         std::cerr << "Failed to initialize GLFW" << std::endl;
         return nullptr;
     }
 
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    glfwWindowHint(GLFW_DECORATED, GLFW_FALSE);
+    glfwWindowHint(GLFW_DECORATED, GLFW_TRUE);
+    glfwWindowHint(GLFW_AUTO_ICONIFY, GLFW_FALSE);
+    glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
 
+    int monitorCount = 0;
+    GLFWmonitor** monitors = glfwGetMonitors(&monitorCount);
     GLFWmonitor* monitor = glfwGetPrimaryMonitor();
+    if (monitors && initialWindowState.monitorIndex >= 0 && initialWindowState.monitorIndex < monitorCount) {
+        monitor = monitors[initialWindowState.monitorIndex];
+    }
     const GLFWvidmode* mode = glfwGetVideoMode(monitor);
     int monitorX = 0;
     int monitorY = 0;
     glfwGetMonitorPos(monitor, &monitorX, &monitorY);
-    GLFWwindow* window = glfwCreateWindow(mode->width, mode->height, "LatticeLab " LATTICELAB_VERSION_STRING, nullptr, nullptr);
+    const int width = initialWindowState.fullscreen ? mode->width : initialWindowState.width;
+    const int height = initialWindowState.fullscreen ? mode->height : initialWindowState.height;
+    GLFWwindow* window =
+        glfwCreateWindow(width, height, "LatticeLab " LATTICELAB_VERSION_STRING, initialWindowState.fullscreen ? monitor : nullptr, nullptr);
 
     if (!window) {
         std::cerr << "Failed to create GLFW window" << std::endl;
         glfwTerminate();
         return nullptr;
     }
-    glfwSetWindowPos(window, monitorX, monitorY);
+    if (!initialWindowState.fullscreen) {
+        glfwSetWindowPos(window, initialWindowState.x, initialWindowState.y);
+        if (initialWindowState.maximized) {
+            glfwMaximizeWindow(window);
+        }
+    }
 
 #ifdef _WIN32
     if (HWND hwnd = glfwGetWin32Window(window)) {

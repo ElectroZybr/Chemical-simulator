@@ -5,6 +5,8 @@
 #include <string_view>
 #include <vector>
 
+#include <glm/glm.hpp>
+
 #include "Engine/World.h"
 #include "Engine/io/XYZRecordingSession.h"
 
@@ -17,7 +19,7 @@ public:
     Simulation();
 
     /* === Управление мирами === */
-    WorldId createWorld(Vec3f size, Vec3f renderOffset = Vec3f{0.0f, 0.0f, 0.0f});
+    WorldId createWorld(glm::vec3 size, glm::vec3 renderOffset = glm::vec3{0.0f, 0.0f, 0.0f});
     bool removeWorld(WorldId worldId);
     bool setActiveWorld(WorldId worldId);
 
@@ -36,7 +38,7 @@ public:
     [[nodiscard]] World& world();
     [[nodiscard]] const World& world() const;
 
-    void createAtom(Vec3f start_coords, Vec3f start_speed, AtomData::Type type, bool fixed = false);
+    void createAtom(glm::vec3 start_coords, glm::vec3 start_speed, AtomData::Type type, bool fixed = false);
     void removeAtom(size_t atomIndex);
     void addBond(size_t aIndex, size_t bIndex);
 
@@ -73,8 +75,8 @@ public:
     bool isLJEnabled() const { return world().isLJEnabled(); }
     void setCoulombEnabled(bool enabled) { world().setCoulombEnabled(enabled); }
     bool isCoulombEnabled() const { return world().isCoulombEnabled(); }
-    void setGravity(const Vec3f& gravity) { world().setGravity(gravity); }
-    Vec3f getGravity() const { return world().getGravity(); }
+    void setGravity(const glm::vec3& gravity) { world().setGravity(gravity); }
+    glm::vec3 getGravity() const { return world().getGravity(); }
     void setNeighborListCutoff(float cutoff) { world().setNeighborListCutoff(cutoff); }
     float getNeighborListCutoff() const { return world().getNeighborListCutoff(); }
     void setNeighborListSkin(float skin) { world().setNeighborListSkin(skin); }
@@ -95,12 +97,12 @@ public:
 
     // Быстрое создание большого количества атомов
     void reserveAtoms(size_t count) { world().reserveAtoms(count); }
-    void appendAtomFast(Vec3f startCoords, Vec3f startSpeed, AtomData::Type type, bool fixed = false) {
+    void appendAtomFast(glm::vec3 startCoords, glm::vec3 startSpeed, AtomData::Type type, bool fixed = false) {
         world().appendAtomFast(startCoords, startSpeed, type, fixed);
     }
     void finalizeAtomBatch() { world().finalizeAtomBatch(); }
 
-    void setSizeBox(Vec3f newSize, int cellSize = -1);
+    void setSizeBox(glm::vec3 newSize, int cellSize = -1);
     void clear();
     void startXYZRecording(std::string_view outputPath);
     void stopXYZRecording();

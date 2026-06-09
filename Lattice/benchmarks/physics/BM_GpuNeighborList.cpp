@@ -30,9 +30,9 @@
 #include "fixtures/RendererFixture.h" // benchmarkDevice()
 #include "Engine/NeighborSearch/NeighborList.h"
 #include "Engine/World.h"
-#include "Engine/math/Vec3.h"
-#include "Engine/physics/AtomData.h"
-#include "Engine/physics/AtomStorage.h"
+#include <glm/glm.hpp>
+#include "Engine/physics/Atom/AtomData.h"
+#include "Engine/physics/Atom/AtomStorage.h"
 #include "Engine/physics/gpu/GpuNeighborListBuilder.h"
 using namespace Lattice;
 
@@ -46,7 +46,7 @@ constexpr float kListRadiusSqr = (kCutoff + kSkin) * (kCutoff + kSkin); // 36
 
 struct Scene {
     const char* name;
-    Vec3f world;
+    glm::vec3 world;
     std::vector<float> x, y, z;
 };
 
@@ -61,7 +61,7 @@ void addAtom(Scene& s, float px, float py, float pz) {
 // Маленькая регулярная решётка: соседи предсказуемы (шаг 6 == cell), много пар
 // ровно на границе r=6 — нагружает fp-фильтр d2<=36.
 Scene makeSmallGrid() {
-    Scene s{"small-grid", Vec3f(60, 60, 60), {}, {}, {}};
+    Scene s{"small-grid", glm::vec3(60, 60, 60), {}, {}, {}};
     for (int i = 0; i < 64; ++i) {
         const float px = 6.0f + 6.0f * static_cast<float>(i % 4);
         const float py = 6.0f + 6.0f * static_cast<float>((i / 4) % 4);
@@ -74,7 +74,7 @@ Scene makeSmallGrid() {
 // Плотный кластер: много соседей у каждого атома (длинные слайсы NL, нагружает
 // count/write по большому числу пар в одной клетке).
 Scene makeDense() {
-    Scene s{"dense-cluster", Vec3f(120, 120, 120), {}, {}, {}};
+    Scene s{"dense-cluster", glm::vec3(120, 120, 120), {}, {}, {}};
     std::mt19937 rng(12345);
     std::uniform_real_distribution<float> d(20.0f, 32.0f); // ~2x2x2 клеток
     for (int i = 0; i < 4000; ++i) {
@@ -85,7 +85,7 @@ Scene makeDense() {
 
 // Равномерный рандом по всему боксу.
 Scene makeRandom(const char* name, int count, float box, uint32_t seed) {
-    Scene s{name, Vec3f(box, box, box), {}, {}, {}};
+    Scene s{name, glm::vec3(box, box, box), {}, {}, {}};
     std::mt19937 rng(seed);
     std::uniform_real_distribution<float> d(0.0f, box);
     for (int i = 0; i < count; ++i) {
@@ -98,7 +98,7 @@ Scene makeRandom(const char* name, int count, float box, uint32_t seed) {
 // прямой тест fp-фильтра d2<=36. Если GPU и CPU дадут разные вердикты на ровно
 // граничной паре, gate это поймает (missing/extra != 0).
 Scene makeBoundaryPairs() {
-    Scene s{"boundary-pairs", Vec3f(90, 90, 90), {}, {}, {}};
+    Scene s{"boundary-pairs", glm::vec3(90, 90, 90), {}, {}, {}};
     // Пары вдоль оси X с разным разделением вокруг 6, на разных базовых позициях.
     const float bases[] = {12.0f, 30.0f, 48.0f};
     const float seps[] = {5.5f, 5.9f, 5.999f, 6.0f, 6.001f, 6.1f, 6.5f};
@@ -120,7 +120,7 @@ Scene makeBoundaryPairs() {
 // Атомы у стенок бокса: проверяет, что центр-клетка (ghost-clamp [1,size-2])
 // совпадает CPU/GPU и обход 27 клеток у границы не уходит за пределы.
 Scene makeNearWall() {
-    Scene s{"near-wall", Vec3f(90, 90, 90), {}, {}, {}};
+    Scene s{"near-wall", glm::vec3(90, 90, 90), {}, {}, {}};
     const float w = 90.0f;
     std::mt19937 rng(777);
     std::uniform_real_distribution<float> jit(-0.5f, 0.5f);
@@ -141,7 +141,7 @@ Scene makeNearWall() {
 // состояние, ради которого NL пересобирают. Для 2b важно, что GPU build даёт
 // тот же набор, что свежий CPU build на тех же позициях.
 Scene makeRebuildSensitive() {
-    Scene s{"rebuild-sensitive", Vec3f(120, 120, 120), {}, {}, {}};
+    Scene s{"rebuild-sensitive", glm::vec3(120, 120, 120), {}, {}, {}};
     std::mt19937 rng(2024);
     std::uniform_real_distribution<float> d(0.0f, 120.0f);
     // Кластеры по ~30 атомов в радиусе ~r, разбросанные по боксу: много пар ровно
@@ -170,7 +170,7 @@ void checkScene(GpuNeighborListBuilder& builder, const Scene& s) {
     AtomStorage& atoms = world.getAtomStorage();
     atoms.reserve(atomCount);
     for (uint32_t i = 0; i < atomCount; ++i) {
-        atoms.addAtom(Vec3f(s.x[i], s.y[i], s.z[i]), Vec3f(0, 0, 0), AtomData::Type::H);
+        atoms.addAtom(glm::vec3(s.x[i], s.y[i], s.z[i]), glm::vec3(0, 0, 0), AtomData::Type::H);
     }
     // Одна перестройка сетки (addAtom выше уже перестраивает, но делаем явно для
     // ясности и на случай, что atoms заполняли иначе).

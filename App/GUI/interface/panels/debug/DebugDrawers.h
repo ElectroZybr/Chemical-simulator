@@ -6,9 +6,8 @@
 #include <string_view>
 
 #include <imgui.h>
-
-#include "Lattice/Engine/math/Vec2.h"
-#include "Lattice/Engine/math/Vec3.h"
+#include <glm/vec2.hpp>
+#include <glm/vec3.hpp>
 
 namespace DebugDrawers {
     inline float toFloat(const std::any& a) {
@@ -82,14 +81,21 @@ namespace DebugDrawers {
     }
 
     template <int precision> inline void Vec2f(std::string_view label, const std::any& a) {
-        const auto& v = std::any_cast<const ::Vec2f&>(a);
+        const auto& v = std::any_cast<const glm::vec2&>(a);
         ImGui::TextDisabled("%s", label.data());
         ImGui::SameLine();
         ImGui::Text("%+.*f %+.*f", precision, v.x, precision, v.y);
     }
 
     template <int precision> inline void Vec3f(std::string_view label, const std::any& a) {
-        const auto& v = std::any_cast<const ::Vec3f&>(a);
+        const auto& v = std::any_cast<const glm::vec3&>(a);
+        ImGui::TextDisabled("%s", label.data());
+        ImGui::SameLine();
+        ImGui::Text("%+.*f %+.*f %+.*f", precision, v.x, precision, v.y, precision, v.z);
+    }
+
+    template <int precision> inline void Vec3(std::string_view label, const std::any& a) {
+        const auto& v = std::any_cast<const glm::vec3&>(a);
         ImGui::TextDisabled("%s", label.data());
         ImGui::SameLine();
         ImGui::Text("%+.*f %+.*f %+.*f", precision, v.x, precision, v.y, precision, v.z);

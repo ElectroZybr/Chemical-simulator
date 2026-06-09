@@ -18,7 +18,7 @@ namespace {
     constexpr ImU32 kCutoffColor = IM_COL32(80, 220, 140, 210);
     constexpr ImU32 kSkinColor = IM_COL32(255, 190, 80, 210);
 
-    ImVec2 toImVec2(Vec2i v) {
+    ImVec2 toImVec2(glm::ivec2 v) {
         return ImVec2(static_cast<float>(v.x), static_cast<float>(v.y));
     }
 }
@@ -32,12 +32,12 @@ void NeighborListOverlay::draw(const Lattice::Simulation& simulation, const Pick
     const World& world = simulation.world();
     const NeighborList& neighborList = simulation.neighborList();
 
-    const auto& selectedIndices = pickingSystem.getSelectedIndices();
-    if (selectedIndices.size() != 1) {
+    const auto& selectedAtomIds = pickingSystem.getSelectedAtomIds();
+    if (selectedAtomIds.size() != 1) {
         return;
     }
 
-    const size_t selectedIndex = *selectedIndices.begin();
+    const size_t selectedIndex = atoms.indexOf(*selectedAtomIds.begin());
     if (selectedIndex >= atoms.size()) {
         return;
     }
@@ -48,11 +48,12 @@ void NeighborListOverlay::draw(const Lattice::Simulation& simulation, const Pick
     // GPU-перестройке. Берём GPU-счётчик (2e), когда активна резидентная физика.
     const GpuResidentPhysics* gpu = simulation.activeGpuResident();
     const size_t nlRebuilds = gpu ? static_cast<size_t>(gpu->nlRebuildCount()) : neighborList.stats().rebuildCount();
-    const Vec3f atomPos = atoms.pos(selectedIndex) + world.getRenderOffset();
+    const glm::vec3 renderOffset = world.getRenderOffset();
+    const glm::vec3 atomPos = atoms.pos(selectedIndex) + renderOffset;
     updateSkinCenter(selectedIndex, nlRebuilds, atomPos);
 
     if (neighborList.isValid()) {
-        drawSelectedNeighbors(atoms, world.getGrid(), neighborList, world.getRenderOffset(), selectedIndex, renderer);
+        drawSelectedNeighbors(atoms, world.getGrid(), neighborList, renderOffset, selectedIndex, renderer);
     }
 
     drawWorldCircle(renderer, atomPos, neighborList.cutoff(), kCutoffColor, kRadiusThickness);
@@ -60,13 +61,13 @@ void NeighborListOverlay::draw(const Lattice::Simulation& simulation, const Pick
 }
 
 void NeighborListOverlay::drawSelectedNeighbors(const AtomStorage& atoms, const SpatialGrid& grid, const NeighborList& neighborList,
-                                                const Vec3f& renderOffset, size_t selectedIndex, const BaseRenderer& renderer) {
+                                                const glm::vec3& renderOffset, size_t selectedIndex, const BaseRenderer& renderer) {
     if (selectedIndex >= atoms.size()) {
         return;
     }
 
-    const Vec3f selectedPos = atoms.pos(selectedIndex);
-    const Vec3f selectedDisplayPos = selectedPos + renderOffset;
+    const glm::vec3 selectedPos = atoms.pos(selectedIndex);
+    const glm::vec3 selectedDisplayPos = selectedPos + renderOffset;
     const ImVec2 selectedScreen = toImVec2(renderer.camera.worldToScreen(selectedDisplayPos));
     const float listRadiusSqr = neighborList.listRadius() * neighborList.listRadius();
     const int centerCell = grid.linearCellOfAtom(static_cast<uint32_t>(selectedIndex));
@@ -78,8 +79,8 @@ void NeighborListOverlay::drawSelectedNeighbors(const AtomStorage& atoms, const 
                 continue;
             }
 
-            const Vec3f delta = atoms.pos(neighborIndex) - selectedPos;
-            if (delta.sqrAbs() <= listRadiusSqr) {
+            const glm::vec3 delta = atoms.pos(neighborIndex) - selectedPos;
+            if (glm::dot(delta, delta) <= listRadiusSqr) {
                 const ImVec2 neighborScreen = toImVec2(renderer.camera.worldToScreen(atoms.pos(neighborIndex) + renderOffset));
                 dl->AddLine(selectedScreen, neighborScreen, kLinkColor, kLinkThickness);
             }
@@ -87,7 +88,7 @@ void NeighborListOverlay::drawSelectedNeighbors(const AtomStorage& atoms, const 
     }
 }
 
-void NeighborListOverlay::updateSkinCenter(size_t selectedIndex, size_t rebuildCount, Vec3f atomPos) {
+void NeighborListOverlay::updateSkinCenter(size_t selectedIndex, size_t rebuildCount, glm::vec3 atomPos) {
     if (skinSelectedIndex_ == selectedIndex && skinRebuildCount_ == rebuildCount) {
         return;
     }
@@ -97,12 +98,12 @@ void NeighborListOverlay::updateSkinCenter(size_t selectedIndex, size_t rebuildC
     skinCenter_ = atomPos;
 }
 
-void NeighborListOverlay::drawWorldCircle(const BaseRenderer& renderer, Vec3f center, float radius, ImU32 color, float thickness) {
+void NeighborListOverlay::drawWorldCircle(const BaseRenderer& renderer, glm::vec3 center, float radius, ImU32 color, float thickness) {
     if (radius <= 0.0f) {
         return;
     }
 
-    const Vec2i screenCenter = renderer.camera.worldToScreen(center);
+    const glm::ivec2 screenCenter = renderer.camera.worldToScreen(center);
     const float screenRadius = radius * renderer.camera.getZoom();
     if (screenRadius <= 0.5f || !std::isfinite(screenRadius)) {
         return;

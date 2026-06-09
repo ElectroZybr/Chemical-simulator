@@ -4,12 +4,15 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
+#include <numeric>
 #include <span>
 #include <utility>
 #include <vector>
 
-#include "Engine/math/Vec3.h"
-#include "Engine/physics/AtomData.h"
+#include "Engine/NeighborSearch/SpatialGrid.h"
+#include "Engine/physics/Atom/AtomData.h"
+#include "Engine/physics/Atom/AtomSort.h"
 
 // Хранилище атомов в раскладке SoA (structure-of-arrays): все поля
 // (x, y, z, vx..vz, fx..fz, prev-силы, pe, invMass, charge) лежат в ОДНОМ
@@ -21,9 +24,17 @@
 // floatData_[f * capacity_]; при росте capacity_ буфер переаллоцируется
 // целиком и указатели наводятся заново.
 class AtomStorage {
+public:
+    using AtomId = uint32_t;
+    static constexpr AtomId InvalidAtomId = std::numeric_limits<AtomId>::max();
+
+private:
     enum class Field : size_t { X, Y, Z, Vx, Vy, Vz, Fx, Fy, Fz, Pfx, Pfy, Pfz, Pe, InvMass, Charge, Count };
 
+    AtomSort sort_;
+
     static constexpr size_t kFieldCount = static_cast<size_t>(Field::Count);
+    static constexpr size_t InvalidIndex = static_cast<size_t>(-1);
 
     std::array<float**, kFieldCount> fieldPtrs() {
         return {&x_, &y_, &z_, &vx_, &vy_, &vz_, &fx_, &fy_, &fz_, &pfx_, &pfy_, &pfz_, &pe_, &invMass_, &charge_};
@@ -53,6 +64,9 @@ class AtomStorage {
 
     std::vector<AtomData::Type> atomType_;
     std::vector<uint8_t> valence_;
+    std::vector<AtomId> atomIds_;
+    std::vector<size_t> atomIdToIndex_;
+    AtomId nextAtomId_ = 0;
 
     // Обновляет все raw pointer члены по текущему floatData_ и capacity_.
     void rebind() {
@@ -101,6 +115,7 @@ class AtomStorage {
         count_ = count;
         atomType_.resize(count);
         valence_.resize(count);
+        atomIds_.resize(count);
     }
 
 public:
@@ -110,9 +125,11 @@ public:
 
     AtomStorage(AtomStorage&& other) noexcept
         : count_(other.count_), capacity_(other.capacity_), mobileCount_(other.mobileCount_), floatData_(std::move(other.floatData_)),
-          atomType_(std::move(other.atomType_)), valence_(std::move(other.valence_)) {
+          atomType_(std::move(other.atomType_)), valence_(std::move(other.valence_)), atomIds_(std::move(other.atomIds_)),
+          atomIdToIndex_(std::move(other.atomIdToIndex_)), nextAtomId_(other.nextAtomId_) {
         rebind();
         other.count_ = other.capacity_ = other.mobileCount_ = 0;
+        other.nextAtomId_ = 0;
         other.rebind();
     }
 
@@ -126,8 +143,12 @@ public:
         floatData_ = std::move(other.floatData_);
         atomType_ = std::move(other.atomType_);
         valence_ = std::move(other.valence_);
+        atomIds_ = std::move(other.atomIds_);
+        atomIdToIndex_ = std::move(other.atomIdToIndex_);
+        nextAtomId_ = other.nextAtomId_;
         rebind();
         other.count_ = other.capacity_ = other.mobileCount_ = 0;
+        other.nextAtomId_ = 0;
         other.rebind();
         return *this;
     }
@@ -148,6 +169,8 @@ public:
         std::copy_n(vz.data(), count, vz_);
         std::copy_n(charge.data(), count, charge_);
         std::copy_n(atomType.data(), count, atomType_.data());
+        atomIds_.resize(count);
+        atomIdToIndex_.assign(count, InvalidIndex);
 
         std::fill_n(fx_, count, 0.f);
         std::fill_n(fy_, count, 0.f);
@@ -161,17 +184,25 @@ public:
             const auto& props = AtomData::getProps(atomType_[i]);
             invMass_[i] = 1.f / props.mass;
             valence_[i] = props.maxValence;
+            atomIds_[i] = static_cast<AtomId>(i);
+            atomIdToIndex_[i] = i;
         }
+        nextAtomId_ = static_cast<AtomId>(count);
     }
 
     void clear() {
         count_ = mobileCount_ = capacity_ = 0;
+        nextAtomId_ = 0;
         floatData_.clear();
         floatData_.shrink_to_fit();
         atomType_.clear();
         atomType_.shrink_to_fit();
         valence_.clear();
         valence_.shrink_to_fit();
+        atomIds_.clear();
+        atomIds_.shrink_to_fit();
+        atomIdToIndex_.clear();
+        atomIdToIndex_.shrink_to_fit();
         rebind(); // обнуляем указатели, чтобы не держать висячие
     }
 
@@ -179,6 +210,7 @@ public:
         ensureCapacity(count);
         atomType_.reserve(count);
         valence_.reserve(count);
+        atomIds_.reserve(count);
     }
 
     // fixed=true создаёт декоративный атом: он попадает в конец массива (в диапазон
@@ -190,7 +222,7 @@ public:
     // Из этого следует: fixed-атомы не оказывают LJ/Coulomb-сил на мобильные. Если
     // понадобится семантика anchor (fixed влияет на mobile, но сам не двигается) —
     // это отдельная фича, требующая правки NL build и force loop.
-    void addAtom(const Vec3f& coords, const Vec3f& speed, AtomData::Type type, bool fixed = false) {
+    void addAtom(const glm::vec3& coords, const glm::vec3& speed, AtomData::Type type, bool fixed = false) {
         ensureCapacity(count_ + 1);
 
         x_[count_] = static_cast<float>(coords.x);
@@ -207,17 +239,17 @@ public:
 
         const auto& props = AtomData::getProps(type);
         invMass_[count_] = 1.f / props.mass;
-        charge_[count_] = 0.f;
-        if (type == AtomData::Type::Cl) {
-            charge_[count_] = -1.f;
-        }
-        else if (type == AtomData::Type::Na) {
-            charge_[count_] = 1.f;
-        }
+        charge_[count_] = props.defaultCharge;
 
         atomType_.emplace_back(type);
         valence_.emplace_back(props.maxValence);
+        const AtomId newId = nextAtomId_++;
+        atomIds_.emplace_back(newId);
         ++count_;
+        if (atomIdToIndex_.size() <= newId) {
+            atomIdToIndex_.resize(static_cast<size_t>(newId) + 1, InvalidIndex);
+        }
+        atomIdToIndex_[newId] = count_ - 1;
 
         if (!fixed) {
             // Сохраняем инвариант: мобильные атомы идут первыми
@@ -243,8 +275,10 @@ public:
             }
         }
 
+        atomIdToIndex_[atomIds_.back()] = InvalidIndex;
         atomType_.pop_back();
         valence_.pop_back();
+        atomIds_.pop_back();
         --count_;
     }
 
@@ -270,6 +304,9 @@ public:
         std::swap(charge_[a], charge_[b]);
         std::swap(atomType_[a], atomType_[b]);
         std::swap(valence_[a], valence_[b]);
+        std::swap(atomIds_[a], atomIds_[b]);
+        atomIdToIndex_[atomIds_[a]] = a;
+        atomIdToIndex_[atomIds_[b]] = b;
     }
 
     void swapPrevCurrentForces() {
@@ -331,30 +368,30 @@ public:
     uint8_t& valenceCount(size_t i) { return valence_[i]; }
     const uint8_t& valenceCount(size_t i) const { return valence_[i]; }
 
-    Vec3f pos(size_t i) const { return {x_[i], y_[i], z_[i]}; }
-    Vec3f vel(size_t i) const { return {vx_[i], vy_[i], vz_[i]}; }
-    Vec3f force(size_t i) const { return {fx_[i], fy_[i], fz_[i]}; }
-    Vec3f prevForce(size_t i) const { return {pfx_[i], pfy_[i], pfz_[i]}; }
+    glm::vec3 pos(size_t i) const { return {x_[i], y_[i], z_[i]}; }
+    glm::vec3 vel(size_t i) const { return {vx_[i], vy_[i], vz_[i]}; }
+    glm::vec3 force(size_t i) const { return {fx_[i], fy_[i], fz_[i]}; }
+    glm::vec3 prevForce(size_t i) const { return {pfx_[i], pfy_[i], pfz_[i]}; }
 
-    void setPos(size_t i, const Vec3f& v) {
-        x_[i] = static_cast<float>(v.x);
-        y_[i] = static_cast<float>(v.y);
-        z_[i] = static_cast<float>(v.z);
+    void setPos(size_t i, const glm::vec3& v) {
+        x_[i] = v.x;
+        y_[i] = v.y;
+        z_[i] = v.z;
     }
-    void setVel(size_t i, const Vec3f& v) {
-        vx_[i] = static_cast<float>(v.x);
-        vy_[i] = static_cast<float>(v.y);
-        vz_[i] = static_cast<float>(v.z);
+    void setVel(size_t i, const glm::vec3& v) {
+        vx_[i] = v.x;
+        vy_[i] = v.y;
+        vz_[i] = v.z;
     }
-    void setForce(size_t i, const Vec3f& v) {
-        fx_[i] = static_cast<float>(v.x);
-        fy_[i] = static_cast<float>(v.y);
-        fz_[i] = static_cast<float>(v.z);
+    void setForce(size_t i, const glm::vec3& v) {
+        fx_[i] = v.x;
+        fy_[i] = v.y;
+        fz_[i] = v.z;
     }
-    void setPrevForce(size_t i, const Vec3f& v) {
-        pfx_[i] = static_cast<float>(v.x);
-        pfy_[i] = static_cast<float>(v.y);
-        pfz_[i] = static_cast<float>(v.z);
+    void setPrevForce(size_t i, const glm::vec3& v) {
+        pfx_[i] = v.x;
+        pfy_[i] = v.y;
+        pfz_[i] = v.z;
     }
 
     float* xData() { return x_; }
@@ -395,6 +432,22 @@ public:
 
     std::span<const AtomData::Type> atomTypeDataSpan() const { return {atomType_.data(), atomType_.size()}; }
     std::span<const uint8_t> valenceDataSpan() const { return {valence_.data(), valence_.size()}; }
+    std::span<const AtomId> atomIdDataSpan() const { return {atomIds_.data(), atomIds_.size()}; }
+
+    void setAtomId(size_t index, AtomId id) noexcept {
+        if (index >= atomIds_.size()) {
+            return;
+        }
+        atomIds_[index] = id;
+        if (static_cast<size_t>(id) >= atomIdToIndex_.size()) {
+            atomIdToIndex_.resize(static_cast<size_t>(id) + 1, InvalidIndex);
+        }
+        atomIdToIndex_[id] = index;
+    }
+
+    [[nodiscard]] AtomId atomId(size_t index) const noexcept { return index < atomIds_.size() ? atomIds_[index] : InvalidAtomId; }
+    [[nodiscard]] size_t indexOf(AtomId id) const noexcept { return id < atomIdToIndex_.size() ? atomIdToIndex_[id] : InvalidIndex; }
+    [[nodiscard]] bool containsAtomId(AtomId id) const noexcept { return indexOf(id) != InvalidIndex; }
 
     void setFixed(size_t i, bool fixed) {
         if (fixed) {
@@ -412,4 +465,7 @@ public:
             ++mobileCount_;
         }
     }
+
+    void sort(SpatialGrid& grid) { sort_.mortonOrder(*this, grid); }
+    [[nodiscard]] const std::vector<uint32_t>& lastSortOldToNew() const noexcept { return sort_.oldToNew(); }
 };

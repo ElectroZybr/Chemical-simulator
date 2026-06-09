@@ -1,11 +1,11 @@
-add_executable(rendering_module_tests
+add_executable(RenderTests
     CameraTests.cpp
 )
 
-target_link_libraries(rendering_module_tests PRIVATE
+target_link_libraries(RenderTests PRIVATE
     LatticeLab::Rendering
 )
 
-target_copy_webgpu_binaries(rendering_module_tests)
+target_copy_webgpu_binaries(RenderTests)
 
-add_test(NAME rendering.module COMMAND rendering_module_tests)
+add_test(NAME rendering.module COMMAND RenderTests)

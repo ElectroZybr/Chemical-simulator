@@ -6,5 +6,5 @@ class RemoveAtomTool final : public ITool {
 public:
     explicit RemoveAtomTool(ToolContext& context) noexcept;
 
-    void onLeftPressed(Vec2i mousePos) override;
+    void onLeftPressed(glm::ivec2 mousePos) override;
 };

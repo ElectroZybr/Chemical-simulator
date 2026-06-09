@@ -90,6 +90,14 @@ FetchContent_Declare(
     GIT_SHALLOW    ON
 )
 FetchContent_MakeAvailable(glm)
+# Глобально для ВСЕХ потребителей glm (Lattice, Rendering, App, tests, bench): glm по умолчанию
+# НЕ зануляет дефолт-конструируемые вектора, а форк-код мигрирован с собственного Vec3 (который
+# занулял) и местами полагается на zero-init. Ставим на сам glm interface-таргет, иначе Rendering
+# (линкует glm напрямую, не Lattice) компилил бы glm с другим дефолт-конструктором — ODR/UB через
+# границу линковки.
+if(TARGET glm)
+    target_compile_definitions(glm INTERFACE GLM_FORCE_CTOR_INIT)
+endif()
 
 # --- Настройка zpp_bits ---
 FetchContent_Declare(
@@ -119,4 +127,11 @@ set(ZSTD_BUILD_CONTRIB_TESTS OFF CACHE BOOL "Build zstd contrib tests")
 set(ZSTD_BUILD_CONTRIB_EXAMPLES OFF CACHE BOOL "Build zstd contrib examples")
 set(ZSTD_BUILD_CONTRIB_LIBS OFF CACHE BOOL "Build zstd contrib libs")
 set(ZSTD_INSTALL OFF CACHE BOOL "Build zstd install")
+
+# zstd is linked as a static dependency in this project, so keep its local
+# BUILD_SHARED_LIBS consistent to avoid upstream configuration warnings.
+set(_saved_build_shared_libs "${BUILD_SHARED_LIBS}")
+set(BUILD_SHARED_LIBS OFF)
 FetchContent_MakeAvailable(zstd)
+set(BUILD_SHARED_LIBS "${_saved_build_shared_libs}")
+unset(_saved_build_shared_libs)

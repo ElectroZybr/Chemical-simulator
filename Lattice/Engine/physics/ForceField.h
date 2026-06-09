@@ -11,8 +11,6 @@ class NeighborList;
 
 class ForceField {
 public:
-    ForceField();
-
     bool compute(World& world, bool allowBondFormation, float dt) const;
     void computePairInteractions(World& world) const;
 

@@ -9,9 +9,9 @@
 
 #include "Engine/NeighborSearch/NeighborList.h"
 #include "Engine/Simulation.h"
-#include "Engine/math/Vec3.h"
-#include "Engine/physics/AtomData.h"
-#include "Engine/physics/AtomStorage.h"
+#include <glm/glm.hpp>
+#include "Engine/physics/Atom/AtomData.h"
+#include "Engine/physics/Atom/AtomStorage.h"
 #include "Engine/physics/ForceFields/CoulombForceField.h"
 using namespace Lattice;
 
@@ -20,14 +20,14 @@ namespace {
 // Na (+1) и Cl (-1) на расстоянии 3 по оси x. LJ выключен — изолируем Кулон.
 Simulation makeIonPair(NeighborListMode mode) {
     Simulation sim;
-    sim.createWorld(Vec3f{40.0f, 40.0f, 40.0f});
-    sim.setSizeBox(Vec3f{40.0f, 40.0f, 40.0f}, 6);
+    sim.createWorld(glm::vec3{40.0f, 40.0f, 40.0f});
+    sim.setSizeBox(glm::vec3{40.0f, 40.0f, 40.0f}, 6);
     sim.setLJEnabled(false);
     sim.setCoulombEnabled(true);
     sim.setBondFormationEnabled(false);
     sim.neighborList().setMode(mode);
-    sim.appendAtomFast(Vec3f{20.0f, 20.0f, 20.0f}, Vec3f{0, 0, 0}, AtomData::Type::Na);
-    sim.appendAtomFast(Vec3f{23.0f, 20.0f, 20.0f}, Vec3f{0, 0, 0}, AtomData::Type::Cl);
+    sim.appendAtomFast(glm::vec3{20.0f, 20.0f, 20.0f}, glm::vec3{0, 0, 0}, AtomData::Type::Na);
+    sim.appendAtomFast(glm::vec3{23.0f, 20.0f, 20.0f}, glm::vec3{0, 0, 0}, AtomData::Type::Cl);
     sim.finalizeAtomBatch();
     sim.neighborList().build(sim.atoms(), sim.world());
     sim.forceField().computePairInteractions(sim.world());
@@ -71,15 +71,15 @@ namespace {
 // оба тумблера (LJ + Coulomb) включены.
 Simulation makeMixed(NeighborListMode mode) {
     Simulation sim;
-    sim.createWorld(Vec3f{40.0f, 40.0f, 40.0f});
-    sim.setSizeBox(Vec3f{40.0f, 40.0f, 40.0f}, 6);
+    sim.createWorld(glm::vec3{40.0f, 40.0f, 40.0f});
+    sim.setSizeBox(glm::vec3{40.0f, 40.0f, 40.0f}, 6);
     sim.setLJEnabled(true);
     sim.setCoulombEnabled(true);
     sim.setBondFormationEnabled(false);
     sim.neighborList().setMode(mode);
-    sim.appendAtomFast(Vec3f{20.0f, 20.0f, 20.0f}, Vec3f{0, 0, 0}, AtomData::Type::Na); // +1
-    sim.appendAtomFast(Vec3f{23.0f, 20.0f, 20.0f}, Vec3f{0, 0, 0}, AtomData::Type::Cl); // -1
-    sim.appendAtomFast(Vec3f{20.0f, 23.0f, 20.0f}, Vec3f{0, 0, 0}, AtomData::Type::H);  // 0
+    sim.appendAtomFast(glm::vec3{20.0f, 20.0f, 20.0f}, glm::vec3{0, 0, 0}, AtomData::Type::Na); // +1
+    sim.appendAtomFast(glm::vec3{23.0f, 20.0f, 20.0f}, glm::vec3{0, 0, 0}, AtomData::Type::Cl); // -1
+    sim.appendAtomFast(glm::vec3{20.0f, 23.0f, 20.0f}, glm::vec3{0, 0, 0}, AtomData::Type::H);  // 0
     sim.finalizeAtomBatch();
     sim.neighborList().build(sim.atoms(), sim.world());
     sim.forceField().computePairInteractions(sim.world());

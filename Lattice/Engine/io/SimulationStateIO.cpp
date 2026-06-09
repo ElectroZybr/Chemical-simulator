@@ -18,8 +18,8 @@ namespace {
     constexpr const char* kBlockIndent = "  ";
 
     struct LoadedAtomData {
-        Vec3f coords{0.f, 0.f, 0.f};
-        Vec3f speed{0.f, 0.f, 0.f};
+        glm::vec3 coords{0.f, 0.f, 0.f};
+        glm::vec3 speed{0.f, 0.f, 0.f};
         int type = 0;
         bool fixed = false;
         float charge = 0.0f;
@@ -222,8 +222,8 @@ namespace {
             return;
         }
 
-        Vec3f minCoords = lastFrameAtoms.front().coords;
-        Vec3f maxCoords = lastFrameAtoms.front().coords;
+        glm::vec3 minCoords = lastFrameAtoms.front().coords;
+        glm::vec3 maxCoords = lastFrameAtoms.front().coords;
         for (const LoadedAtomData& atom : lastFrameAtoms) {
             minCoords.x = std::min(minCoords.x, atom.coords.x);
             minCoords.y = std::min(minCoords.y, atom.coords.y);
@@ -234,12 +234,12 @@ namespace {
         }
 
         constexpr float kPadding = 2.0f;
-        const Vec3f worldSize{
+        const glm::vec3 worldSize{
             std::max(10.0f, (maxCoords.x - minCoords.x) + kPadding * 2.0f),
             std::max(10.0f, (maxCoords.y - minCoords.y) + kPadding * 2.0f),
             std::max(10.0f, (maxCoords.z - minCoords.z) + kPadding * 2.0f),
         };
-        const Vec3f translation{
+        const glm::vec3 translation{
             kPadding - minCoords.x,
             kPadding - minCoords.y,
             kPadding - minCoords.z,
@@ -278,7 +278,7 @@ namespace {
         file << kBlockIndent << "time_ns " << simulation.world().getSimTimeNs() << "\n";
         file << kBlockIndent << "dt " << simulation.world().getDt() << "\n";
         file << kBlockIndent << "integrator " << static_cast<int>(simulation.world().getIntegrator().getScheme()) << "\n";
-        const Vec3f gravity = simulation.getGravity();
+        const glm::vec3 gravity = simulation.getGravity();
         file << kBlockIndent << "gravity " << gravity.x << " " << gravity.y << " " << gravity.z << "\n";
         file << kBlockIndent << "bond_formation " << static_cast<int>(simulation.world().isBondFormationEnabled()) << "\n";
         file << kBlockIndent << "lj_enabled " << static_cast<int>(simulation.isLJEnabled()) << "\n";
@@ -294,8 +294,8 @@ namespace {
         file << kBlockIndent << "count " << atoms.size() << "\n";
         file << kBlockIndent << "# atom x y z vx vy vz type fixed charge\n";
         for (size_t atomIndex = 0; atomIndex < atoms.size(); ++atomIndex) {
-            const Vec3f pos = atoms.pos(atomIndex);
-            const Vec3f vel = atoms.vel(atomIndex);
+            const glm::vec3 pos = atoms.pos(atomIndex);
+            const glm::vec3 vel = atoms.vel(atomIndex);
             file << kBlockIndent << "atom " << pos.x << " " << pos.y << " " << pos.z << " " << vel.x << " " << vel.y << " " << vel.z << " "
                  << static_cast<int>(atoms.type(atomIndex)) << " " << static_cast<int>(atoms.isAtomFixed(atomIndex)) << " "
                  << atoms.charge(atomIndex) << "\n";
@@ -318,7 +318,7 @@ namespace {
         simulation.clear();
 
         std::vector<LoadedAtomData> atoms;
-        Vec3f boxSize{simulation.world().getWorldSize()};
+        glm::vec3 boxSize{simulation.world().getWorldSize()};
         int cellSize = simulation.world().getGridCellSize();
         int loadedStep = 0;
         float loadedTimeNs = 0.0f;
@@ -326,7 +326,7 @@ namespace {
         std::string loadedDescription;
         float loadedDt = simulation.world().getDt();
         int loadedIntegrator = static_cast<int>(simulation.world().getIntegrator().getScheme());
-        Vec3f loadedGravity = simulation.world().getGravity();
+        glm::vec3 loadedGravity = simulation.world().getGravity();
         bool loadedBondFormationEnabled = simulation.world().isBondFormationEnabled();
         float loadedMaxSpeed = simulation.world().getIntegrator().maxParticleSpeed();
         float loadedAccelDamping = simulation.world().getIntegrator().accelDamping();
@@ -428,7 +428,7 @@ namespace {
 
         simulation.clear();
 
-        Vec3f worldSize{simulation.world().getWorldSize()};
+        glm::vec3 worldSize{simulation.world().getWorldSize()};
         int cellSize = simulation.world().getGridCellSize();
         int loadedStep = 0;
         float loadedTimeNs = 0.0f;
@@ -436,7 +436,7 @@ namespace {
         std::string loadedDescription;
         float loadedDt = simulation.world().getDt();
         int loadedIntegrator = static_cast<int>(simulation.world().getIntegrator().getScheme());
-        Vec3f loadedGravity = simulation.world().getGravity();
+        glm::vec3 loadedGravity = simulation.world().getGravity();
         bool loadedBondFormationEnabled = simulation.world().isBondFormationEnabled();
         bool loadedLJEnabled = simulation.world().isLJEnabled();
         bool loadedCoulombEnabled = simulation.world().isCoulombEnabled();

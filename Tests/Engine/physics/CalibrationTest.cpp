@@ -7,9 +7,9 @@
 #include <gtest/gtest.h>
 
 #include "Engine/Simulation.h"
-#include "Engine/math/Vec3.h"
-#include "Engine/physics/AtomData.h"
-#include "Engine/physics/AtomStorage.h"
+#include <glm/glm.hpp>
+#include "Engine/physics/Atom/AtomData.h"
+#include "Engine/physics/Atom/AtomStorage.h"
 using namespace Lattice;
 
 namespace {
@@ -32,19 +32,19 @@ std::vector<Pos3> samplePositions(size_t n, uint32_t seed) {
 
 Simulation makeSceneFromPositions(const std::vector<Pos3>& positions, bool reversed) {
     Simulation sim;
-    sim.createWorld(Vec3f{40.0f, 40.0f, 40.0f});
-    sim.setSizeBox(Vec3f{40.0f, 40.0f, 40.0f}, 6);
+    sim.createWorld(glm::vec3{40.0f, 40.0f, 40.0f});
+    sim.setSizeBox(glm::vec3{40.0f, 40.0f, 40.0f}, 6);
     sim.setLJEnabled(true);
     sim.setCoulombEnabled(false);
 
     if (reversed) {
         for (auto it = positions.rbegin(); it != positions.rend(); ++it) {
-            sim.appendAtomFast(Vec3f{it->x, it->y, it->z}, Vec3f{0.0f, 0.0f, 0.0f}, AtomData::Type::H, false);
+            sim.appendAtomFast(glm::vec3{it->x, it->y, it->z}, glm::vec3{0.0f, 0.0f, 0.0f}, AtomData::Type::H, false);
         }
     }
     else {
         for (const auto& p : positions) {
-            sim.appendAtomFast(Vec3f{p.x, p.y, p.z}, Vec3f{0.0f, 0.0f, 0.0f}, AtomData::Type::H, false);
+            sim.appendAtomFast(glm::vec3{p.x, p.y, p.z}, glm::vec3{0.0f, 0.0f, 0.0f}, AtomData::Type::H, false);
         }
     }
     sim.finalizeAtomBatch();

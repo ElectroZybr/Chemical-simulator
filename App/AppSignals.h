@@ -3,15 +3,15 @@
 #include <cstdint>
 #include <string_view>
 
-#include "Lattice/Engine/math/Vec3.h"
-#include "Lattice/Engine/physics/AtomData.h"
+#include <glm/vec3.hpp>
+#include "Lattice/Engine/physics/Atom/AtomData.h"
 #include "GUI/interface/panels/tools/ToolsPanel.h"
 #include "Rendering/camera/Camera.h"
-#include "Signals/Signals.h"
+#include "App/Signals.h"
 
 namespace AppSignals {
     namespace UI {
-        inline Signals::Signal<void(const Vec3f& newSize)> ResizeBox;
+        inline Signals::Signal<void(const glm::vec3& newSize)> ResizeBox;
 
         inline Signals::Signal<void()> ClearSimulation;
         inline Signals::Signal<void(int atomCount, AtomData::Type atomType, bool is3D, float density)> CreateGas;

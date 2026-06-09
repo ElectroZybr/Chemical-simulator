@@ -31,9 +31,9 @@
 #include "fixtures/RendererFixture.h" // benchmarkDevice()
 #include "Engine/NeighborSearch/NeighborList.h"
 #include "Engine/World.h"
-#include "Engine/math/Vec3.h"
-#include "Engine/physics/AtomData.h"
-#include "Engine/physics/AtomStorage.h"
+#include <glm/glm.hpp>
+#include "Engine/physics/Atom/AtomData.h"
+#include "Engine/physics/Atom/AtomStorage.h"
 #include "Engine/physics/ForceFields/LJForceField.h"
 #include "Engine/physics/gpu/GpuResidentPhysics.h"
 using namespace Lattice;
@@ -49,7 +49,7 @@ namespace {
 // Заливает в GpuResidentPhysics сцену из atomCount атомов в кубе box. Каждый
 // upload строит свежий World+NL, как BM_GpuResidentNlBuild::checkScene.
 void uploadScene(GpuResidentPhysics& grp, uint32_t atomCount, float box) {
-    World world(Vec3f(box, box, box));
+    World world(glm::vec3(box, box, box));
     AtomStorage& atoms = world.getAtomStorage();
     atoms.reserve(atomCount);
     for (uint32_t i = 0; i < atomCount; ++i) {
@@ -59,7 +59,7 @@ void uploadScene(GpuResidentPhysics& grp, uint32_t atomCount, float box) {
         const float px = 1.0f + std::fmod(t * 1.7f, box - 2.0f);
         const float py = 1.0f + std::fmod(t * 2.3f, box - 2.0f);
         const float pz = 1.0f + std::fmod(t * 3.1f, box - 2.0f);
-        atoms.addAtom(Vec3f(px, py, pz), Vec3f(0, 0, 0), AtomData::Type::H);
+        atoms.addAtom(glm::vec3(px, py, pz), glm::vec3(0, 0, 0), AtomData::Type::H);
     }
     world.getGrid().rebuild(atoms.xDataSpan(), atoms.yDataSpan(), atoms.zDataSpan());
     NeighborList& nl = world.getNeighborList();

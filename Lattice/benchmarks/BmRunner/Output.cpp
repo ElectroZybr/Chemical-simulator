@@ -184,7 +184,12 @@ namespace Benchmarks::BmRunner {
 
         void printComplexityEstimate(const std::unordered_map<std::string, RowMetrics>& rows,
                                      const std::unordered_map<std::string, BenchmarkMeta>& metadata,
-                                     std::string_view sceneKey) {
+                                     std::string_view sceneKey,
+                                     std::string_view degradationKey) {
+            if (degradationKey != "size") {
+                return;
+            }
+
             std::unordered_map<std::string, std::vector<std::pair<int, double>>> grouped;
 
             for (const auto& [runName, metrics] : rows) {
@@ -306,7 +311,8 @@ namespace Benchmarks::BmRunner {
     void printResultsTable(const BenchmarkData& data,
                            const std::unordered_map<std::string, BenchmarkMeta>& metadata,
                            const fs::path& resultsPath,
-                           std::string_view sceneKey) {
+                           std::string_view sceneKey,
+                           std::string_view degradationKey) {
         auto rows = buildRows(data);
         if (rows.empty()) {
             std::cout << "No data to display.\n";
@@ -314,7 +320,8 @@ namespace Benchmarks::BmRunner {
         }
 
         const fs::path baselinePath = resultsPath / "baseline.json";
-        const auto baselineData = loadBenchmarkDataIfExists(baselinePath);
+        const bool allowBaseline = degradationKey == "size";
+        const auto baselineData = allowBaseline ? loadBenchmarkDataIfExists(baselinePath) : std::optional<BenchmarkData>{};
         const auto baselineRows = baselineData ? buildRows(*baselineData) : std::unordered_map<std::string, RowMetrics>{};
         const bool hasBaseline = baselineData.has_value();
 
@@ -337,10 +344,11 @@ namespace Benchmarks::BmRunner {
         });
 
         std::vector<TableRow> table;
+        const std::string nHeader = degradationKey == "time" ? "Age" : "N";
         std::array<std::size_t, 8> widths{
             visibleWidth("#"),
             visibleWidth("Test"),
-            visibleWidth("N"),
+            visibleWidth(nHeader),
             visibleWidth("cv(%)"),
             visibleWidth("items/s"),
             visibleWidth("time"),
@@ -359,7 +367,12 @@ namespace Benchmarks::BmRunner {
             const std::string extentArg = benchArg(runName);
             std::string nDisplay = extentArg;
             if (!extentArg.empty() && std::all_of(extentArg.begin(), extentArg.end(), [](unsigned char ch) { return std::isdigit(ch) != 0; })) {
-                nDisplay = std::to_string(atomCountForSceneKey(sceneKey, std::stoi(extentArg)));
+                const int numericArg = std::stoi(extentArg);
+                if (degradationKey == "time") {
+                    nDisplay = std::to_string(temporalAgeStepsFromArg(numericArg));
+                } else {
+                    nDisplay = std::to_string(atomCountForSceneKey(sceneKey, numericArg));
+                }
             }
             const std::optional<double> currentTime = metrics.realMedian ? metrics.realMedian : metrics.realMean;
             const std::optional<double> baseTime = baseIt != baselineRows.end()
@@ -407,7 +420,7 @@ namespace Benchmarks::BmRunner {
         std::cout << "  "
                   << padRight("#", widths[0]) << " | "
                   << padRight("Test", widths[1]) << " | "
-                  << padRight("N", widths[2]) << " | "
+                  << padRight(nHeader, widths[2]) << " | "
                   << padRight("cv(%)", widths[3]) << " | "
                   << padRight("items/s", widths[4]) << " | "
                   << padRight("time", widths[5]);
@@ -465,6 +478,6 @@ namespace Benchmarks::BmRunner {
             std::cout << '\n';
         }
 
-        printComplexityEstimate(rows, metadata, sceneKey);
+        printComplexityEstimate(rows, metadata, sceneKey, degradationKey);
     }
 }

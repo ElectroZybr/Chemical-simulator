@@ -3,9 +3,9 @@
 #include <gtest/gtest.h>
 
 #include "Engine/Simulation.h"
-#include "Engine/math/Vec3.h"
-#include "Engine/physics/AtomData.h"
-#include "Engine/physics/AtomStorage.h"
+#include <glm/glm.hpp>
+#include "Engine/physics/Atom/AtomData.h"
+#include "Engine/physics/Atom/AtomStorage.h"
 using namespace Lattice;
 
 namespace {
@@ -29,13 +29,13 @@ namespace {
 
 Simulation makeTwoAtomScene(float r, bool secondFixed) {
     Simulation sim;
-    sim.createWorld(Vec3f{40.0f, 40.0f, 40.0f});
-    sim.setSizeBox(Vec3f{40.0f, 40.0f, 40.0f}, 6);
+    sim.createWorld(glm::vec3{40.0f, 40.0f, 40.0f});
+    sim.setSizeBox(glm::vec3{40.0f, 40.0f, 40.0f}, 6);
     sim.setLJEnabled(true);
     sim.setCoulombEnabled(false);
 
-    sim.appendAtomFast(Vec3f{20.0f, 20.0f, 20.0f},       Vec3f{0.0f, 0.0f, 0.0f}, AtomData::Type::H, /*fixed=*/false);
-    sim.appendAtomFast(Vec3f{20.0f, 20.0f, 20.0f + r},   Vec3f{0.0f, 0.0f, 0.0f}, AtomData::Type::H, /*fixed=*/secondFixed);
+    sim.appendAtomFast(glm::vec3{20.0f, 20.0f, 20.0f},       glm::vec3{0.0f, 0.0f, 0.0f}, AtomData::Type::H, /*fixed=*/false);
+    sim.appendAtomFast(glm::vec3{20.0f, 20.0f, 20.0f + r},   glm::vec3{0.0f, 0.0f, 0.0f}, AtomData::Type::H, /*fixed=*/secondFixed);
     sim.finalizeAtomBatch();
 
     sim.neighborList().build(sim.atoms(), sim.world());

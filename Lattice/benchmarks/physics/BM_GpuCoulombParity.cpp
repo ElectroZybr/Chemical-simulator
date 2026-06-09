@@ -57,9 +57,9 @@
 #include "fixtures/RendererFixture.h" // benchmarkDevice()
 #include "Engine/NeighborSearch/NeighborList.h"
 #include "Engine/Simulation.h"
-#include "Engine/math/Vec3.h"
-#include "Engine/physics/AtomData.h"
-#include "Engine/physics/AtomStorage.h"
+#include <glm/glm.hpp>
+#include "Engine/physics/Atom/AtomData.h"
+#include "Engine/physics/Atom/AtomStorage.h"
 #include "Engine/physics/gpu/GpuResidentPhysics.h"
 using namespace Lattice;
 
@@ -76,7 +76,7 @@ constexpr int kSteps = 50;
 // приходят из сцены — здесь имитируем явным присвоением).
 struct ChargedAtomSpec {
     AtomData::Type t;
-    Vec3f p;
+    glm::vec3 p;
     float charge;
 };
 
@@ -99,12 +99,12 @@ std::vector<ChargedAtomSpec> chargedSpecs() {
         // В Coulomb-only (LJ off) притяжение СБЛИЖАЕТ атомы — старт 4.5 (а не 3.0)
         // держит их вдали от epsilon-сингулярности 1/r^3 за прогон (на малых r f32-
         // дрейф 1/d2^{3/2} усиливается, дизайн §6.7). 4.5 < cutoff(5) → Coulomb активен.
-        {AtomData::Type::H, Vec3f{6.5f, 8.0f, 8.0f}, +1.0f},
-        {AtomData::Type::H, Vec3f{11.0f, 8.0f, 8.0f}, -1.0f},
+        {AtomData::Type::H, glm::vec3{6.5f, 8.0f, 8.0f}, +1.0f},
+        {AtomData::Type::H, glm::vec3{11.0f, 8.0f, 8.0f}, -1.0f},
         // Пара отталкивания: одноимённые заряды (+1/+1 → qqScale>0), расстояние 4.5.
         // Отталкивание РАЗВОДИТ атомы (прочь от сингулярности) → численно устойчиво.
-        {AtomData::Type::H, Vec3f{6.5f, 14.0f, 8.0f}, +1.0f},
-        {AtomData::Type::H, Vec3f{11.0f, 14.0f, 8.0f}, +1.0f},
+        {AtomData::Type::H, glm::vec3{6.5f, 14.0f, 8.0f}, +1.0f},
+        {AtomData::Type::H, glm::vec3{11.0f, 14.0f, 8.0f}, +1.0f},
     };
 }
 
@@ -112,12 +112,12 @@ std::vector<ChargedAtomSpec> chargedSpecs() {
 // комбинированный). Формация ВЫКЛ (Coulomb не зависит от связей), gravity=0, атомы
 // вдали от стен (wall=0).
 void configureSim(Simulation& sim, bool ljEnabled, bool coulombEnabled) {
-    sim.createWorld(Vec3f{kWorldSize, kWorldSize, kWorldSize});
+    sim.createWorld(glm::vec3{kWorldSize, kWorldSize, kWorldSize});
     sim.setSizeBox(sim.world().getWorldSize(), kCellSize);
     sim.setLJEnabled(ljEnabled);
     sim.setCoulombEnabled(coulombEnabled);
     sim.setBondFormationEnabled(false);
-    sim.setGravity(Vec3f{0.0f, 0.0f, 0.0f});
+    sim.setGravity(glm::vec3{0.0f, 0.0f, 0.0f});
     sim.setDt(kDt);
     sim.setAccelDamping(kAccelDamping);
 }
@@ -127,7 +127,7 @@ void configureSim(Simulation& sim, bool ljEnabled, bool coulombEnabled) {
 // notifySceneEdited, чтобы при входе в GPU-режим charges_ залились в VRAM.
 void fillCharged(Simulation& sim, const std::vector<ChargedAtomSpec>& specs) {
     for (const ChargedAtomSpec& s : specs) {
-        sim.appendAtomFast(s.p, Vec3f{0.0f, 0.0f, 0.0f}, s.t, false);
+        sim.appendAtomFast(s.p, glm::vec3{0.0f, 0.0f, 0.0f}, s.t, false);
     }
     sim.finalizeAtomBatch();
     AtomStorage& a = sim.atoms();
@@ -155,7 +155,7 @@ double maxAbsPositionDiff(const AtomStorage& a, const AtomStorage& b) {
 double maxSelfDisplacement(const AtomStorage& a, const std::vector<ChargedAtomSpec>& specs) {
     double maxDisp = 0.0;
     for (size_t i = 0; i < specs.size(); ++i) {
-        const Vec3f sp = specs[i].p;
+        const glm::vec3 sp = specs[i].p;
         maxDisp = std::max(maxDisp, std::abs(static_cast<double>(a.posX(i)) - sp.x));
         maxDisp = std::max(maxDisp, std::abs(static_cast<double>(a.posY(i)) - sp.y));
         maxDisp = std::max(maxDisp, std::abs(static_cast<double>(a.posZ(i)) - sp.z));
@@ -259,7 +259,7 @@ CombinedResult runCombined() {
         configureSim(tmp, /*lj=*/true, /*coulomb=*/false);
         const AtomStorage& fin = cpu.atoms(); // финальные позиции комбинированного прогона
         for (size_t i = 0; i < atomCount; ++i) {
-            tmp.appendAtomFast(Vec3f{fin.posX(i), fin.posY(i), fin.posZ(i)}, Vec3f{0.0f, 0.0f, 0.0f}, specs[i].t,
+            tmp.appendAtomFast(glm::vec3{fin.posX(i), fin.posY(i), fin.posZ(i)}, glm::vec3{0.0f, 0.0f, 0.0f}, specs[i].t,
                                /*fixed=*/false);
         }
         tmp.finalizeAtomBatch();

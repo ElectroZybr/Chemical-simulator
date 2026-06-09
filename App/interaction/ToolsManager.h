@@ -8,7 +8,8 @@
 #include "App/interaction/selection/NeighborListOverlay.h"
 #include "App/interaction/tools/ITool.h"
 #include "Lattice/Engine/Simulation.h"
-#include "Lattice/Engine/math/Vec3.h"
+#include <glm/vec2.hpp>
+#include <glm/vec3.hpp>
 #include "Rendering/BaseRenderer.h"
 
 class World;
@@ -37,13 +38,13 @@ public:
 
     static void init(GLFWwindow* window, Lattice::Simulation& simulation, std::unique_ptr<BaseRenderer>& renderer, Interface& appInterface);
 
-    static Vec3f screenToWorld(Vec2i mousePos);
-    static Vec2i worldToScreen(Vec3f pos);
+    static glm::vec3 screenToWorld(glm::ivec2 mousePos);
+    static glm::ivec2 worldToScreen(glm::vec3 pos);
 
-    static void onLeftPressed(Vec2i mousePos);
-    static void onLeftReleased(Vec2i mousePos);
-    static bool onRightPressed(Vec2i mousePos);
-    static void onFrame(Vec2i mousePos, float deltaTime);
+    static void onLeftPressed(glm::ivec2 mousePos);
+    static void onLeftReleased(glm::ivec2 mousePos);
+    static bool onRightPressed(glm::ivec2 mousePos);
+    static void onFrame(glm::ivec2 mousePos, float deltaTime);
     static void resetInteractionState();
     static bool isInteractingNow() noexcept;
     static bool blocksCameraControls() noexcept;
@@ -60,7 +61,7 @@ private:
     static ITool* activeTool() noexcept;
     static void syncToolMode() noexcept;
     static void syncPickingWorldToActive(bool clearSelection);
-    static void selectWorldAt(Vec2i mousePos);
+    static void selectWorldAt(glm::ivec2 mousePos);
     static size_t toIndex(Mode mode) noexcept;
 
     static GLFWwindow* window;
@@ -73,7 +74,7 @@ private:
     static Mode syncedMode;
     static Lattice::Simulation::WorldId pickingWorldId;
 
-    static Vec2i startMousePos;
-    static Vec2i lastSceneMousePos;
+    static glm::ivec2 startMousePos;
+    static glm::ivec2 lastSceneMousePos;
     static bool isInteracting;
 };

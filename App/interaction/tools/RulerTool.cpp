@@ -9,17 +9,17 @@
 #include "Rendering/BaseRenderer.h"
 
 namespace {
-    Vec3f mapMouseToRulerWorld(const ToolContext& ctx, Vec2i mousePos) {
+    glm::vec3 mapMouseToRulerWorld(const ToolContext& ctx, glm::ivec2 mousePos) {
         BaseRenderer* renderer = ctx.activeRenderer();
         if (renderer == nullptr) {
-            return Vec3f();
+            return glm::vec3(0.0f);
         }
 
         return renderer->camera.screenToWorld(mousePos);
     }
 
-    std::string makeRulerTooltip(const Vec3f& start, const Vec3f& end) {
-        const float distanceAngstrom = (end - start).abs();
+    std::string makeRulerTooltip(const glm::vec3& start, const glm::vec3& end) {
+        const float distanceAngstrom = glm::length(end - start);
         const float distanceNm = distanceAngstrom * static_cast<float>(Units::AngstromToNm);
 
         char buffer[128];
@@ -30,7 +30,7 @@ namespace {
 
 RulerTool::RulerTool(ToolContext& context) noexcept : ITool(context) {}
 
-void RulerTool::onLeftPressed(Vec2i mousePos) {
+void RulerTool::onLeftPressed(glm::ivec2 mousePos) {
     ToolContext& ctx = context();
     if (ctx.pickingSystem == nullptr) {
         return;
@@ -51,7 +51,7 @@ void RulerTool::onLeftPressed(Vec2i mousePos) {
     overlay.rulerLabel = makeRulerTooltip(startWorld_, endWorld_);
 }
 
-void RulerTool::onLeftReleased(Vec2i mousePos) {
+void RulerTool::onLeftReleased(glm::ivec2 mousePos) {
     ToolContext& ctx = context();
     if (ctx.pickingSystem == nullptr) {
         return;
@@ -66,12 +66,12 @@ void RulerTool::onLeftReleased(Vec2i mousePos) {
     }
 }
 
-bool RulerTool::onRightPressed(Vec2i mousePos) {
+bool RulerTool::onRightPressed(glm::ivec2 mousePos) {
     (void)mousePos;
     return false;
 }
 
-void RulerTool::onFrame(Vec2i mousePos, float deltaTime) {
+void RulerTool::onFrame(glm::ivec2 mousePos, float deltaTime) {
     (void)deltaTime;
     ToolContext& ctx = context();
     if (ctx.pickingSystem == nullptr) {
@@ -112,7 +112,7 @@ void RulerTool::clearMeasurement() {
     reset();
 }
 
-void RulerTool::updateMeasurement(Vec2i mousePos) {
+void RulerTool::updateMeasurement(glm::ivec2 mousePos) {
     ToolContext& ctx = context();
     if (ctx.pickingSystem == nullptr) {
         return;

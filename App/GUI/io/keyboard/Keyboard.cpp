@@ -4,12 +4,14 @@
 #include <imgui.h>
 
 #include "App/AppSignals.h"
+#include "App/WindowController.h"
 #include "GUI/interface/interface.h"
 
 std::unique_ptr<BaseRenderer>* Keyboard::render = nullptr;
 Interface* Keyboard::appInterface = nullptr;
 GLFWwindow* Keyboard::window = nullptr;
 GLFWkeyfun Keyboard::imgui_key_callback = nullptr;
+bool Keyboard::fullscreenToggleHeld = false;
 
 void Keyboard::init(GLFWwindow* window, std::unique_ptr<BaseRenderer>& r, Interface& appInterface) {
     render = &r;
@@ -68,6 +70,12 @@ void Keyboard::onKey(GLFWwindow* window, int key, int scancode, int action, int 
 }
 
 void Keyboard::onFrame(float deltaTime) {
+    const bool f11Pressed = window && glfwGetKey(window, GLFW_KEY_F11) == GLFW_PRESS;
+    if (f11Pressed && !fullscreenToggleHeld) {
+        WindowController::toggleFullscreen();
+    }
+    fullscreenToggleHeld = f11Pressed;
+
     std::unique_ptr<BaseRenderer>& rend = *render;
     constexpr float kFreeMoveSpeedScale = 0.8f;
 
@@ -113,16 +121,16 @@ void Keyboard::onFrame(float deltaTime) {
     else if (rend->camera.mode == Camera::Mode::Mode2D) {
         float deltaSpeed = rend->camera.speed * deltaTime;
         if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
-            rend->camera.move(Vec2f(0.0f, deltaSpeed));
+            rend->camera.move(glm::vec2(0.0f, deltaSpeed));
         }
         if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
-            rend->camera.move(Vec2f(0.0f, -deltaSpeed));
+            rend->camera.move(glm::vec2(0.0f, -deltaSpeed));
         }
         if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
-            rend->camera.move(Vec2f(-deltaSpeed, 0.0f));
+            rend->camera.move(glm::vec2(-deltaSpeed, 0.0f));
         }
         if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
-            rend->camera.move(Vec2f(deltaSpeed, 0.0f));
+            rend->camera.move(glm::vec2(deltaSpeed, 0.0f));
         }
     }
 }

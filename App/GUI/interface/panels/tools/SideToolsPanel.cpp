@@ -57,7 +57,7 @@ namespace {
     }
 }
 
-void SideToolsPanel::draw(float scale, Vec2i windowSize, ImFont* iconFont, ImFont* textFont) {
+void SideToolsPanel::draw(float scale, glm::ivec2 windowSize, ImFont* iconFont, ImFont* textFont) {
     constexpr float baseTopOffset = 114.0f;
     constexpr float baseRightOffset = 0.0f;
     constexpr float baseSpacing = 4.0f;

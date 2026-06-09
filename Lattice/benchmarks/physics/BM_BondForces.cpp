@@ -3,8 +3,8 @@
 #include <benchmark/benchmark.h>
 
 #include "Engine/Simulation.h"
-#include "Engine/math/Vec3.h"
-#include "Engine/physics/AtomData.h"
+#include <glm/glm.hpp>
+#include "Engine/physics/Atom/AtomData.h"
 #include "Engine/physics/Bond.h"
 #include "Engine/physics/ForceFields/BondForceField.h"
 using namespace Lattice;
@@ -20,12 +20,12 @@ public:
     void SetUp(benchmark::State& state) override {
         atomCount_ = static_cast<int>(state.range(0));
         simulation_ = std::make_unique<Simulation>();
-        simulation_->createWorld(Vec3f{300.0f, 50.0f, 50.0f});
-        simulation_->setSizeBox(Vec3f{300.0f, 50.0f, 50.0f}, 6);
+        simulation_->createWorld(glm::vec3{300.0f, 50.0f, 50.0f});
+        simulation_->setSizeBox(glm::vec3{300.0f, 50.0f, 50.0f}, 6);
 
         for (int i = 0; i < atomCount_; ++i) {
             const float x = 10.0f + static_cast<float>(i) * 1.5f;
-            simulation_->appendAtomFast(Vec3f{x, 25.0f, 25.0f}, Vec3f{0.0f, 0.0f, 0.0f},
+            simulation_->appendAtomFast(glm::vec3{x, 25.0f, 25.0f}, glm::vec3{0.0f, 0.0f, 0.0f},
                                         AtomData::Type::C, /*fixed=*/false);
         }
         simulation_->finalizeAtomBatch();

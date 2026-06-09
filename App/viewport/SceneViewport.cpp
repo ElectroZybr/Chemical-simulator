@@ -5,8 +5,8 @@
 #include "Lattice/Engine/Simulation.h"
 #include "Lattice/Engine/metrics/Profiler.h"
 #include "GUI/interface/interface.h"
-#include "Rendering/2d/Renderer2DWGPU.h"
-#include "Rendering/3d/Renderer3DWGPU.h"
+#include "Rendering/2d/Renderer2D.h"
+#include "Rendering/3d/Renderer3D.h"
 #include "Rendering/BaseRenderer.h"
 
 SceneViewport::SceneViewport(RendererType type, CaptureController& captureController) : captureController_(&captureController), renderer_(createRenderer(type)) {}
@@ -28,7 +28,7 @@ void SceneViewport::renderFrame(const Lattice::Simulation& simulation, Interface
     appInterface.update();
 
     if (ToolsManager::pickingSystem != nullptr) {
-        App::Viewport::syncRendererWithSimulation(*renderer_, simulation, &ToolsManager::pickingSystem->getSelectedIndices());
+        App::Viewport::syncRendererWithSimulation(*renderer_, simulation, &ToolsManager::pickingSystem->getSelectedAtomIds());
     }
     else {
         App::Viewport::syncRendererWithSimulation(*renderer_, simulation);
@@ -61,9 +61,9 @@ bool SceneViewport::setRendererType(RendererType type, const Lattice::Simulation
 std::unique_ptr<BaseRenderer> SceneViewport::createRenderer(RendererType type) {
     switch (type) {
     case RendererType::Renderer2D:
-        return std::make_unique<Renderer2DWGPU>();
+        return std::make_unique<Renderer2D>();
     case RendererType::Renderer3D:
-        return std::make_unique<Renderer3DWGPU>();
+        return std::make_unique<Renderer3D>();
     }
 
     return nullptr;
@@ -76,9 +76,11 @@ void SceneViewport::copyRenderSettings(BaseRenderer& destination, const BaseRend
 
     RenderData& target = destination.getRenderData(0);
     const RenderData& current = source.getRenderData(0);
+    target.drawAtoms = current.drawAtoms;
     target.drawGrid = current.drawGrid;
     target.drawBonds = current.drawBonds;
     target.drawBox = current.drawBox;
+    target.drawMemoryOrder = current.drawMemoryOrder;
     target.speedColorMode = current.speedColorMode;
     target.speedGradientMax = current.speedGradientMax;
 }

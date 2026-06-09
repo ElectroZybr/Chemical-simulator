@@ -31,6 +31,7 @@ namespace {
 // @bench_meta {"id":"Fixture/PostProcessVelocities","label":"Velocity Post-Process: clamp","group":"Simulation/Integrator"}
 BENCHMARK_DEFINE_F(Fixture, PostProcessVelocities)(benchmark::State& state) {
     rebuildScene();
+    warmupScene();
     VelocityPostProcessData data = prepareVelocityPostProcessData(*simulation_);
 
     for (auto _ : state) {

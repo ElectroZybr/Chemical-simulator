@@ -14,9 +14,9 @@
 #include "fixtures/RendererFixture.h" // benchmarkDevice()
 #include "Generators/Generators.h"  // MERGE: App/Scenes (namespace Scenes) -> Lattice/Generators (namespace Generators)
 #include "Engine/Simulation.h"
-#include "Engine/math/Vec3.h"
-#include "Engine/physics/AtomData.h"
-#include "Engine/physics/AtomStorage.h"
+#include <glm/glm.hpp>
+#include "Engine/physics/Atom/AtomData.h"
+#include "Engine/physics/Atom/AtomStorage.h"
 using namespace Lattice;
 
 namespace {
@@ -59,7 +59,7 @@ void runAddSceneWhileGpu(benchmark::State& state) {
             const float x = 12.0f + 6.0f * static_cast<float>(i % 6);
             const float y = 12.0f + 6.0f * static_cast<float>((i / 6) % 6);
             const float z = 12.0f + 6.0f * static_cast<float>(i / 36);
-            sim.createAtom(Vec3f(x, y, z), Vec3f(1.5f, 0.0f, 0.0f), AtomData::Type::Z, /*fixed=*/false);
+            sim.createAtom(glm::vec3(x, y, z), glm::vec3(1.5f, 0.0f, 0.0f), AtomData::Type::Z, /*fixed=*/false);
         }
         const size_t newCount = sim.atoms().size();
         if (newCount <= baseCount) {
@@ -133,7 +133,7 @@ void runEmptyWorldGpu(benchmark::State& state) {
             const float x = 12.0f + 6.0f * static_cast<float>(i % 4);
             const float y = 12.0f + 6.0f * static_cast<float>((i / 4) % 4);
             const float z = 12.0f + 6.0f * static_cast<float>(i / 16);
-            sim.createAtom(Vec3f(x, y, z), Vec3f(1.5f, 0.0f, 0.0f), AtomData::Type::Z, /*fixed=*/false);
+            sim.createAtom(glm::vec3(x, y, z), glm::vec3(1.5f, 0.0f, 0.0f), AtomData::Type::Z, /*fixed=*/false);
         }
         const size_t added = sim.atoms().size();
         std::vector<float> startX(added);
@@ -184,7 +184,7 @@ void runMultiWorldGpuSync(benchmark::State& state) {
             const float x = 12.0f + 6.0f * static_cast<float>(i % 4);
             const float y = 12.0f + 6.0f * static_cast<float>((i / 4) % 4);
             const float z = 12.0f + 6.0f * static_cast<float>(i / 16);
-            sim.createAtom(Vec3f(x, y, z), Vec3f(0.3f, 0.0f, 0.0f), AtomData::Type::Z, /*fixed=*/false);
+            sim.createAtom(glm::vec3(x, y, z), glm::vec3(0.3f, 0.0f, 0.0f), AtomData::Type::Z, /*fixed=*/false);
         }
         sim.setGpuMode(true); // world 0 -> GPU (пока активен)
 
@@ -237,8 +237,8 @@ void runSameCountEditWhileGpu(benchmark::State& state) {
         sim.setDt(0.01f);
         // Две частицы на 60 друг от друга (>> cutoff 5) — без взаимодействия,
         // поэтому смещение атома 0 определяется только заданной скоростью.
-        sim.appendAtomFast(Vec3f(30.0f, 60.0f, 60.0f), Vec3f(0, 0, 0), AtomData::Type::Z);
-        sim.appendAtomFast(Vec3f(90.0f, 60.0f, 60.0f), Vec3f(0, 0, 0), AtomData::Type::Z);
+        sim.appendAtomFast(glm::vec3(30.0f, 60.0f, 60.0f), glm::vec3(0, 0, 0), AtomData::Type::Z);
+        sim.appendAtomFast(glm::vec3(90.0f, 60.0f, 60.0f), glm::vec3(0, 0, 0), AtomData::Type::Z);
         sim.finalizeAtomBatch();
 
         sim.setGpuMode(true);
@@ -365,8 +365,8 @@ void runResizeWhileGpu(benchmark::State& state) {
         sim.setBondFormationEnabled(false);
         sim.setDt(0.01f);
         // Атом летит к +x стенке; второй далеко (изоляция, нет LJ-помех).
-        sim.appendAtomFast(Vec3f(110.0f, 60.0f, 60.0f), Vec3f(30.0f, 0, 0), AtomData::Type::Z);
-        sim.appendAtomFast(Vec3f(60.0f, 60.0f, 60.0f), Vec3f(0, 0, 0), AtomData::Type::Z);
+        sim.appendAtomFast(glm::vec3(110.0f, 60.0f, 60.0f), glm::vec3(30.0f, 0, 0), AtomData::Type::Z);
+        sim.appendAtomFast(glm::vec3(60.0f, 60.0f, 60.0f), glm::vec3(0, 0, 0), AtomData::Type::Z);
         sim.finalizeAtomBatch();
 
         sim.setGpuMode(true);
@@ -375,7 +375,7 @@ void runResizeWhileGpu(benchmark::State& state) {
             sim.update(); // прогрев: 110 -> ~112, старой стенки (119) не касается
         }
 
-        sim.setSizeBox(Vec3f(160.0f, 160.0f, 160.0f), 6); // worldMax 119 -> 159 (если версия подхватит)
+        sim.setSizeBox(glm::vec3(160.0f, 160.0f, 160.0f), 6); // worldMax 119 -> 159 (если версия подхватит)
 
         for (int s = 0; s < 40; ++s) {
             sim.update();
@@ -419,8 +419,8 @@ double atom0AdvanceAfterEditUnderDirtyGpu(EditFn&& applyEdit) {
     sim.setDt(0.01f);
     // Медленный изолированный атом 0: скорость мала, чтобы за прогрев не сработал
     // displacement-rebuild (он бы синкнул CPU и убрал stale-окно), второй далеко.
-    sim.appendAtomFast(Vec3f(30.0f, 60.0f, 60.0f), Vec3f(0.5f, 0, 0), AtomData::Type::Z);
-    sim.appendAtomFast(Vec3f(90.0f, 60.0f, 60.0f), Vec3f(0, 0, 0), AtomData::Type::Z);
+    sim.appendAtomFast(glm::vec3(30.0f, 60.0f, 60.0f), glm::vec3(0.5f, 0, 0), AtomData::Type::Z);
+    sim.appendAtomFast(glm::vec3(90.0f, 60.0f, 60.0f), glm::vec3(0, 0, 0), AtomData::Type::Z);
     sim.finalizeAtomBatch();
 
     sim.setGpuMode(true);
@@ -447,7 +447,7 @@ void runAppendAfterDirtyGpu(benchmark::State& state) {
 
     for (auto _ : state) {
         const double advance = atom0AdvanceAfterEditUnderDirtyGpu([](Simulation& sim) {
-            sim.appendAtomFast(Vec3f(60.0f, 60.0f, 60.0f), Vec3f(0, 0, 0), AtomData::Type::Z); // append без clear
+            sim.appendAtomFast(glm::vec3(60.0f, 60.0f, 60.0f), glm::vec3(0, 0, 0), AtomData::Type::Z); // append без clear
             sim.finalizeAtomBatch();
         });
         std::printf("[ GPU-APP  ] append-after-dirty, atom0 advance=%.4f\n", advance);
@@ -498,8 +498,8 @@ void runAppendMobileAmongFixedGpu(benchmark::State& state) {
         sim.setBondFormationEnabled(false);
         sim.setDt(0.01f);
         // mobile (idx0) + fixed (idx1). Все изолированы (>> cutoff).
-        sim.appendAtomFast(Vec3f(30.0f, 60.0f, 60.0f), Vec3f(0.5f, 0, 0), AtomData::Type::Z, /*fixed=*/false);
-        sim.appendAtomFast(Vec3f(100.0f, 60.0f, 60.0f), Vec3f(0, 0, 0), AtomData::Type::Z, /*fixed=*/true);
+        sim.appendAtomFast(glm::vec3(30.0f, 60.0f, 60.0f), glm::vec3(0.5f, 0, 0), AtomData::Type::Z, /*fixed=*/false);
+        sim.appendAtomFast(glm::vec3(100.0f, 60.0f, 60.0f), glm::vec3(0, 0, 0), AtomData::Type::Z, /*fixed=*/true);
         sim.finalizeAtomBatch();
 
         sim.setGpuMode(true);
@@ -509,7 +509,7 @@ void runAppendMobileAmongFixedGpu(benchmark::State& state) {
 
         // Новый MOBILE на уникальной x=15: addAtom вставит его в середину
         // (swap с fixed@100), новый mobile окажется по индексу mobileCount_=1.
-        sim.appendAtomFast(Vec3f(15.0f, 60.0f, 60.0f), Vec3f(0, 0, 0), AtomData::Type::Z, /*fixed=*/false);
+        sim.appendAtomFast(glm::vec3(15.0f, 60.0f, 60.0f), glm::vec3(0, 0, 0), AtomData::Type::Z, /*fixed=*/false);
         sim.finalizeAtomBatch();
 
         for (int s = 0; s < 8; ++s) {

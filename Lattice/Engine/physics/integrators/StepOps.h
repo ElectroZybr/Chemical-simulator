@@ -4,7 +4,7 @@
 
 #include "Engine/World.h"
 #include "Engine/metrics/Profiler.h"
-#include "Engine/physics/AtomStorage.h"
+#include "Engine/physics/Atom/AtomStorage.h"
 #include "Engine/physics/ForceField.h"
 #include "Engine/physics/Integrator.h"
 #include "Engine/restrict.h"
@@ -19,7 +19,7 @@ namespace StepOps {
 
     inline void confineToBox(World& world) {
         constexpr float restitution = 0.8f;
-        const Vec3f max = world.getWorldSize() - Vec3f(1.0, 1.0, 1.0);
+        const glm::vec3 max = world.getWorldSize();
 
         AtomStorage& atomStorage = world.getAtomStorage();
 
@@ -39,9 +39,9 @@ namespace StepOps {
         };
 
         for (size_t atomIndex = 0; atomIndex < atomStorage.mobileCount(); ++atomIndex) {
-            confineAxis(atomStorage.posX(atomIndex), atomStorage.velX(atomIndex), static_cast<float>(max.x));
-            confineAxis(atomStorage.posY(atomIndex), atomStorage.velY(atomIndex), static_cast<float>(max.y));
-            confineAxis(atomStorage.posZ(atomIndex), atomStorage.velZ(atomIndex), static_cast<float>(max.z));
+            confineAxis(atomStorage.posX(atomIndex), atomStorage.velX(atomIndex), max.x);
+            confineAxis(atomStorage.posY(atomIndex), atomStorage.velY(atomIndex), max.y);
+            confineAxis(atomStorage.posZ(atomIndex), atomStorage.velZ(atomIndex), max.z);
         }
     }
 

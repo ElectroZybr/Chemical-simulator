@@ -8,7 +8,13 @@
 
 namespace Generators {
     namespace detail {
-        bool hasNeighborInStorage(const Lattice::Simulation& sim, const Vec3f& coords, float delta) {
+        inline float randomUnit() { return static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX); }
+
+        inline glm::vec3 randomVelocity(float scale) {
+            return glm::vec3(randomUnit() * 2.0f - 1.0f, randomUnit() * 2.0f - 1.0f, randomUnit() * 2.0f - 1.0f) * scale;
+        }
+
+        bool hasNeighborInStorage(const Lattice::Simulation& sim, const glm::vec3& coords, float delta) {
             const World& box = sim.world();
             const AtomStorage& atoms = sim.atoms();
             const int cx = box.getGrid().worldToCellX(coords.x);
@@ -33,7 +39,8 @@ namespace Generators {
                             if (atomIndex >= atoms.size()) {
                                 continue;
                             }
-                            if ((coords - atoms.pos(atomIndex)).sqrAbs() < deltaSqr) {
+                            const glm::vec3 deltaVec = coords - atoms.pos(atomIndex);
+                            if (glm::dot(deltaVec, deltaVec) < deltaSqr) {
                                 return true;
                             }
                         }
@@ -60,13 +67,13 @@ namespace Generators {
         const float minDistanceSqr = minDistance * minDistance;
 
         const size_t oldSize = sim.atoms().size();
-        std::vector<Vec3f> acceptedPositions;
+        std::vector<glm::vec3> acceptedPositions;
         acceptedPositions.reserve(static_cast<size_t>(atomCount));
 
-        std::vector<std::vector<Vec3f>> pendingByCell(static_cast<size_t>(world.getGrid().countCells));
+        std::vector<std::vector<glm::vec3>> pendingByCell(static_cast<size_t>(world.getGrid().countCells));
         const int pendingRadiusCells = std::max(1, static_cast<int>(std::ceil(minDistance / static_cast<float>(world.getGrid().cellSize))));
 
-        const auto isTooCloseToPending = [&](const Vec3f& coords) {
+        const auto isTooCloseToPending = [&](const glm::vec3& coords) {
             const int cx = world.getGrid().worldToCellX(coords.x);
             const int cy = world.getGrid().worldToCellY(coords.y);
             const int cz = world.getGrid().worldToCellZ(coords.z);
@@ -84,8 +91,9 @@ namespace Generators {
 
                         const int cellIndex = world.getGrid().index(nx, ny, nz);
                         const auto& bucket = pendingByCell[static_cast<size_t>(cellIndex)];
-                        for (const Vec3f& other : bucket) {
-                            if ((coords - other).sqrAbs() < minDistanceSqr) {
+                        for (const glm::vec3& other : bucket) {
+                            const glm::vec3 deltaVec = coords - other;
+                            if (glm::dot(deltaVec, deltaVec) < minDistanceSqr) {
                                 return true;
                             }
                         }
@@ -103,7 +111,7 @@ namespace Generators {
                 const double rx = std::rand() % int(world.getWorldSize().x - 4.0);
                 const double ry = std::rand() % int(world.getWorldSize().y - 4.0);
                 const double rz = is3d ? (std::rand() % (maxZ + 1)) : zMid;
-                const Vec3f coords(rx + 2.0, ry + 2.0, is3d ? (rz + 2.0) : zMid);
+                const glm::vec3 coords(rx + 2.0, ry + 2.0, is3d ? (rz + 2.0) : zMid);
 
                 if (!detail::hasNeighborInStorage(sim, coords, minDistance) && !isTooCloseToPending(coords)) {
                     acceptedPositions.emplace_back(coords);
@@ -121,9 +129,9 @@ namespace Generators {
         }
 
         sim.reserveAtoms(oldSize + acceptedPositions.size());
-        for (const Vec3f& pos : acceptedPositions) {
-            const Vec3f randomSpeed = Vec3f::Random() * speedScale;
-            sim.appendAtomFast(pos, is3d ? randomSpeed : Vec3f(randomSpeed.x, randomSpeed.y, 0.0f), type);
+        for (const glm::vec3& pos : acceptedPositions) {
+            const glm::vec3 randomSpeed = detail::randomVelocity(speedScale);
+            sim.appendAtomFast(pos, is3d ? randomSpeed : glm::vec3(randomSpeed.x, randomSpeed.y, 0.0f), type);
         }
 
         sim.finalizeAtomBatch();
@@ -141,7 +149,7 @@ namespace Generators {
 
         const double span = sideCount * effectiveSpacing + 2.0 * margin;
 
-        sim.setSizeBox(Vec3f(span, span, is3d ? span : 6));
+        sim.setSizeBox(glm::vec3(span, span, is3d ? span : 6.0));
 
         randomGasInCurrentBox(sim, atomCount, type, is3d, 4.0f, speedScale, 20, seed);
     }
@@ -214,7 +222,7 @@ namespace Generators {
                                    : std::max(1, static_cast<int>(std::ceil(std::sqrt(static_cast<double>(totalAtomCount)))));
 
         const double span = sideCount * effectiveSpacing + 2.0 * margin;
-        sim.setSizeBox(Vec3f(span, span, is3d ? span : 6));
+        sim.setSizeBox(glm::vec3(span, span, is3d ? span : 6.0));
 
         // Создаем газ для каждого типа атома
         uint32_t currentSeed = detail::resolveSeed(seed);

@@ -1,4 +1,5 @@
 // Phase 0 (measure-first): декомпозиция стоимости ОДНОГО per-frame кадра в
+#include <glm/gtc/random.hpp>
 // GPU-режиме, чтобы решить, оправдана ли будущая "zero-copy render"
 // оптимизация. Вопрос: per-frame download (downloadToCpu pos+vel, блокирующий
 // poll) + render CPU-upload (pack атрибутов + writeBuffer) — это значимая доля
@@ -39,12 +40,12 @@
 #include "Engine/NeighborSearch/SpatialGrid.h"
 #include "Engine/Simulation.h"
 #include "Engine/World.h"
-#include "Engine/math/Vec3.h"
-#include "Engine/physics/AtomData.h"
-#include "Engine/physics/AtomStorage.h"
+#include <glm/glm.hpp>
+#include "Engine/physics/Atom/AtomData.h"
+#include "Engine/physics/Atom/AtomStorage.h"
 #include "Engine/physics/ForceFields/LJForceField.h"
 #include "Engine/physics/gpu/GpuResidentPhysics.h"
-#include "Rendering/WGPUContext.h"
+#include "Rendering/backend/WGPUContext.h"
 using namespace Lattice;
 
 namespace {
@@ -66,7 +67,7 @@ struct ResidentScene {
         const float spacing = 3.0f;
         worldSize = side * spacing + 20.0f;
 
-        sim.createWorld(Vec3f{worldSize, worldSize, worldSize});
+        sim.createWorld(glm::vec3{worldSize, worldSize, worldSize});
         sim.setSizeBox(sim.world().getWorldSize(), 6);
         sim.setLJEnabled(true);
         sim.setCoulombEnabled(false);
@@ -77,8 +78,8 @@ struct ResidentScene {
         for (int z = 0; z < side && placed < atomCount; ++z) {
             for (int y = 0; y < side && placed < atomCount; ++y) {
                 for (int x = 0; x < side && placed < atomCount; ++x) {
-                    sim.appendAtomFast(Vec3f{10.0f + x * spacing, 10.0f + y * spacing, 10.0f + z * spacing},
-                                       Vec3f{5.0f, 0.0f, 0.0f}, AtomData::Type::H, false); // когерентный дрейф
+                    sim.appendAtomFast(glm::vec3{10.0f + x * spacing, 10.0f + y * spacing, 10.0f + z * spacing},
+                                       glm::vec3{5.0f, 0.0f, 0.0f}, AtomData::Type::H, false); // когерентный дрейф
                     ++placed;
                 }
             }
@@ -87,7 +88,7 @@ struct ResidentScene {
         sim.neighborList().build(sim.atoms(), sim.world());
 
         // Заливаем сцену в bench-owned резидентный инстанс (public API).
-        const Vec3f size = sim.world().getWorldSize();
+        const glm::vec3 size = sim.world().getWorldSize();
         gpu.uploadFromCpu(sim.atoms(), sim.neighborList(), LJForceField{}, static_cast<float>(size.x),
                           static_cast<float>(size.y), static_cast<float>(size.z), 0.0f, 0.0f, 0.0f,
                           /*ljEnabled=*/true, /*coulombEnabled=*/false); // gravity=0 (perf-сцена)
@@ -98,7 +99,7 @@ struct ResidentScene {
         // наполняем заглушками (позиции перезапишет сам download).
         downloadTarget.reserve(static_cast<size_t>(totalCount));
         for (uint32_t i = 0; i < totalCount; ++i) {
-            downloadTarget.addAtom(Vec3f{0.0f, 0.0f, 0.0f}, Vec3f{0.0f, 0.0f, 0.0f}, AtomData::Type::H, false);
+            downloadTarget.addAtom(glm::vec3{0.0f, 0.0f, 0.0f}, glm::vec3{0.0f, 0.0f, 0.0f}, AtomData::Type::H, false);
         }
     }
 
@@ -238,8 +239,8 @@ void runRenderUpload(benchmark::State& state) {
     atoms.reserve(atomCount);
     const int side = static_cast<int>(std::cbrt(static_cast<double>(atomCount))) + 1;
     for (int i = 0; i < atomCount; ++i) {
-        atoms.addAtom(Vec3f((i % side) * 3.0f, ((i / side) % side) * 3.0f, (i / static_cast<float>(side * side)) * 3.0f),
-                      Vec3f::Random() * 0.5f, AtomData::Type::H);
+        atoms.addAtom(glm::vec3((i % side) * 3.0f, ((i / side) % side) * 3.0f, (i / static_cast<float>(side * side)) * 3.0f),
+                      glm::sphericalRand(0.5f), AtomData::Type::H);
     }
     const size_t count = atoms.size();
 
@@ -316,7 +317,7 @@ void runRefreshGrid(benchmark::State& state) {
     const float worldSize = side * spacing + 20.0f;
 
     Simulation sim;
-    sim.createWorld(Vec3f{worldSize, worldSize, worldSize});
+    sim.createWorld(glm::vec3{worldSize, worldSize, worldSize});
     sim.setSizeBox(sim.world().getWorldSize(), 6);
     sim.setLJEnabled(true);
     sim.setCoulombEnabled(false);
@@ -326,8 +327,8 @@ void runRefreshGrid(benchmark::State& state) {
     for (int z = 0; z < side && placed < atomCount; ++z) {
         for (int y = 0; y < side && placed < atomCount; ++y) {
             for (int x = 0; x < side && placed < atomCount; ++x) {
-                sim.appendAtomFast(Vec3f{10.0f + x * spacing, 10.0f + y * spacing, 10.0f + z * spacing},
-                                   Vec3f{5.0f, 0.0f, 0.0f}, AtomData::Type::H, false);
+                sim.appendAtomFast(glm::vec3{10.0f + x * spacing, 10.0f + y * spacing, 10.0f + z * spacing},
+                                   glm::vec3{5.0f, 0.0f, 0.0f}, AtomData::Type::H, false);
                 ++placed;
             }
         }

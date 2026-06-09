@@ -1,11 +1,11 @@
 #pragma once
 
-#include "Rendering/RendererWGPU.h"
+#include "Rendering/Render.h"
 
-class Renderer2DWGPU : public RendererWGPU {
+class Renderer2D : public RendererWGPU {
 public:
-    Renderer2DWGPU();
-    ~Renderer2DWGPU() override = default;
+    Renderer2D();
+    ~Renderer2D() override = default;
 
 protected:
     bool useLighting() override { return false; }

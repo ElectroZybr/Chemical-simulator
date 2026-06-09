@@ -5,8 +5,8 @@
 #include "fixtures/RendererFixture.h" // тащит benchmarkDevice()
 #include "Engine/NeighborSearch/NeighborList.h"
 #include "Engine/Simulation.h"
-#include "Engine/math/Vec3.h"
-#include "Engine/physics/AtomData.h"
+#include <glm/glm.hpp>
+#include "Engine/physics/Atom/AtomData.h"
 #include "Engine/physics/ForceFields/LJForceField.h"
 #include "Engine/physics/gpu/GpuPairForceCompute.h"
 using namespace Lattice;
@@ -26,8 +26,8 @@ public:
         benchmarkDevice();
 
         simulation_ = std::make_unique<Simulation>();
-        simulation_->createWorld(Vec3f{300.0f, 300.0f, 300.0f});
-        simulation_->setSizeBox(Vec3f{300.0f, 300.0f, 300.0f}, 6);
+        simulation_->createWorld(glm::vec3{300.0f, 300.0f, 300.0f});
+        simulation_->setSizeBox(glm::vec3{300.0f, 300.0f, 300.0f}, 6);
         simulation_->setLJEnabled(true);
         simulation_->setCoulombEnabled(false);
         simulation_->neighborList().setMode(NeighborListMode::Full);
@@ -38,9 +38,9 @@ public:
             for (int y = 0; y < side && placed < atomCount_; ++y) {
                 for (int x = 0; x < side && placed < atomCount_; ++x) {
                     simulation_->appendAtomFast(
-                        Vec3f{10.0f + static_cast<float>(x) * 3.0f, 10.0f + static_cast<float>(y) * 3.0f,
+                        glm::vec3{10.0f + static_cast<float>(x) * 3.0f, 10.0f + static_cast<float>(y) * 3.0f,
                               10.0f + static_cast<float>(z) * 3.0f},
-                        Vec3f{0.0f, 0.0f, 0.0f}, AtomData::Type::H, /*fixed=*/false);
+                        glm::vec3{0.0f, 0.0f, 0.0f}, AtomData::Type::H, /*fixed=*/false);
                     ++placed;
                 }
             }

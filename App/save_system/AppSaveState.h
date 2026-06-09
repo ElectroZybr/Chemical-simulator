@@ -1,13 +1,10 @@
 #include <webgpu/webgpu-raii.hpp>
 #include <zpp_bits.h>
 
-#include "Lattice/Engine/math/Vec3.h"
-#include "Lattice/Engine/physics/AtomData.h"
+#include <glm/vec3.hpp>
+#include "Lattice/Engine/physics/Atom/AtomData.h"
 #include "Lattice/Engine/physics/Integrator.h"
 #include "Rendering/RenderData.h"
-
-template <typename T> constexpr auto serialize(auto& archive, const Vec3<T>& self) { return archive(self.x, self.y, self.z); }
-template <typename T> constexpr auto serialize(auto& archive, Vec3<T>& self) { return archive(self.x, self.y, self.z); }
 
 struct SimulationSaveState {
     uint32_t version = 1;
@@ -19,13 +16,13 @@ struct SimulationSaveState {
     Integrator::Scheme integrator;
 
     // Силы
-    Vec3f gravity;
+    glm::vec3 gravity{0.0f};
     bool bondFormationEnabled;
     bool LJEnabled;
     bool coulombEnabled;
 
     // Сетка
-    Vec3f boxSize;
+    glm::vec3 boxSize{0.0f};
     int gridCellSize;
     float neighborListCutoff;
     float neighborListSkin;
@@ -52,8 +49,9 @@ struct SimulationSaveState {
         }
 
         // v1
-        if (auto err = archive(self.dt, self.time_ns, self.step, self.integrator, self.gravity, self.bondFormationEnabled, self.LJEnabled,
-                               self.coulombEnabled, self.boxSize, self.gridCellSize, self.neighborListCutoff, self.neighborListSkin,
+        if (auto err = archive(self.dt, self.time_ns, self.step, self.integrator, self.gravity.x, self.gravity.y, self.gravity.z,
+                               self.bondFormationEnabled, self.LJEnabled, self.coulombEnabled, self.boxSize.x, self.boxSize.y, self.boxSize.z,
+                               self.gridCellSize, self.neighborListCutoff, self.neighborListSkin,
                                self.maxParticleSpeed, self.accelDamping, self.atomMobileCount, self.x, self.y, self.z, self.vx, self.vy,
                                self.vz, self.atomType, self.atomCharge, self.bonds);
             zpp::bits::failure(err.code)) {

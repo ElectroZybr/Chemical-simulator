@@ -21,4 +21,5 @@ private:
     static std::unique_ptr<BaseRenderer>* render;
     static class Interface* appInterface;
     static GLFWkeyfun imgui_key_callback;
+    static bool fullscreenToggleHeld;
 };

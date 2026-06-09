@@ -31,7 +31,7 @@ void Mouse::onMouseButton(GLFWwindow*, int button, int action, int mods) {
         return;
     }
 
-    const Vec2i mouse_pos = Mouse::getMousePos();
+    const glm::ivec2 mouse_pos = Mouse::getMousePos();
     std::unique_ptr<BaseRenderer>& rend = *renderer;
 
     if (action == GLFW_PRESS) {
@@ -68,19 +68,19 @@ void Mouse::onMouseMove(GLFWwindow*, double xpos, double ypos) {
         return;
     }
 
-    const Vec2i currentPixelPos(xpos, ypos);
-    Vec2i deltaPixel(currentPixelPos - Vec2i(rend->camera.dragStartPixelPos));
+    const glm::ivec2 currentPixelPos(static_cast<int>(xpos), static_cast<int>(ypos));
+    const glm::ivec2 deltaPixel = currentPixelPos - rend->camera.dragStartPixelPos;
 
     if (rend->camera.mode == Camera::Mode::Orbit) {
-        rend->camera.orbitDrag(deltaPixel);
+        rend->camera.orbitDrag(glm::ivec2(deltaPixel.x, deltaPixel.y));
         rend->camera.dragStartPixelPos = {currentPixelPos.x, currentPixelPos.y};
     }
     else if (rend->camera.mode == Camera::Mode::Free) {
-        rend->camera.freeDrag(deltaPixel);
+        rend->camera.freeDrag(glm::ivec2(deltaPixel.x, deltaPixel.y));
         rend->camera.dragStartPixelPos = {currentPixelPos.x, currentPixelPos.y};
     }
     else {
-        Vec3f deltaWorld = ToolsManager::screenToWorld(Vec2i(rend->camera.dragStartPixelPos)) - ToolsManager::screenToWorld(currentPixelPos);
+        const glm::vec3 deltaWorld = ToolsManager::screenToWorld(rend->camera.dragStartPixelPos) - ToolsManager::screenToWorld(currentPixelPos);
         rend->camera.position = rend->camera.dragStartCameraPos + glm::vec2(deltaWorld.x, deltaWorld.y);
     }
 }
@@ -98,24 +98,24 @@ void Mouse::onScroll(GLFWwindow*, double xoffset, double yoffset) {
             const float wheelStep = rend->camera.moveSpeed * kFreeWheelMoveScale;
             const float distance = static_cast<float>(yoffset) * wheelStep;
 
-            const Vec3f forward(rend->camera.getForwardVector());
+            const glm::vec3 forward(rend->camera.getForwardVector());
             rend->camera.move3D(forward * distance);
         }
         else {
-            const Vec2i mouse_pos = getMousePos();
-            rend->camera.zoomAt(static_cast<float>(yoffset), Vec2f(mouse_pos));
+            const glm::ivec2 mouse_pos = getMousePos();
+            rend->camera.zoomAt(static_cast<float>(yoffset), glm::vec2(mouse_pos.x, mouse_pos.y));
         }
     }
 }
 
 void Mouse::onFrame(float deltaTime) {
-    const Vec2i mouse_pos = getMousePos();
+    const glm::ivec2 mouse_pos = getMousePos();
     ToolsManager::onFrame(mouse_pos, deltaTime);
 }
 
 void Mouse::logMousePos() {
-    const Vec2i mouse_pos = getMousePos();
-    Vec3f world_pos = ToolsManager::screenToWorld(mouse_pos);
+    const glm::ivec2 mouse_pos = getMousePos();
+    const glm::vec3 world_pos = ToolsManager::screenToWorld(mouse_pos);
     std::cout << "<Mouse pos>"
               << " Screen: "
               << "X " << mouse_pos.x << "Y " << mouse_pos.y << " | World: "

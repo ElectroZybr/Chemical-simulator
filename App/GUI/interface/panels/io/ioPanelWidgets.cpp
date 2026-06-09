@@ -9,23 +9,10 @@
 #include "GUI/interface/style/ComboStyle.h"
 
 namespace {
-    struct AtomTypeOption {
-        const char* label;
-        AtomData::Type type;
-    };
-
     struct RecordingFormatOption {
         const char* label;
         int value;
     };
-
-    constexpr std::array<AtomTypeOption, 19> kAtomTypeOptions{{
-        {"Zerium", AtomData::Type::Z}, {"H", AtomData::Type::H},   {"He", AtomData::Type::He}, {"Li", AtomData::Type::Li},
-        {"Be", AtomData::Type::Be},    {"B", AtomData::Type::B},   {"C", AtomData::Type::C},   {"N", AtomData::Type::N},
-        {"O", AtomData::Type::O},      {"F", AtomData::Type::F},   {"Ne", AtomData::Type::Ne}, {"Na", AtomData::Type::Na},
-        {"Mg", AtomData::Type::Mg},    {"Al", AtomData::Type::Al}, {"Si", AtomData::Type::Si}, {"P", AtomData::Type::P},
-        {"S", AtomData::Type::S},      {"Cl", AtomData::Type::Cl}, {"Ar", AtomData::Type::Ar},
-    }};
 
     constexpr std::array<RecordingFormatOption, 2> kRecordingFormatOptions{{
         {"MP4", 0},
@@ -33,14 +20,20 @@ namespace {
     }};
 
     constexpr float kSceneTileRounding = 10.0f;
+    constexpr const char* kZeriumLabel = "Zerium";
 
-    int findTypeIndex(AtomData::Type type) {
-        for (int i = 0; i < static_cast<int>(kAtomTypeOptions.size()); ++i) {
-            if (kAtomTypeOptions[static_cast<size_t>(i)].type == type) {
-                return i;
-            }
+    std::string_view atomTypeLabel(AtomData::Type type) {
+        if (type == AtomData::Type::Z) {
+            return kZeriumLabel;
         }
-        return 0;
+        return AtomData::symbol(type);
+    }
+
+    int findTypeIndex(AtomData::Type type) { return static_cast<int>(type); }
+
+    AtomData::Type typeAtIndex(int index) {
+        const int clampedIndex = std::clamp(index, 0, static_cast<int>(AtomData::Type::COUNT) - 1);
+        return static_cast<AtomData::Type>(clampedIndex);
     }
 
     int findRecordingFormatIndex(int format) {
@@ -75,16 +68,18 @@ void drawIOPanelRecordingStatusLine(bool isRecording, float fps, uint64_t frameC
 
 void drawIOPanelAtomTypeCombo(const char* id, AtomData::Type& atomType, float width, float uiScale) {
     int selectedTypeIndex = findTypeIndex(atomType);
-    const char* selectedLabel = kAtomTypeOptions[static_cast<size_t>(selectedTypeIndex)].label;
+    std::string_view selectedLabel = atomTypeLabel(typeAtIndex(selectedTypeIndex));
 
     if (ComboStyle::beginCenteredCombo(id, width, uiScale)) {
         ComboStyle::pushCenteredSelectableText();
-        for (int i = 0; i < static_cast<int>(kAtomTypeOptions.size()); ++i) {
+        for (int i = 0; i < static_cast<int>(AtomData::Type::COUNT); ++i) {
             const bool selected = (i == selectedTypeIndex);
-            if (ImGui::Selectable(kAtomTypeOptions[static_cast<size_t>(i)].label, selected)) {
-                atomType = kAtomTypeOptions[static_cast<size_t>(i)].type;
+            const AtomData::Type candidateType = typeAtIndex(i);
+            const std::string_view candidateLabel = atomTypeLabel(candidateType);
+            if (ImGui::Selectable(candidateLabel.data(), selected)) {
+                atomType = candidateType;
                 selectedTypeIndex = i;
-                selectedLabel = kAtomTypeOptions[static_cast<size_t>(i)].label;
+                selectedLabel = candidateLabel;
             }
             if (selected) {
                 ImGui::SetItemDefaultFocus();
@@ -94,7 +89,7 @@ void drawIOPanelAtomTypeCombo(const char* id, AtomData::Type& atomType, float wi
         ImGui::EndCombo();
     }
 
-    ComboStyle::drawCenteredComboPreview(selectedLabel);
+    ComboStyle::drawCenteredComboPreview(selectedLabel.data());
 }
 
 void drawIOPanelRecordingFormatCombo(const char* id, int& selectedFormat, float width, float uiScale) {

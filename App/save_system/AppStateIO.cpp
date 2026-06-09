@@ -20,7 +20,7 @@
 #include "Lattice/Engine/io/SimulationStateIO.h"
 #include "GUI/interface/UiState.h"
 #include "Rendering/BaseRenderer.h"
-#include "Rendering/WGPUContext.h"
+#include "Rendering/backend/WGPUContext.h"
 
 namespace {
     constexpr const char* kBlockIndent = "  ";

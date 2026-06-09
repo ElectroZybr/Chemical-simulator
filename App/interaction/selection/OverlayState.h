@@ -8,21 +8,20 @@
 
 #include <imgui.h>
 #include <imgui_internal.h>
-
-#include "Lattice/Engine/math/Vec2.h"
+#include <glm/vec2.hpp>
 
 struct OverlayState {
     bool boxVisible = false;
     bool lassoVisible = false;
     bool rulerVisible = false;
 
-    Vec2i boxStart;
-    Vec2i boxEnd;
-    Vec2i rulerStart;
-    Vec2i rulerEnd;
+    glm::ivec2 boxStart;
+    glm::ivec2 boxEnd;
+    glm::ivec2 rulerStart;
+    glm::ivec2 rulerEnd;
     std::string rulerLabel;
 
-    std::vector<Vec2i> lassoPoints;
+    std::vector<glm::ivec2> lassoPoints;
 
     void reset() {
         boxVisible = false;
@@ -58,12 +57,12 @@ struct OverlayState {
             dl->AddCircleFilled(ImVec2(rulerStart.x, rulerStart.y), 4.f, light_red);
             dl->AddCircleFilled(ImVec2(rulerEnd.x, rulerEnd.y), 4.f, light_red);
 
-            const Vec2f line(Vec2f(rulerEnd) - Vec2f(rulerStart));
-            const float lineLength = line.abs();
-            Vec2f labelPos = 0.5f * Vec2f(rulerStart + rulerEnd);
+            const glm::vec2 line = glm::vec2(rulerEnd - rulerStart);
+            const float lineLength = std::sqrt(line.x * line.x + line.y * line.y);
+            glm::vec2 labelPos = 0.5f * glm::vec2(rulerStart + rulerEnd);
             float angle_rad = 0.0f;
             if (lineLength > 0.001f) {
-                Vec2f normal(-line.y / lineLength, line.x / lineLength);
+                glm::vec2 normal(-line.y / lineLength, line.x / lineLength);
                 if (normal.y > 0.0f) {
                     normal = -normal;
                 }
@@ -89,7 +88,7 @@ struct OverlayState {
         }
     }
 
-    static void AddTextRotated(ImDrawList* dl, ImFont* font, float font_size, Vec2f pos, float angle_rad, ImU32 color,
+    static void AddTextRotated(ImDrawList* dl, ImFont* font, float font_size, glm::vec2 pos, float angle_rad, ImU32 color,
                                std::string_view text) {
         if (text.empty()) {
             return;

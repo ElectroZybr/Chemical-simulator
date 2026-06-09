@@ -1,11 +1,11 @@
 #pragma once
 
-#include "Rendering/RendererWGPU.h"
+#include "Rendering/Render.h"
 
-class Renderer3DWGPU : public RendererWGPU {
+class Renderer3D : public RendererWGPU {
 public:
-    Renderer3DWGPU();
-    ~Renderer3DWGPU() override = default;
+    Renderer3D();
+    ~Renderer3D() override = default;
 
 protected:
     void updateMatrices() override;

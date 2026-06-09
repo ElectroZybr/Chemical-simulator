@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Engine/physics/AtomData.h"
+#include "Engine/physics/Atom/AtomData.h"
 
 struct BondParams {
     float r0 = 0;

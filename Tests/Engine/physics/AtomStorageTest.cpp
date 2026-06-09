@@ -1,17 +1,17 @@
 #include <gtest/gtest.h>
 
 #include "Engine/Simulation.h"
-#include "Engine/math/Vec3.h"
-#include "Engine/physics/AtomData.h"
-#include "Engine/physics/AtomStorage.h"
+#include <glm/glm.hpp>
+#include "Engine/physics/Atom/AtomData.h"
+#include "Engine/physics/Atom/AtomStorage.h"
 using namespace Lattice;
 
 namespace {
 
 Simulation makeEmptySim() {
     Simulation sim;
-    sim.createWorld(Vec3f{40.0f, 40.0f, 40.0f});
-    sim.setSizeBox(Vec3f{40.0f, 40.0f, 40.0f}, 6);
+    sim.createWorld(glm::vec3{40.0f, 40.0f, 40.0f});
+    sim.setSizeBox(glm::vec3{40.0f, 40.0f, 40.0f}, 6);
     return sim;
 }
 
@@ -25,11 +25,11 @@ TEST(AtomStorageTest, MobileFirstAfterAddMixed) {
     Simulation sim = makeEmptySim();
 
     for (int i = 0; i < 10; ++i) {
-        sim.appendAtomFast(Vec3f{10.0f + static_cast<float>(i), 10.0f, 10.0f}, Vec3f{0.0f, 0.0f, 0.0f},
+        sim.appendAtomFast(glm::vec3{10.0f + static_cast<float>(i), 10.0f, 10.0f}, glm::vec3{0.0f, 0.0f, 0.0f},
                            AtomData::Type::H, /*fixed=*/false);
     }
     for (int i = 0; i < 5; ++i) {
-        sim.appendAtomFast(Vec3f{10.0f + static_cast<float>(i), 20.0f, 10.0f}, Vec3f{0.0f, 0.0f, 0.0f},
+        sim.appendAtomFast(glm::vec3{10.0f + static_cast<float>(i), 20.0f, 10.0f}, glm::vec3{0.0f, 0.0f, 0.0f},
                            AtomData::Type::H, /*fixed=*/true);
     }
     sim.finalizeAtomBatch();
@@ -72,7 +72,7 @@ TEST(AtomStorageTest, GrowthPreservesEarlierAtoms) {
 
     for (size_t i = 0; i < kN; ++i) {
         const float fi = static_cast<float>(i);
-        sim.appendAtomFast(Vec3f{fi, fi * 2.0f, fi * 3.0f}, Vec3f{0.0f, 0.0f, 0.0f}, AtomData::Type::H,
+        sim.appendAtomFast(glm::vec3{fi, fi * 2.0f, fi * 3.0f}, glm::vec3{0.0f, 0.0f, 0.0f}, AtomData::Type::H,
                            /*fixed=*/false);
     }
 

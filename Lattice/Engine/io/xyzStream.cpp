@@ -31,7 +31,7 @@ void xyzStream::WriteFrame(const Lattice::Simulation& simulation) {
     file << atomCount << "\n";
     file << "Step: " << simulation.world().getSimStep() << ", Time: " << simulation.world().getSimTimeNs() << " ns\n";
     for (size_t i = 0; i < atomCount; ++i) {
-        const Vec3f pos = simulation.atoms().pos(i);
+        const glm::vec3 pos = simulation.atoms().pos(i);
         file << AtomData::symbol(simulation.atoms().type(i)) << " " << pos.x << " " << pos.y << " " << pos.z << "\n";
     }
 

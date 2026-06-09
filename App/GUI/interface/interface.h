@@ -31,6 +31,8 @@ public:
     void shutdown();
     int update();
     void draw(BaseRenderer& renderer);
+    void setUiScaleMultiplier(float multiplier);
+    float uiScaleMultiplier() const;
     UiState& state();
     const UiState& state() const;
     void setScenesDirectory(std::filesystem::path scenesDirectory);
@@ -50,10 +52,18 @@ public:
     SettingsPanel settingsPanel;
 
 private:
+    void applyPendingUiScaleRefresh();
+    void reloadUiFonts();
+    void syncWindowMetrics();
+
     GLFWwindow* window_;
     Lattice::Simulation* simulation_;
     std::unique_ptr<BaseRenderer>* renderer_;
     class CaptureController* captureController_;
     std::chrono::high_resolution_clock::time_point lastTime_;
+    int lastWindowWidth_ = 0;
+    int lastWindowHeight_ = 0;
+    bool imguiBackendReady_ = false;
+    bool pendingUiScaleRefresh_ = false;
     UiState uiState_;
 };

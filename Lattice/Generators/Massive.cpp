@@ -2,9 +2,16 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdlib>
 
 namespace Generators {
     namespace detail {
+        inline float randomUnit() { return static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX); }
+
+        inline glm::vec3 randomVelocity(float scale) {
+            return glm::vec3(randomUnit() * 2.0f - 1.0f, randomUnit() * 2.0f - 1.0f, randomUnit() * 2.0f - 1.0f) * scale;
+        }
+
         enum class Axis : uint8_t {
             X,
             Y,
@@ -29,7 +36,7 @@ namespace Generators {
             return {Axis::X, Axis::Y, Axis::Z};
         }
 
-        void setAxis(Vec3f& vector, Axis axis, double value) {
+        void setAxis(glm::vec3& vector, Axis axis, double value) {
             const auto component = static_cast<float>(value);
             switch (axis) {
             case Axis::X:
@@ -44,20 +51,20 @@ namespace Generators {
             }
         }
 
-        Vec3f makeLayoutVector(CrystalLayout layout, double first, double second, double depth) {
-            Vec3f vector;
+        glm::vec3 makeLayoutVector(CrystalLayout layout, double first, double second, double depth) {
+            glm::vec3 vector(0.0f);
             setAxis(vector, layout.first, first);
             setAxis(vector, layout.second, second);
             setAxis(vector, layout.depth, depth);
             return vector;
         }
 
-        Vec3f makeCrystalBoxSize(double side, bool is3d, CrystalLayout layout) {
+        glm::vec3 makeCrystalBoxSize(double side, bool is3d, CrystalLayout layout) {
             constexpr double flatSide = 6.0;
             return makeLayoutVector(layout, side, side, is3d ? side : flatSide);
         }
 
-        Vec3f makeCrystalMargin(bool is3d, CrystalLayout layout, double margin) {
+        glm::vec3 makeCrystalMargin(bool is3d, CrystalLayout layout, double margin) {
             return makeLayoutVector(layout, margin, margin, is3d ? margin : 0.0);
         }
     }
@@ -68,7 +75,7 @@ namespace Generators {
 
         sim.setSizeBox(detail::makeCrystalBoxSize(side, is3d, layout));
 
-        const Vec3f vecMargin = detail::makeCrystalMargin(is3d, layout, margin);
+        const glm::vec3 vecMargin = detail::makeCrystalMargin(is3d, layout, margin);
         const int depthMax = is3d ? n : 1;
         const size_t atomTotal = static_cast<size_t>(n) * static_cast<size_t>(n) * static_cast<size_t>(depthMax);
         sim.reserveAtoms(sim.atoms().size() + atomTotal);
@@ -76,8 +83,8 @@ namespace Generators {
         for (int first = 1; first <= n; ++first) {
             for (int second = 1; second <= n; ++second) {
                 for (int depth = 1; depth <= depthMax; ++depth) {
-                    const Vec3f latticeCoords = detail::makeLayoutVector(layout, first, second, depth);
-                    sim.appendAtomFast(latticeCoords * padding + vecMargin, Vec3f::Random() * 0.5f, type);
+                    const glm::vec3 latticeCoords = detail::makeLayoutVector(layout, first, second, depth);
+                    sim.appendAtomFast(latticeCoords * static_cast<float>(padding) + vecMargin, detail::randomVelocity(0.5f), type);
                 }
             }
         }
@@ -85,13 +92,13 @@ namespace Generators {
         sim.finalizeAtomBatch();
     }
 
-    void AngularVelocity(Lattice::Simulation& sim, Vec3f angularVelocity) {
-        const Vec3f center = sim.world().getWorldSize() * 0.5f;
+    void AngularVelocity(Lattice::Simulation& sim, glm::vec3 angularVelocity) {
+        const glm::vec3 center = sim.world().getWorldSize() * 0.5f;
         AtomStorage& atoms = sim.atoms();
 
         for (size_t atomIndex = 0; atomIndex < atoms.mobileCount(); ++atomIndex) {
-            const Vec3f radial = atoms.pos(atomIndex) - center;
-            atoms.setVel(atomIndex, angularVelocity.cross(radial));
+            const glm::vec3 radial = atoms.pos(atomIndex) - center;
+            atoms.setVel(atomIndex, glm::cross(angularVelocity, radial));
         }
     }
 }

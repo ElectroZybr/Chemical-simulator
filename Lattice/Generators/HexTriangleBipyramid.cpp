@@ -17,10 +17,10 @@ namespace Generators {
         const double rowStep = spacing * std::sqrt(3.0) * 0.5;
         const double layerShiftZ = rowStep / 3.0;
         const double layerStep = spacing * std::sqrt(2.0 / 3.0) * static_cast<double>(verticalScale);
-        const Vec3f pyramidCenter(static_cast<double>(layerRadius) * spacing * 0.5, 0.0,
-                                  static_cast<double>(layerRadius) * rowStep / 3.0);
+        const glm::vec3 pyramidCenter(static_cast<double>(layerRadius) * spacing * 0.5, 0.0,
+                                      static_cast<double>(layerRadius) * rowStep / 3.0);
 
-        std::vector<Vec3f> positions;
+        std::vector<glm::vec3> positions;
         size_t atomTotal = 0;
         for (int layer = -layerRadius; layer <= layerRadius; ++layer) {
             const int side = baseSide - std::abs(layer);
@@ -28,7 +28,7 @@ namespace Generators {
         }
         positions.reserve(atomTotal);
 
-        Vec3f maxRadius(0.0, 0.0, 0.0);
+        glm::vec3 maxRadius(0.0f);
 
         for (int layer = -layerRadius; layer <= layerRadius; ++layer) {
             const int layerIndex = std::abs(layer);
@@ -39,11 +39,11 @@ namespace Generators {
             for (int row = 0; row < side; ++row) {
                 const int rowCount = side - row;
                 for (int col = 0; col < rowCount; ++col) {
-                    const Vec3f latticePos(static_cast<double>(col) * spacing + static_cast<double>(row) * spacing * 0.5 + layerShiftX,
-                                           static_cast<double>(layer) * layerStep,
-                                           static_cast<double>(row) * rowStep + layerShiftedZ);
+                    const glm::vec3 latticePos(static_cast<double>(col) * spacing + static_cast<double>(row) * spacing * 0.5 + layerShiftX,
+                                               static_cast<double>(layer) * layerStep,
+                                               static_cast<double>(row) * rowStep + layerShiftedZ);
                     positions.push_back(latticePos);
-                    const Vec3f centeredPos = latticePos - pyramidCenter;
+                    const glm::vec3 centeredPos = latticePos - pyramidCenter;
                     maxRadius.x = std::max(maxRadius.x, std::abs(centeredPos.x));
                     maxRadius.y = std::max(maxRadius.y, std::abs(centeredPos.y));
                     maxRadius.z = std::max(maxRadius.z, std::abs(centeredPos.z));
@@ -51,11 +51,11 @@ namespace Generators {
             }
         }
 
-        sim.setSizeBox(maxRadius * 2.0 + Vec3f(margin * 2.0, margin * 2.0, margin * 2.0));
-        const Vec3f boxCenter = sim.world().getWorldSize() * 0.5f;
+        sim.setSizeBox(maxRadius * 2.0f + glm::vec3(margin * 2.0));
+        const glm::vec3 boxCenter = sim.world().getWorldSize() * 0.5f;
         sim.reserveAtoms(sim.atoms().size() + positions.size());
-        for (const Vec3f& position : positions) {
-            sim.appendAtomFast(position - pyramidCenter + boxCenter, Vec3f(0.0, 0.0, 0.0), type);
+        for (const glm::vec3& position : positions) {
+            sim.appendAtomFast(position - pyramidCenter + boxCenter, glm::vec3(0.0f), type);
         }
 
         sim.finalizeAtomBatch();

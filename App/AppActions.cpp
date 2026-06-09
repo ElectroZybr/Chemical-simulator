@@ -11,7 +11,7 @@
 #include "GUI/interface/UiState.h"
 
 namespace {
-    void shiftAtoms(AtomStorage& atomStorage, Vec3f delta) {
+    void shiftAtoms(AtomStorage& atomStorage, glm::vec3 delta) {
         float* x = atomStorage.xData();
         float* y = atomStorage.yData();
         float* z = atomStorage.zData();
@@ -24,10 +24,10 @@ namespace {
         }
     }
 
-    void applyResizeBox(Lattice::Simulation& simulation, const Vec3f& newSize) {
+    void applyResizeBox(Lattice::Simulation& simulation, const glm::vec3& newSize) {
         World& world = simulation.world();
-        const Vec3f oldSize = world.getWorldSize();
-        const Vec3f delta = (newSize - oldSize) * 0.5f;
+        const glm::vec3 oldSize = world.getWorldSize();
+        const glm::vec3 delta = (newSize - oldSize) * 0.5f;
 
         // shiftAtoms правит позиции на месте — в GPU-режиме подтянуть актуальные
         // позиции ДО сдвига, иначе сдвиг ляжет на устаревший снимок, а позже
@@ -71,7 +71,7 @@ namespace AppActions {
             renderer.syncScene(simulation);
             ToolsManager::resetInteractionState();
         }));
-        track(AppSignals::UI::ResizeBox.connect([&](const Vec3f& newSize) { applyResizeBox(simulation, newSize); }));
+        track(AppSignals::UI::ResizeBox.connect([&](const glm::vec3& newSize) { applyResizeBox(simulation, newSize); }));
         track(AppSignals::UI::ClearSimulation.connect([&]() {
             simulation.clear();
             ToolsManager::resetInteractionState();

@@ -1,6 +1,5 @@
 #pragma once
 
-#include "Engine/math/Vec3.h"
 #include "Engine/physics/Integrator.h"
 
 namespace Lattice {

@@ -4,7 +4,7 @@
 
 #include <glm/common.hpp>
 
-#include "Rendering/RenderMath.h"
+#include "Rendering/RenderRay.h"
 #include "Rendering/camera/Camera.h"
 
 namespace {

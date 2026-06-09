@@ -9,7 +9,7 @@
 #include <utility>
 #include <vector>
 
-#include "Rendering/WGPUContext.h"
+#include "Rendering/backend/WGPUContext.h"
 
 #include "generated/shaders/gpu_cell_list.wgsl.h"
 

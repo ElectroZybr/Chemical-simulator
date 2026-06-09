@@ -6,8 +6,7 @@
 #include "Engine/NeighborSearch/NeighborList.h"
 #include "Engine/metrics/Profiler.h"
 
-bool BondForceField::compute(AtomStorage& atoms, Bond::List& bonds, const NeighborList& neighborList, bool allowBondFormation,
-                             float dt) const {
+bool BondForceField::compute(AtomStorage& atoms, Bond::List& bonds, const NeighborList& neighborList, bool allowBondFormation, float dt) const {
     PROFILE_SCOPE("ForceField::Bonded");
     if (bonds.empty() && !allowBondFormation) {
         return false;

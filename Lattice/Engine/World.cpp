@@ -5,7 +5,7 @@
 #include "Engine/physics/Integrator.h"
 #include "Engine/physics/gpu/GpuResidentPhysics.h"
 
-World::World(Vec3f size, Vec3f renderOffset) : size(size), renderOffset(renderOffset), grid(size) {
+World::World(glm::vec3 size, glm::vec3 renderOffset) : size(size), renderOffset(renderOffset), grid(size) {
     atomStorage_.reserve(250000);
     neighborList_.setParams(5.f, 1.f);
 #ifdef LATTICELAB_USE_TBB
@@ -41,7 +41,7 @@ void World::reset() {
     resetRuntimeState();
 }
 
-void World::resizeBox(const Vec3f& newSize, float cellSize) {
+void World::resizeBox(const glm::vec3& newSize, float cellSize) {
     syncGpuBeforeEdit(); // grid rebuild ниже должен видеть актуальные позиции
     setWorldSize(newSize);
     setGridCellSize(cellSize);
@@ -49,7 +49,7 @@ void World::resizeBox(const Vec3f& newSize, float cellSize) {
     notifySceneEdited(); // worldMax_/grid в VRAM устарели — нужен re-upload
 }
 
-void World::addAtom(const Vec3f& start_coords, const Vec3f& start_speed, AtomData::Type type, bool fixed) {
+void World::addAtom(const glm::vec3& start_coords, const glm::vec3& start_speed, AtomData::Type type, bool fixed) {
     syncGpuBeforeEdit(); // подтянуть свежие позиции существующих атомов перед добавлением
     atomStorage_.addAtom(start_coords, start_speed, type, fixed);
     grid.rebuild(atomStorage_.xDataSpan(), atomStorage_.yDataSpan(), atomStorage_.zDataSpan());
@@ -71,6 +71,21 @@ void World::addBond(size_t aIndex, size_t bIndex) {
     // трогает позиции, поэтому syncGpuBeforeEdit не нужен (re-upload несёт текущие
     // VRAM-позиции через downloadToCpu при cpuPositionsDirty_).
     notifySceneEdited();
+}
+
+void World::remapAtomIndices(std::span<const uint32_t> oldToNew) {
+    if (oldToNew.empty()) {
+        return;
+    }
+
+    for (Bond& bond : bonds_) {
+        if (bond.aIndex < oldToNew.size()) {
+            bond.aIndex = oldToNew[bond.aIndex];
+        }
+        if (bond.bIndex < oldToNew.size()) {
+            bond.bIndex = oldToNew[bond.bIndex];
+        }
+    }
 }
 
 void World::removeAtom(size_t atomIndex) {

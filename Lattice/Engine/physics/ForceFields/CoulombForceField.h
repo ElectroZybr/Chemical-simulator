@@ -2,14 +2,18 @@
 
 #include <cmath>
 
+#include "Engine/NeighborSearch/SpatialGrid.h"
 #include "Engine/Consts.h"
-#include "Engine/physics/AtomStorage.h"
+#include "Engine/physics/Atom/AtomStorage.h"
 
 class NeighborList;
+class OctreeNode;
 
 class CoulombForceField {
 public:
-    void compute(AtomStorage& atoms, NeighborList& neighborList) const;
+    void computeLongRange(AtomStorage& atoms, const SpatialGrid& grid) const;
+    void computeForce(const AtomStorage& atoms, size_t atomIndex, const OctreeNode& node, float theta, float& forceX, float& forceY, float& forceZ,
+                      float& potentialEnergy) const;
 
     static constexpr float kCoulombEvAngstrom = 140.399645f; // eV*A/e^2
 

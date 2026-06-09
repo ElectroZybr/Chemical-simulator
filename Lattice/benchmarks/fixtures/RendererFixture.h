@@ -1,4 +1,5 @@
 #pragma once
+#include <glm/gtc/random.hpp>
 
 #include <cmath>
 #include <memory>
@@ -8,11 +9,11 @@
 #include "App/interaction/ToolsManager.h"
 #include "App/interaction/picking/PickingSystem.h"
 #include "Engine/Simulation.h"
-#include "Engine/physics/AtomData.h"
-#include "Engine/physics/AtomStorage.h"
+#include "Engine/physics/Atom/AtomData.h"
+#include "Engine/physics/Atom/AtomStorage.h"
 #include "Engine/physics/Bond.h"
 #include "Rendering/BaseRenderer.h"
-#include "Rendering/WGPUContext.h"
+#include "Rendering/backend/WGPUContext.h"
 
 // MERGE: апстрим заменил интерфейс IRenderer базовым классом BaseRenderer.
 template <typename T>
@@ -57,10 +58,10 @@ public:
         colorTexture_ = ctx.device()->createTexture(colorDesc);
         colorTextureView_ = colorTexture_->createView();
 
-        simulation_.createWorld(Vec3f(300, 300, 300));
+        simulation_.createWorld(glm::vec3(300, 300, 300));
         simulation_.world().getAtomStorage() = makeGridAtoms(static_cast<int>(state.range(0)));
         renderer_ = std::make_unique<TRenderer>(simulation_.world(), ctx.surfaceFormat());
-        renderer_->camera.setScreenSize(Vec2f{800.0f, 600.0f});  // MERGE: апстрим добавил glm::vec2-перегрузку — braced-init стал неоднозначным
+        renderer_->camera.setScreenSize(glm::vec2{800.0f, 600.0f});  // MERGE: апстрим добавил glm::vec2-перегрузку — braced-init стал неоднозначным
         renderer_->camera.resetView();
         createRenderTargets(*ctx.device(), ctx.surfaceFormat());
 
@@ -87,8 +88,8 @@ private:
         atoms.reserve(count);
         const int side = static_cast<int>(std::cbrt(count)) + 1;
         for (int i = 0; i < count; ++i) {
-            atoms.addAtom(Vec3f((i % side) * 3.0f, ((i / side) % side) * 3.0f, (i / static_cast<float>(side * side)) * 3.0f),
-                          Vec3f::Random() * 0.5f, AtomData::Type::H);
+            atoms.addAtom(glm::vec3((i % side) * 3.0f, ((i / side) % side) * 3.0f, (i / static_cast<float>(side * side)) * 3.0f),
+                          glm::sphericalRand(0.5f), AtomData::Type::H);
         }
         return atoms;
     }

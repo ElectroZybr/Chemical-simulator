@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cfloat>
 #include <cmath>
 #include <cstdio>
 #include <filesystem>
@@ -53,7 +54,7 @@ void IOPanel::removeSceneTileByPath(std::string_view path) {
     }
 }
 
-void IOPanel::draw(float scale, Vec2i windowSize, Lattice::Simulation& simulation, FileDialogManager& fileDialog, UiState& uiState) {
+void IOPanel::draw(float scale, glm::ivec2 windowSize, Lattice::Simulation& simulation, FileDialogManager& fileDialog, UiState& uiState) {
     const float target = visible_ ? 1.f : 0.f;
     const float step = ImGui::GetIO().DeltaTime * 12.f;
     animProgress_ += (target - animProgress_) * std::min(step, 1.f);
@@ -78,8 +79,6 @@ void IOPanel::draw(float scale, Vec2i windowSize, Lattice::Simulation& simulatio
 
     fileDialog.setSimulationDirectory(scenesDirectory_.string());
     ensureSceneCatalogLoaded();
-    boxSize_ = simulation.world().getWorldSize();
-
     const float panelWidth = 300.f * scale;
     const float topOffset = 65.f * scale;
     const float panelHeight = static_cast<float>(windowSize.y) - topOffset;
@@ -135,29 +134,6 @@ void IOPanel::draw(float scale, Vec2i windowSize, Lattice::Simulation& simulatio
     }
     else if (xyzSelected) {
         drawIOPanelRecordingStatusLine(xyzRecording, uiState.xyzFps, uiState.xyzFrameCount);
-    }
-
-    ImGui::SeparatorText("Размер бокса");
-    bool boxSizeChanged = false;
-    const auto drawBoxSizeDrag = [&](const char* label, const char* id, float& value) {
-        ImGui::SetNextItemWidth(150.0f * scale);
-        const bool changed = ImGui::DragFloat(id, &value, 0.5f, 1.0f, 0.0f, "%.1f");
-        if (ImGui::IsItemHovered()) {
-            ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
-        }
-        ImGui::SameLine();
-        ImGui::TextUnformatted(label);
-        return changed;
-    };
-    boxSizeChanged |= drawBoxSizeDrag("Size X", "##box_size_x", boxSize_.x);
-    boxSizeChanged |= drawBoxSizeDrag("Size Y", "##box_size_y", boxSize_.y);
-    boxSizeChanged |= drawBoxSizeDrag("Size Z", "##box_size_z", boxSize_.z);
-
-    if (boxSizeChanged) {
-        boxSize_.x = std::max(boxSize_.x, 1.0f);
-        boxSize_.y = std::max(boxSize_.y, 1.0f);
-        boxSize_.z = std::max(boxSize_.z, 1.0f);
-        AppSignals::UI::ResizeBox.emit(boxSize_);
     }
 
     ImGui::SeparatorText("Массивогенератор");
@@ -222,7 +198,7 @@ void IOPanel::draw(float scale, Vec2i windowSize, Lattice::Simulation& simulatio
 
         if (tile.hasPreview) {
             const ImTextureID textureId = (ImTextureID)(WGPUTextureView)*tile.previewTextureView;
-            const Vec2i textureSize(tile.previewSize);
+            const glm::ivec2 textureSize(static_cast<int>(tile.previewSize.x), static_cast<int>(tile.previewSize.y));
             ImVec2 uvMin(0.0f, 0.0f);
             ImVec2 uvMax(1.0f, 1.0f);
 

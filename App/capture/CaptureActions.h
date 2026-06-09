@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Signals/Signals.h"
+#include "App/Signals.h"
 
 class CaptureController;
 

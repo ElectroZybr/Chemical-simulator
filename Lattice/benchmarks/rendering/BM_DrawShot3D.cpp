@@ -2,7 +2,7 @@
 
 #include "fixtures/RendererFixture.h"
 #include "Rendering/3d/Renderer3DWGPU.h"
-#include "Rendering/WGPUContext.h"
+#include "Rendering/backend/WGPUContext.h"
 using namespace Lattice;
 
 // @bench_meta {"id":"RendererFixture<Renderer3D>/DrawShot3D","ru":"Отрисовка кадра 3D","group":"Рендер/3D"}

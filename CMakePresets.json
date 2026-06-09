@@ -69,7 +69,8 @@
       "name": "bench",
       "configurePreset": "bench",
       "targets": [
-        "benchmarks"
+        "benchmarks",
+        "bench"
       ],
       "jobs": 8
     },

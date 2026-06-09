@@ -1,7 +1,6 @@
 #pragma once
 #include <deque>
 
-#include "Lattice/Engine/math/Vec2.h"
 #include "GUI/interface/panels/debug/view/DebugView.h"
 
 class DebugPanel {
@@ -12,7 +11,7 @@ class DebugPanel {
 public:
     DebugView* addView(DebugView view);
 
-    void draw(float uiScale, Vec2i windowSize);
+    void draw(float uiScale, glm::ivec2 windowSize);
 
     void toggle() { visible = !visible; }
     void close() { visible = false; }

@@ -7,7 +7,7 @@
 #include <CLI/CLI.hpp>
 
 #include "Engine/Simulation.h"
-#include "Engine/physics/AtomData.h"
+#include "Engine/physics/Atom/AtomData.h"
 
 using namespace Lattice;
 
@@ -37,7 +37,7 @@ static void printAtomPositions(const Simulation& simulation) {
     const auto& atoms = simulation.world().getAtomStorage();
     std::cout << "Atom positions:\n";
     for (size_t i = 0; i < atoms.size(); ++i) {
-        const auto position = atoms.pos(i);
+        const glm::vec3 position = atoms.pos(i);
         std::cout << "  [" << i << "] (" << position.x << ", " << position.y << ", " << position.z << ")\n";
     }
 }
@@ -53,7 +53,7 @@ static void printMetrics(const Simulation& simulation) {
     std::cout << "  Temperature: " << metrics.temperatureK() << " K\n";
 }
 
-static void createInitialSimulation(Simulation& simulation, Vec3f worldSize, Vec3f gravity, float dt, float maxSpeed, float damping) {
+static void createInitialSimulation(Simulation& simulation, glm::vec3 worldSize, glm::vec3 gravity, float dt, float maxSpeed, float damping) {
     simulation.createWorld(worldSize);
     simulation.setDt(dt);
     simulation.setGravity(gravity);
@@ -62,16 +62,16 @@ static void createInitialSimulation(Simulation& simulation, Vec3f worldSize, Vec
     simulation.world().setTitle("CLI-driven LatticeEngine");
     simulation.world().setDescription("Interactive CLI demo world.");
 
-    simulation.createAtom({-2.5f, 2.0f, 0.0f}, {0.0f, 0.0f, 0.0f}, AtomData::Type::H);
-    simulation.createAtom({2.5f, 2.0f, 0.0f}, {0.0f, 0.0f, 0.0f}, AtomData::Type::He);
-    simulation.createAtom({0.0f, -2.0f, 0.0f}, {0.0f, 0.0f, 0.0f}, AtomData::Type::Li);
+    simulation.createAtom(glm::vec3(-2.5f, 2.0f, 0.0f), glm::vec3(0.0f), AtomData::Type::H);
+    simulation.createAtom(glm::vec3(2.5f, 2.0f, 0.0f), glm::vec3(0.0f), AtomData::Type::He);
+    simulation.createAtom(glm::vec3(0.0f, -2.0f, 0.0f), glm::vec3(0.0f), AtomData::Type::Li);
 }
 
 int main(int argc, char** argv) {
     int defaultSteps = 100;
     float dt = 0.01f;
-    Vec3f gravity{0.0f, 0.0f, 0.0f};
-    Vec3f worldSize{10.0f, 10.0f, 10.0f};
+    glm::vec3 gravity{0.0f, 0.0f, 0.0f};
+    glm::vec3 worldSize{10.0f, 10.0f, 10.0f};
     float maxSpeed = 100.0f;
     float damping = 0.99f;
     bool verbose = false;

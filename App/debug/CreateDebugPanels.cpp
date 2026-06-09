@@ -26,12 +26,12 @@ namespace {
 
     static DebugView* buildDebugAtomSingle(DebugPanel& panel) {
         return panel.addView(DebugView("Атом", {
-            DebugValue("Позиция", DebugDrawers::Vec3f<3>),
+            DebugValue("Позиция", DebugDrawers::Vec3<3>),
             DebugValue("Скорость (A/dt)", DebugDrawers::Float<3>),
             DebugValue("Скорость (м/с)", DebugDrawers::Float<3>),
             DebugValue("Скорость (км/ч)", DebugDrawers::Float<3>),
-            DebugValue("Силы", DebugDrawers::Vec3f<3>),
-            DebugValue("Пред. силы", DebugDrawers::Vec3f<3>),
+            DebugValue("Силы", DebugDrawers::Vec3<3>),
+            DebugValue("Пред. силы", DebugDrawers::Vec3<3>),
             DebugValue("Потенциальная энергия", DebugDrawers::Float<4>),
             DebugValue("Масса", DebugDrawers::Float<3>),
             DebugValue("Радиус", DebugDrawers::Float<3>),

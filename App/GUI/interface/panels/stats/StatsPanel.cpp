@@ -1,6 +1,6 @@
 #include "StatsPanel.h"
 
-void StatsPanel::draw(float scale, Vec2i windowSize) {
+void StatsPanel::draw(float scale, glm::ivec2 windowSize) {
     // FPS
     ImGui::SetNextWindowPos(ImVec2(windowSize.x - 150 * scale, windowSize.y - 50 * scale));
     ImGui::SetNextWindowSize(ImVec2(windowSize.x, windowSize.y));

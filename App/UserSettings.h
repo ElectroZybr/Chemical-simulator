@@ -4,24 +4,43 @@
 
 #include "App/AppPaths.h"
 #include "App/capture/CaptureSettings.h"
+#include "GUI/interface/style/StyleManager.h"
 #include "Lattice/Engine/physics/Integrator.h"
 #include "Rendering/RenderData.h"
 
 struct UserSettings {
+    struct WindowState {
+        bool fullscreen = false;
+        bool maximized = true;
+        int monitorIndex = 0;
+        int x = 160;
+        int y = 120;
+        int width = 1920;
+        int height = 1080;
+    };
+
     std::filesystem::path captureOutputDirectory = "captures";
     std::filesystem::path scenesDirectory = AppPaths::kDefaultScenesDirectory;
     CaptureSettings captureSettings{};
+    WindowState windowState{};
 
+    bool rendererUse3D = true;
+    bool rendererDrawAtoms = true;
     bool rendererDrawGrid = false;
-    bool rendererDrawBonds = true;
+    bool rendererDrawBonds = false;
     bool rendererDrawBox = true;
+    bool rendererDrawMemoryOrder = false;
+    float interfaceScale = StyleManager::kDefaultUiScale;
     RenderData::SpeedColorMode rendererSpeedColorMode = RenderData::SpeedColorMode::AtomColor;
     float rendererSpeedGradientMax = 5.0f;
 
     Integrator::Scheme simulationIntegrator = Integrator::Scheme::Verlet;
-    bool simulationBondFormationEnabled = false;
+    bool simulationBondFormationEnabled = true;
     bool simulationLJEnabled = true;
     bool simulationCoulombEnabled = true;
+    // false как и движковый дефолт (World::longRangeForcesEnabled): octree-Кулон —
+    // экспериментальный, не сохраняет импульс. Не пере-включаем его на свежем старте.
+    bool simulationCoulombLongRangeEnabled = false;
 };
 
 class UserSettingsIO {

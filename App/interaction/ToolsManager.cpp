@@ -14,7 +14,7 @@
 #include "GUI/interface/panels/tools/SideToolsPanel.h"
 
 namespace {
-    bool rayBoxIntersect(const RenderRay& ray, const Vec3f& min, const Vec3f& max, float& hitT) {
+    bool rayBoxIntersect(const RenderRay& ray, const glm::vec3& min, const glm::vec3& max, float& hitT) {
         float tMin = 0.0f;
         float tMax = std::numeric_limits<float>::max();
 
@@ -73,8 +73,8 @@ ToolContext ToolsManager::toolContext = {};
 std::array<std::unique_ptr<ITool>, ToolsManager::kModeCount> ToolsManager::toolInstances = {};
 ToolsManager::Mode ToolsManager::syncedMode = ToolsManager::Mode::Cursor;
 Lattice::Simulation::WorldId ToolsManager::pickingWorldId = 0;
-Vec2i ToolsManager::startMousePos = {};
-Vec2i ToolsManager::lastSceneMousePos = {};
+glm::ivec2 ToolsManager::startMousePos = {};
+glm::ivec2 ToolsManager::lastSceneMousePos = {};
 bool ToolsManager::isInteracting = false;
 
 void ToolsManager::init(GLFWwindow* w, Lattice::Simulation& sim, std::unique_ptr<BaseRenderer>& rend, Interface& appInterface) {
@@ -132,7 +132,7 @@ bool ToolsManager::isInteractingNow() noexcept { return isInteracting; }
 
 bool ToolsManager::blocksCameraControls() noexcept { return isInteracting && currentMode() != Mode::Ruler; }
 
-void ToolsManager::onLeftPressed(Vec2i mousePos) {
+void ToolsManager::onLeftPressed(glm::ivec2 mousePos) {
     if ((uiState != nullptr && uiState->cursorHovered) || !renderer || !renderer->get() || !pickingSystem) {
         return;
     }
@@ -149,14 +149,14 @@ void ToolsManager::onLeftPressed(Vec2i mousePos) {
     }
 }
 
-void ToolsManager::onLeftReleased(Vec2i mousePos) {
+void ToolsManager::onLeftReleased(glm::ivec2 mousePos) {
     syncToolMode();
     if (!isInteracting) {
         return;
     }
 
     const bool cursorHovered = uiState != nullptr && uiState->cursorHovered;
-    const Vec2i releasePos = cursorHovered ? lastSceneMousePos : mousePos;
+    const glm::ivec2 releasePos = cursorHovered ? lastSceneMousePos : mousePos;
 
     if (ITool* tool = activeTool(); tool != nullptr) {
         tool->onLeftReleased(releasePos);
@@ -164,7 +164,7 @@ void ToolsManager::onLeftReleased(Vec2i mousePos) {
     isInteracting = false;
 }
 
-bool ToolsManager::onRightPressed(Vec2i mousePos) {
+bool ToolsManager::onRightPressed(glm::ivec2 mousePos) {
     if (uiState != nullptr && uiState->cursorHovered) {
         return false;
     }
@@ -177,7 +177,7 @@ bool ToolsManager::onRightPressed(Vec2i mousePos) {
     return false;
 }
 
-void ToolsManager::onFrame(Vec2i mousePos, float deltaTime) {
+void ToolsManager::onFrame(glm::ivec2 mousePos, float deltaTime) {
     if (!renderer || !renderer->get() || !simulation || !pickingSystem) {
         return;
     }
@@ -202,11 +202,11 @@ void ToolsManager::onFrame(Vec2i mousePos, float deltaTime) {
     }
 }
 
-Vec3f ToolsManager::screenToWorld(Vec2i mousePos) {
+glm::vec3 ToolsManager::screenToWorld(glm::ivec2 mousePos) {
     return (*renderer)->camera.screenToWorld(mousePos);
 }
 
-Vec2i ToolsManager::worldToScreen(Vec3f pos) {
+glm::ivec2 ToolsManager::worldToScreen(glm::vec3 pos) {
     return (*renderer)->camera.worldToScreen(pos);
 }
 
@@ -271,7 +271,7 @@ void ToolsManager::syncPickingWorldToActive(bool clearSelection) {
     }
 }
 
-void ToolsManager::selectWorldAt(Vec2i mousePos) {
+void ToolsManager::selectWorldAt(glm::ivec2 mousePos) {
     if (simulation == nullptr || renderer == nullptr || !renderer->get() || pickingSystem == nullptr || simulation->worldCount() == 0) {
         return;
     }
@@ -282,11 +282,11 @@ void ToolsManager::selectWorldAt(Vec2i mousePos) {
     float bestT = std::numeric_limits<float>::max();
 
     if (rend.camera.getMode() == Camera::Mode::Mode2D) {
-        const Vec3f worldPos = rend.camera.screenToWorld(mousePos);
+        const glm::vec3 worldPos = rend.camera.screenToWorld(glm::ivec2(mousePos.x, mousePos.y));
         for (Lattice::Simulation::WorldId worldId = 0; worldId < simulation->worldCount(); ++worldId) {
             const World& world = simulation->worldAt(worldId);
-            const Vec3f min = world.getRenderOffset();
-            const Vec3f max = min + world.getWorldSize();
+            const glm::vec3 min = world.getRenderOffset();
+            const glm::vec3 max = min + world.getWorldSize();
             if (worldPos.x >= min.x && worldPos.x <= max.x && worldPos.y >= min.y && worldPos.y <= max.y) {
                 bestWorldId = worldId;
                 found = true;
@@ -297,8 +297,8 @@ void ToolsManager::selectWorldAt(Vec2i mousePos) {
         const RenderRay ray = rend.camera.screenToRay(static_cast<float>(mousePos.x), static_cast<float>(mousePos.y));
         for (Lattice::Simulation::WorldId worldId = 0; worldId < simulation->worldCount(); ++worldId) {
             const World& world = simulation->worldAt(worldId);
-            const Vec3f min = world.getRenderOffset();
-            const Vec3f max = min + world.getWorldSize();
+            const glm::vec3 min = world.getRenderOffset();
+            const glm::vec3 max = min + world.getWorldSize();
             float hitT = 0.0f;
             if (rayBoxIntersect(ray, min, max, hitT) && hitT < bestT) {
                 bestT = hitT;

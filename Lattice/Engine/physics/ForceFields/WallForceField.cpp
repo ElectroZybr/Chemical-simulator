@@ -1,13 +1,14 @@
 #include "WallForceField.h"
-#include "Engine/World.h"
 
-#include "Engine/math/Vec3.h"
-#include "Engine/physics/AtomStorage.h"
+#include "Engine/World.h"
+#include "Engine/physics/Atom/AtomStorage.h"
+
+using glm::vec3;
 
 void WallForceField::compute(World& world) const {
     AtomStorage& atoms = world.getAtomStorage();
-    const Vec3f& gravity = world.getGravity();
-    const Vec3f wallMax = world.getWorldSize() - Vec3f(1.0, 1.0, 1.0);
+    const vec3 gravity = world.getGravity();
+    const vec3 wallMax = world.getWorldSize();
 
     for (size_t atomIndex = 0; atomIndex < atoms.mobileCount(); ++atomIndex) {
         float forceX = atoms.forceX(atomIndex);
@@ -39,13 +40,13 @@ void WallForceField::applyWall(float coord, float& force, float max) {
 }
 
 void WallForceField::softWalls(float coordX, float coordY, float coordZ, float& forceX, float& forceY, float& forceZ,
-                               const Vec3f& wallMax) const {
+                               const vec3& wallMax) const {
     applyWall(coordX, forceX, wallMax.x);
     applyWall(coordY, forceY, wallMax.y);
     applyWall(coordZ, forceZ, wallMax.z);
 }
 
-void WallForceField::applyGravityForce(float& forceX, float& forceY, float& forceZ, const Vec3f& gravity) {
+void WallForceField::applyGravityForce(float& forceX, float& forceY, float& forceZ, const vec3& gravity) {
     forceX += gravity.x;
     forceY += gravity.y;
     forceZ += gravity.z;

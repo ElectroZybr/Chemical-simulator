@@ -5,7 +5,7 @@
 
 #include "Engine/NeighborSearch/SpatialGrid.h"
 #include "Engine/metrics/NeighborListStats.h"
-#include "Engine/physics/AtomStorage.h"
+#include "Engine/physics/Atom/AtomStorage.h"
 
 class World;
 
@@ -35,7 +35,7 @@ public:
 
     void clear();
     void build(const AtomStorage& atoms, World& world);
-    void rebuildPipeline(const AtomStorage& atoms, World& world, int simStep);
+    void rebuildPipeline(AtomStorage& atoms, World& world, int simStep);
     bool needsRebuild(const AtomStorage& atoms) const;
 
     [[nodiscard]] uint32_t atomCount() const;

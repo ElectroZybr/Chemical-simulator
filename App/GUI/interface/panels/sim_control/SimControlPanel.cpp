@@ -38,7 +38,7 @@ static float sliderToSpeed(float slider) {
     return kMinSpeed + (kMaxSpeed - kMinSpeed) * normalized;
 }
 
-void SimControlPanel::draw(float scale, Vec2i windowSize, bool& pause, float& simulationSpeed, int simStep, float deltaTime) {
+void SimControlPanel::draw(float scale, glm::ivec2 windowSize, bool& pause, float& simulationSpeed, int simStep, float deltaTime) {
     sampleAccum_ += deltaTime;
     if (sampleAccum_ >= 0.25f) {
         const int deltaSteps = simStep - lastSimStepSample_;

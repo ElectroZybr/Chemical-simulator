@@ -24,12 +24,12 @@
 #include "fixtures/RendererFixture.h" // benchmarkDevice()
 #include "Engine/NeighborSearch/NeighborList.h"
 #include "Engine/Simulation.h"
-#include "Engine/math/Vec3.h"
-#include "Engine/physics/AtomData.h"
-#include "Engine/physics/AtomStorage.h"
+#include <glm/glm.hpp>
+#include "Engine/physics/Atom/AtomData.h"
+#include "Engine/physics/Atom/AtomStorage.h"
 #include "Engine/physics/ForceFields/LJForceField.h"
 #include "Engine/physics/gpu/GpuResidentPhysics.h"
-#include "Rendering/WGPUContext.h"
+#include "Rendering/backend/WGPUContext.h"
 
 #include "generated/shaders/integrate_verlet.wgsl.h"
 #include "generated/shaders/physics_lj.wgsl.h"
@@ -88,7 +88,7 @@ public:
         const float spacing = 3.0f;
         const float worldSize = side * spacing + 20.0f;
         Simulation sim;
-        sim.createWorld(Vec3f{worldSize, worldSize, worldSize});
+        sim.createWorld(glm::vec3{worldSize, worldSize, worldSize});
         sim.setSizeBox(sim.world().getWorldSize(), 6);
         sim.setLJEnabled(true);
         sim.setCoulombEnabled(false);
@@ -97,8 +97,8 @@ public:
         for (int z = 0; z < side && placed < atomCount; ++z) {
             for (int y = 0; y < side && placed < atomCount; ++y) {
                 for (int x = 0; x < side && placed < atomCount; ++x) {
-                    sim.appendAtomFast(Vec3f{10.0f + x * spacing, 10.0f + y * spacing, 10.0f + z * spacing},
-                                       Vec3f{0.0f, 0.0f, 0.0f}, AtomData::Type::H, false);
+                    sim.appendAtomFast(glm::vec3{10.0f + x * spacing, 10.0f + y * spacing, 10.0f + z * spacing},
+                                       glm::vec3{0.0f, 0.0f, 0.0f}, AtomData::Type::H, false);
                     ++placed;
                 }
             }
@@ -346,7 +346,7 @@ void runFullStepWithRebuild(benchmark::State& state) {
     const float worldSize = side * spacing + 20.0f;
 
     Simulation sim;
-    sim.createWorld(Vec3f{worldSize, worldSize, worldSize});
+    sim.createWorld(glm::vec3{worldSize, worldSize, worldSize});
     sim.setSizeBox(sim.world().getWorldSize(), 6);
     sim.setLJEnabled(true);
     sim.setCoulombEnabled(false);
@@ -356,8 +356,8 @@ void runFullStepWithRebuild(benchmark::State& state) {
     for (int z = 0; z < side && placed < atomCount; ++z) {
         for (int y = 0; y < side && placed < atomCount; ++y) {
             for (int x = 0; x < side && placed < atomCount; ++x) {
-                sim.appendAtomFast(Vec3f{10.0f + x * spacing, 10.0f + y * spacing, 10.0f + z * spacing},
-                                   Vec3f{5.0f, 0.0f, 0.0f}, AtomData::Type::H, false); // когерентный дрейф
+                sim.appendAtomFast(glm::vec3{10.0f + x * spacing, 10.0f + y * spacing, 10.0f + z * spacing},
+                                   glm::vec3{5.0f, 0.0f, 0.0f}, AtomData::Type::H, false); // когерентный дрейф
                 ++placed;
             }
         }

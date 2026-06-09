@@ -1,10 +1,9 @@
 #include "WindowEvents.h"
 
-#include "Lattice/Engine/math/Vec2.h"
+#include <glm/vec2.hpp>
 #include "GUI/interface/interface.h"
-#include "Rendering/RenderMath.h"
 #include "Rendering/BaseRenderer.h"
-#include "Rendering/WGPUContext.h"
+#include "Rendering/backend/WGPUContext.h"
 
 GLFWwindow* WindowEvents::window = nullptr;
 std::unique_ptr<BaseRenderer>* WindowEvents::renderer = nullptr;
@@ -37,10 +36,4 @@ void WindowEvents::syncFramebufferSize(int width, int height, bool updateInterfa
 
     (*renderer)->camera.setScreenSize(glm::vec2(static_cast<float>(width), static_cast<float>(height)));
     WGPUContext::instance().resize(static_cast<uint32_t>(width), static_cast<uint32_t>(height));
-
-    if (!updateInterface || appInterface == nullptr) {
-        return;
-    }
-
-    appInterface->styleManager.onResize(Vec2i(width, height));
 }

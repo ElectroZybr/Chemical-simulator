@@ -45,8 +45,11 @@ protected:
     void initGridPipeline(std::string_view gridWGSL);
     void initBoxPipeline(std::string_view boxWGSL);
     void initBondPipeline(std::string_view bondWGSL);
+    void initMemoryOrderPipeline(std::string_view memoryOrderWGSL);
 
 private:
+    static constexpr size_t kLineUniformSlotCount = 4;
+
     struct SceneUniforms {
         glm::mat4 view;
         glm::mat4 projection;
@@ -65,12 +68,14 @@ private:
     wgpu::raii::RenderPipeline bondPipeline;
     wgpu::raii::RenderPipeline boxPipeline;
     wgpu::raii::RenderPipeline gridPipeline;
+    wgpu::raii::RenderPipeline memoryOrderPipeline;
 
     // Bind group layouts
     wgpu::raii::BindGroupLayout atomBindGroupLayout;
     wgpu::raii::BindGroupLayout lineBindGroupLayout;
     wgpu::raii::BindGroupLayout gridBindGroupLayout;
-    wgpu::raii::BindGroup lineBindGroup;
+    std::array<wgpu::raii::Buffer, kLineUniformSlotCount> lineUniformBuffers;
+    std::array<wgpu::raii::BindGroup, kLineUniformSlotCount> lineBindGroups;
     wgpu::raii::BindGroup gridBindGroup;
 
     // Vertex buffers
@@ -79,6 +84,7 @@ private:
     wgpu::raii::Buffer boxVb;
     wgpu::raii::Buffer gridLineVb;
     wgpu::raii::Buffer gridInstVb;
+    wgpu::raii::Buffer memoryOrderVb;  // для отрисовки линий между атомами в той же последовательности в которой они леат в памяти
 
     // Storage buffers
     wgpu::raii::Buffer sbPos;    // array<vec4<f32>> — x,y,z,pad
@@ -90,6 +96,7 @@ private:
     size_t sbCapacity_ = 0;
     size_t bondVbCapacity_ = 0;
     size_t gridInstVbCapacity_ = 0;
+    size_t memoryOrderVbCapacity_ = 0;
 
     wgpu::raii::BindGroup atomBindGroup;
 
@@ -117,6 +124,7 @@ private:
     void initBoxBuffer();
     void initBondBuffer();
     void initGridLineBuffer();
+    void initMemoryOrderBuffer();
     void initLinePipeline(wgpu::RenderPipeline& outPipeline, std::string_view wgsl);
 
     // Helpers
@@ -137,6 +145,7 @@ private:
     void drawBondsImpl(const RenderAtomsView& atoms, const RenderBondsView& bonds);
     void drawBoxImpl(const glm::vec3& worldSize);
     void drawGridImpl(const RenderGridView& grid);
+    void drawMemoryOrderImpl(const RenderAtomsView& atoms);
     void setLineColor(const glm::vec4& color);
 
     // Data
@@ -150,6 +159,10 @@ private:
     struct AtomVec4 {
         float x, y, z, pad = 0.f;
     };
+    struct MemoryOrderVertex {
+        glm::vec3 pos;
+        float t = 0.0f;
+    };
     std::vector<AtomVec4> posData_;
     std::vector<AtomVec4> velData_;
 
@@ -162,4 +175,6 @@ private:
     glm::vec3 cachedBoxSize_{-1.0f, -1.0f, -1.0f};
 
     wgpu::raii::CommandEncoder currentEncoder;
+    SceneUniforms currentSceneUniforms_{};
+    size_t lineUniformSlotIndex_ = 0;
 };

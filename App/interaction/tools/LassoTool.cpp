@@ -7,7 +7,7 @@
 
 LassoTool::LassoTool(ToolContext& context) noexcept : ITool(context) {}
 
-void LassoTool::onLeftPressed(Vec2i mousePos) {
+void LassoTool::onLeftPressed(glm::ivec2 mousePos) {
     ToolContext& ctx = context();
     if (ctx.pickingSystem == nullptr) {
         return;
@@ -19,7 +19,7 @@ void LassoTool::onLeftPressed(Vec2i mousePos) {
     overlay.lassoPoints.emplace_back(mousePos);
 }
 
-void LassoTool::onLeftReleased(Vec2i mousePos) {
+void LassoTool::onLeftReleased(glm::ivec2 mousePos) {
     ToolContext& ctx = context();
     if (ctx.pickingSystem == nullptr) {
         return;
@@ -36,18 +36,18 @@ void LassoTool::onLeftReleased(Vec2i mousePos) {
 
     auto& overlay = ctx.pickingSystem->getOverlay();
     if (overlay.lassoVisible) {
-        if (overlay.lassoPoints.empty() || overlay.lassoPoints.back() != Vec2i(mousePos)) {
+        if (overlay.lassoPoints.empty() || overlay.lassoPoints.back() != mousePos) {
             overlay.lassoPoints.emplace_back(mousePos);
         }
         ctx.pickingSystem->processLasso(overlay.lassoPoints, cumulative);
         if (ctx.uiState != nullptr) {
-            ctx.uiState->selectedAtomCount = static_cast<int>(ctx.pickingSystem->getSelectedIndices().size());
+            ctx.uiState->selectedAtomCount = static_cast<int>(ctx.pickingSystem->getSelectedAtomIds().size());
         }
     }
     overlay.reset();
 }
 
-void LassoTool::onFrame(Vec2i mousePos, float deltaTime) {
+void LassoTool::onFrame(glm::ivec2 mousePos, float deltaTime) {
     (void)deltaTime;
 
     ToolContext& ctx = context();
@@ -66,9 +66,11 @@ void LassoTool::onFrame(Vec2i mousePos, float deltaTime) {
         return;
     }
 
-    const Vec2f currentPos(mousePos.x, mousePos.y);
-    const Vec2f lastPos(overlay.lassoPoints.back().x, overlay.lassoPoints.back().y);
-    if ((currentPos - lastPos).sqrAbs() >= kMinStepSqr) {
+    const glm::vec2 currentPos(static_cast<float>(mousePos.x), static_cast<float>(mousePos.y));
+    const auto& last = overlay.lassoPoints.back();
+    const glm::vec2 lastPos(static_cast<float>(last.x), static_cast<float>(last.y));
+    const glm::vec2 diff = currentPos - lastPos;
+    if ((diff.x * diff.x + diff.y * diff.y) >= kMinStepSqr) {
         overlay.lassoPoints.emplace_back(mousePos);
     }
 }

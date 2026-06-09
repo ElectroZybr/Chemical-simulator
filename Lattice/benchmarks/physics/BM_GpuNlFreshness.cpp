@@ -36,9 +36,9 @@
 #include "fixtures/RendererFixture.h" // benchmarkDevice()
 #include "Engine/NeighborSearch/NeighborList.h"
 #include "Engine/Simulation.h"
-#include "Engine/math/Vec3.h"
-#include "Engine/physics/AtomData.h"
-#include "Engine/physics/AtomStorage.h"
+#include <glm/glm.hpp>
+#include "Engine/physics/Atom/AtomData.h"
+#include "Engine/physics/Atom/AtomStorage.h"
 #include "Engine/physics/gpu/GpuResidentPhysics.h"
 using namespace Lattice;
 
@@ -111,12 +111,12 @@ void runGpuNlFreshness(benchmark::State& state) {
 
     for (auto _ : state) {
         Simulation sim;
-        sim.createWorld(Vec3f{160.0f, 160.0f, 160.0f});
-        sim.setSizeBox(Vec3f{160.0f, 160.0f, 160.0f}, 6);
+        sim.createWorld(glm::vec3{160.0f, 160.0f, 160.0f});
+        sim.setSizeBox(glm::vec3{160.0f, 160.0f, 160.0f}, 6);
         sim.setLJEnabled(true);
         sim.setCoulombEnabled(false);
         sim.setBondFormationEnabled(false);
-        sim.setGravity(Vec3f{0.0f, 0.0f, 0.0f});
+        sim.setGravity(glm::vec3{0.0f, 0.0f, 0.0f});
         sim.setDt(0.01f);
 
         // Горячая сцена: 512 атомов, шаг 3, но БОЛЬШИЕ случайные скорости —
@@ -128,8 +128,8 @@ void runGpuNlFreshness(benchmark::State& state) {
         for (int z = 0; z < side; ++z) {
             for (int y = 0; y < side; ++y) {
                 for (int x = 0; x < side; ++x) {
-                    sim.appendAtomFast(Vec3f{50.0f + x * 3.0f, 50.0f + y * 3.0f, 50.0f + z * 3.0f},
-                                       Vec3f{vel(rng), vel(rng), vel(rng)}, AtomData::Type::H);
+                    sim.appendAtomFast(glm::vec3{50.0f + x * 3.0f, 50.0f + y * 3.0f, 50.0f + z * 3.0f},
+                                       glm::vec3{vel(rng), vel(rng), vel(rng)}, AtomData::Type::H);
                 }
             }
         }

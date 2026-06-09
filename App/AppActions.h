@@ -4,7 +4,7 @@
 
 #include <GLFW/glfw3.h>
 
-#include "Signals/Signals.h"
+#include "App/Signals.h"
 
 namespace Lattice {
     class Simulation;

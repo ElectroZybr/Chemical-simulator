@@ -3,7 +3,7 @@
 #include <cstdint>
 
 #include "Lattice/Engine/Simulation.h"
-#include "Lattice/Engine/physics/AtomData.h"
+#include "Lattice/Engine/physics/Atom/AtomData.h"
 
 namespace Generators {
     enum class CrystalPlane : uint8_t {
@@ -25,5 +25,5 @@ namespace Generators {
     /// Применяет угловую скорость всем мобильным атомам
     /// @param sim Симуляция
     /// @param angularVelocity Вектор угловой скорости
-    void AngularVelocity(Lattice::Simulation& sim, Vec3f angularVelocity);
+    void AngularVelocity(Lattice::Simulation& sim, glm::vec3 angularVelocity);
 }

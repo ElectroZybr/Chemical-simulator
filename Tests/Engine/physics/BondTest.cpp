@@ -3,9 +3,9 @@
 #include <gtest/gtest.h>
 
 #include "Engine/Simulation.h"
-#include "Engine/math/Vec3.h"
-#include "Engine/physics/AtomData.h"
-#include "Engine/physics/AtomStorage.h"
+#include <glm/glm.hpp>
+#include "Engine/physics/Atom/AtomData.h"
+#include "Engine/physics/Atom/AtomStorage.h"
 #include "Engine/physics/Bond.h"
 #include "Engine/physics/ForceFields/BondForceField.h"
 using namespace Lattice;
@@ -25,10 +25,10 @@ namespace {
 
 Simulation makeSceneWithCarbons(int count) {
     Simulation sim;
-    sim.createWorld(Vec3f{40.0f, 40.0f, 40.0f});
-    sim.setSizeBox(Vec3f{40.0f, 40.0f, 40.0f}, 6);
+    sim.createWorld(glm::vec3{40.0f, 40.0f, 40.0f});
+    sim.setSizeBox(glm::vec3{40.0f, 40.0f, 40.0f}, 6);
     for (int i = 0; i < count; ++i) {
-        sim.appendAtomFast(Vec3f{15.0f + static_cast<float>(i) * 1.5f, 20.0f, 20.0f}, Vec3f{0.0f, 0.0f, 0.0f},
+        sim.appendAtomFast(glm::vec3{15.0f + static_cast<float>(i) * 1.5f, 20.0f, 20.0f}, glm::vec3{0.0f, 0.0f, 0.0f},
                            AtomData::Type::C, /*fixed=*/false);
     }
     sim.finalizeAtomBatch();
@@ -198,10 +198,10 @@ TEST(BondTest, BondBreaksWhenStretchedBeyondLimit) {
 TEST(BondTest, FormBondsSkipsPairBeyondFormationDistance) {
     auto makePair = [](float separation) {
         Simulation sim;
-        sim.createWorld(Vec3f{40.0f, 40.0f, 40.0f});
-        sim.setSizeBox(Vec3f{40.0f, 40.0f, 40.0f}, 6);
-        sim.appendAtomFast(Vec3f{18.0f, 20.0f, 20.0f}, Vec3f{0, 0, 0}, AtomData::Type::C);
-        sim.appendAtomFast(Vec3f{18.0f + separation, 20.0f, 20.0f}, Vec3f{0, 0, 0}, AtomData::Type::C);
+        sim.createWorld(glm::vec3{40.0f, 40.0f, 40.0f});
+        sim.setSizeBox(glm::vec3{40.0f, 40.0f, 40.0f}, 6);
+        sim.appendAtomFast(glm::vec3{18.0f, 20.0f, 20.0f}, glm::vec3{0, 0, 0}, AtomData::Type::C);
+        sim.appendAtomFast(glm::vec3{18.0f + separation, 20.0f, 20.0f}, glm::vec3{0, 0, 0}, AtomData::Type::C);
         sim.finalizeAtomBatch();
         sim.neighborList().build(sim.atoms(), sim.world());
         return sim;

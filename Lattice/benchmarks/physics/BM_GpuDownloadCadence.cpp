@@ -41,9 +41,9 @@
 #include "fixtures/RendererFixture.h" // benchmarkDevice()
 #include "Engine/Simulation.h"
 #include "Engine/World.h"
-#include "Engine/math/Vec3.h"
-#include "Engine/physics/AtomData.h"
-#include "Engine/physics/AtomStorage.h"
+#include <glm/glm.hpp>
+#include "Engine/physics/Atom/AtomData.h"
+#include "Engine/physics/Atom/AtomStorage.h"
 #include "Engine/physics/gpu/GpuResidentPhysics.h"
 using namespace Lattice;
 
@@ -53,12 +53,12 @@ namespace {
 // Каждый sim.update() в GPU-режиме шагает на GPU и помечает cpuPositionsDirty —
 // то есть «есть что качать», как реальный кадр между sync-точками.
 void buildMovingGpuScene(Simulation& sim, int side, float box) {
-    sim.createWorld(Vec3f{box, box, box});
-    sim.setSizeBox(Vec3f{box, box, box}, 6);
+    sim.createWorld(glm::vec3{box, box, box});
+    sim.setSizeBox(glm::vec3{box, box, box}, 6);
     sim.setLJEnabled(true);
     sim.setCoulombEnabled(false);
     sim.setBondFormationEnabled(false);
-    sim.setGravity(Vec3f{0.0f, 0.0f, 0.0f});
+    sim.setGravity(glm::vec3{0.0f, 0.0f, 0.0f});
     sim.setDt(0.01f);
     for (int z = 0; z < side; ++z) {
         for (int y = 0; y < side; ++y) {
@@ -66,7 +66,7 @@ void buildMovingGpuScene(Simulation& sim, int side, float box) {
                 const float vx = 8.0f * static_cast<float>((x % 3) - 1);
                 const float vy = 8.0f * static_cast<float>((y % 3) - 1);
                 const float vz = 8.0f * static_cast<float>((z % 3) - 1);
-                sim.appendAtomFast(Vec3f{50.0f + x * 3.0f, 50.0f + y * 3.0f, 50.0f + z * 3.0f}, Vec3f{vx, vy, vz},
+                sim.appendAtomFast(glm::vec3{50.0f + x * 3.0f, 50.0f + y * 3.0f, 50.0f + z * 3.0f}, glm::vec3{vx, vy, vz},
                                    AtomData::Type::H);
             }
         }

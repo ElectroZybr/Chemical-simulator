@@ -16,17 +16,17 @@ namespace {
 
 ThermalTool::ThermalTool(ToolContext& context) noexcept : ITool(context) {}
 
-void ThermalTool::onLeftPressed(Vec2i mousePos) {
+void ThermalTool::onLeftPressed(glm::ivec2 mousePos) {
     active_ = true;
     applyAt(mousePos, 1.0f / 60.0f);
 }
 
-void ThermalTool::onLeftReleased(Vec2i mousePos) {
+void ThermalTool::onLeftReleased(glm::ivec2 mousePos) {
     (void)mousePos;
     active_ = false;
 }
 
-void ThermalTool::onFrame(Vec2i mousePos, float deltaTime) {
+void ThermalTool::onFrame(glm::ivec2 mousePos, float deltaTime) {
     if (!active_) {
         return;
     }
@@ -39,7 +39,7 @@ void ThermalTool::setRadius(float radius) noexcept { radius_ = std::clamp(radius
 
 void ThermalTool::setStrength(float strength) noexcept { strength_ = std::clamp(strength, kMinStrength, kMaxStrength); }
 
-void ThermalTool::applyAt(Vec2i mousePos, float deltaTime) {
+void ThermalTool::applyAt(glm::ivec2 mousePos, float deltaTime) {
     ToolContext& ctx = context();
     if (!ctx.isValid() || strength_ <= 0.0f) {
         return;
@@ -59,7 +59,7 @@ void ThermalTool::applyAt(Vec2i mousePos, float deltaTime) {
     // откатит позиции к последнему синку.
     ctx.simulation->syncGpuBeforeEdit();
 
-    const Vec3f center = screenToLocalWorld(mousePos);
+    const glm::vec3 center = screenToLocalWorld(mousePos);
     const float radiusSqr = radius_ * radius_;
     const bool is2D = renderer->camera.getMode() == Camera::Mode::Mode2D;
 
@@ -71,10 +71,10 @@ void ThermalTool::applyAt(Vec2i mousePos, float deltaTime) {
     const float amount = strength_ * deltaTime;
 
     for (size_t i = 0; i < atoms.mobileCount(); ++i) {
-        const Vec3f pos = atoms.pos(i);
-        const float dx = static_cast<float>(pos.x - center.x);
-        const float dy = static_cast<float>(pos.y - center.y);
-        const float dz = is2D ? 0.0f : static_cast<float>(pos.z - center.z);
+        const glm::vec3 pos = atoms.pos(i);
+        const float dx = pos.x - center.x;
+        const float dy = pos.y - center.y;
+        const float dz = is2D ? 0.0f : pos.z - center.z;
         const float distSqr = dx * dx + dy * dy + dz * dz;
         if (distSqr > radiusSqr) {
             continue;

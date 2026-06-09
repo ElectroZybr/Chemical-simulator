@@ -1,14 +1,25 @@
 #include "AddAtomTool.h"
 
+#include <cstdlib>
+
 #include "Lattice/Engine/Simulation.h"
-#include "Lattice/Engine/physics/AtomStorage.h"
+#include "Lattice/Engine/physics/Atom/AtomStorage.h"
 #include "GUI/interface/UiState.h"
 #include "GUI/interface/panels/periodic/PeriodicPanel.h"
 #include "Rendering/BaseRenderer.h"
 
+namespace {
+    glm::vec3 randomVelocity(float scale) {
+        auto randomComponent = []() {
+            return 2.0f * static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX) - 1.0f;
+        };
+        return glm::vec3(randomComponent(), randomComponent(), randomComponent()) * scale;
+    }
+}
+
 AddAtomTool::AddAtomTool(ToolContext& context) noexcept : ITool(context) {}
 
-void AddAtomTool::onLeftPressed(Vec2i mousePos) {
+void AddAtomTool::onLeftPressed(glm::ivec2 mousePos) {
     ToolContext& ctx = context();
     if (!ctx.isValid()) {
         return;
@@ -21,7 +32,7 @@ void AddAtomTool::onLeftPressed(Vec2i mousePos) {
     AtomStorage& atoms = ctx.simulation->atoms();
     const World& box = ctx.simulation->world();
     const AtomData::Type atomType = static_cast<AtomData::Type>(PeriodicPanel::decodeAtom(ctx.uiState->selectedAtom));
-    Vec3f spawnPos = screenToLocalWorld(mousePos);
+    glm::vec3 spawnPos = screenToLocalWorld(mousePos);
     const bool is2D = ctx.activeRenderer() != nullptr && ctx.activeRenderer()->camera.getMode() == Camera::Mode::Mode2D;
     if (is2D) {
         spawnPos.z = box.getWorldSize().z * 0.5f;
@@ -41,14 +52,14 @@ void AddAtomTool::onLeftPressed(Vec2i mousePos) {
 
     const float atomRadius = AtomData::getProps(atomType).radius;
     for (size_t atomIndex = 0; atomIndex < atoms.size(); ++atomIndex) {
-        const Vec3f atomPos = atoms.pos(atomIndex);
+        const glm::vec3 atomPos = atoms.pos(atomIndex);
         const float radius = AtomData::getProps(atoms.type(atomIndex)).radius;
-        if ((atomPos - spawnPos).abs() <= 2.f * (radius + atomRadius)) {
+        if (glm::length(atomPos - spawnPos) <= 2.f * (radius + atomRadius)) {
             return;
         }
     }
 
-    Vec3f velocity = Vec3f::Random() * 5.f;
+    glm::vec3 velocity = randomVelocity(5.0f);
     if (is2D) {
         velocity.z = 0.0f;
     }

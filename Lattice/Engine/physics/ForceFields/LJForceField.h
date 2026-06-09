@@ -5,8 +5,8 @@
 #include <cstdint>
 
 #include "Engine/Consts.h"
-#include "Engine/physics/AtomData.h"
-#include "Engine/physics/AtomStorage.h"
+#include "Engine/physics/Atom/AtomData.h"
+#include "Engine/physics/Atom/AtomStorage.h"
 
 class NeighborList;
 

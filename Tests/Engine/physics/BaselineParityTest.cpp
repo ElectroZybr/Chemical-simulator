@@ -17,26 +17,26 @@
 #include <gtest/gtest.h>
 
 #include "Engine/Simulation.h"
-#include "Engine/math/Vec3.h"
-#include "Engine/physics/AtomData.h"
-#include "Engine/physics/AtomStorage.h"
+#include <glm/glm.hpp>
+#include "Engine/physics/Atom/AtomData.h"
+#include "Engine/physics/Atom/AtomStorage.h"
 using namespace Lattice;
 
 namespace {
 
 Simulation makeForceScene() {
     Simulation sim;
-    sim.createWorld(Vec3f{40.0f, 40.0f, 40.0f});
-    sim.setSizeBox(Vec3f{40.0f, 40.0f, 40.0f}, 6);
+    sim.createWorld(glm::vec3{40.0f, 40.0f, 40.0f});
+    sim.setSizeBox(glm::vec3{40.0f, 40.0f, 40.0f}, 6);
     sim.setLJEnabled(true);
     sim.setCoulombEnabled(false);
     sim.setBondFormationEnabled(false);
-    sim.setGravity(Vec3f{0.0f, 0.0f, 0.0f});
+    sim.setGravity(glm::vec3{0.0f, 0.0f, 0.0f});
     sim.setNeighborListCutoff(5.0f);
     sim.setNeighborListSkin(1.0f);
-    sim.appendAtomFast(Vec3f{20.0f, 20.0f, 20.0f}, Vec3f{0, 0, 0}, AtomData::Type::H);  // atom0
-    sim.appendAtomFast(Vec3f{23.0f, 20.0f, 20.0f}, Vec3f{0, 0, 0}, AtomData::Type::H);  // 3.0 от atom0
-    sim.appendAtomFast(Vec3f{20.0f, 25.4f, 20.0f}, Vec3f{0, 0, 0}, AtomData::Type::H);  // 5.4 от atom0 (skin)
+    sim.appendAtomFast(glm::vec3{20.0f, 20.0f, 20.0f}, glm::vec3{0, 0, 0}, AtomData::Type::H);  // atom0
+    sim.appendAtomFast(glm::vec3{23.0f, 20.0f, 20.0f}, glm::vec3{0, 0, 0}, AtomData::Type::H);  // 3.0 от atom0
+    sim.appendAtomFast(glm::vec3{20.0f, 25.4f, 20.0f}, glm::vec3{0, 0, 0}, AtomData::Type::H);  // 5.4 от atom0 (skin)
     sim.finalizeAtomBatch();
     sim.neighborList().build(sim.atoms(), sim.world());
     sim.forceField().computePairInteractions(sim.world());
@@ -73,19 +73,19 @@ TEST(BaselineParityTest, ForcesInCutoffMatchBaseline) {
 // пределах далёкого поля cutoff (пары на 6.0 ед. baseline учитывал, optimized нет).
 TEST(BaselineParityTest, Trajectory20StepsMatchesBaseline) {
     Simulation sim;
-    sim.createWorld(Vec3f{60.0f, 60.0f, 60.0f});
-    sim.setSizeBox(Vec3f{60.0f, 60.0f, 60.0f}, 6);
+    sim.createWorld(glm::vec3{60.0f, 60.0f, 60.0f});
+    sim.setSizeBox(glm::vec3{60.0f, 60.0f, 60.0f}, 6);
     sim.setLJEnabled(true);
     sim.setCoulombEnabled(false);
     sim.setBondFormationEnabled(false);
-    sim.setGravity(Vec3f{0.0f, 0.0f, 0.0f});
+    sim.setGravity(glm::vec3{0.0f, 0.0f, 0.0f});
     sim.setNeighborListCutoff(5.0f);
     sim.setNeighborListSkin(1.0f);
     sim.setDt(0.01f);
     for (int z = 0; z < 3; ++z) {
         for (int y = 0; y < 3; ++y) {
             for (int x = 0; x < 3; ++x) {
-                sim.appendAtomFast(Vec3f{20.0f + x * 3.0f, 20.0f + y * 3.0f, 20.0f + z * 3.0f}, Vec3f{0, 0, 0}, AtomData::Type::H);
+                sim.appendAtomFast(glm::vec3{20.0f + x * 3.0f, 20.0f + y * 3.0f, 20.0f + z * 3.0f}, glm::vec3{0, 0, 0}, AtomData::Type::H);
             }
         }
     }
@@ -95,15 +95,19 @@ TEST(BaselineParityTest, Trajectory20StepsMatchesBaseline) {
     }
     const AtomStorage& a = sim.atoms();
 
-    // Baseline-эталон углов и центра (захват).
+    // Эталон перезаснят ПОСЛЕ merge upstream (glm + Morton-сортировка атомов по ячейкам +
+    // cutoff-фикс). Morton переупорядочивает атомы, поэтому индексы 0/13/26 — уже не исходные
+    // угол/центр/угол: 0 и 26 остались углами, а 13 стал рёберным атомом. Порядок Morton
+    // детерминирован (сортировка по cell-index), значения воспроизводимы. Тест ловит регресс
+    // траектории от этого зафиксированного состояния.
     struct PG {
         size_t i;
         double x, y, z;
     };
     const PG golden[] = {
-        {0, 20.0006599, 20.0006599, 20.0006599},
-        {13, 23.0, 23.0, 23.0},
-        {26, 25.9993401, 25.9993401, 25.9993401},
+        {0, 20.0006390, 20.0006390, 20.0006390},
+        {13, 23.0000000, 25.9992981, 20.0007019},
+        {26, 25.9993610, 25.9993610, 25.9993610},
     };
     double maxDiff = 0.0;
     for (const PG& g : golden) {

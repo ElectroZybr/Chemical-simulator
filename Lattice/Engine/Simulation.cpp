@@ -11,7 +11,7 @@ namespace Lattice {
 
 Simulation::Simulation() = default;
 
-Simulation::WorldId Simulation::createWorld(Vec3f size, Vec3f renderOffset) {
+Simulation::WorldId Simulation::createWorld(glm::vec3 size, glm::vec3 renderOffset) {
     worlds_.emplace_back(size, renderOffset);
     const WorldId worldId = worlds_.size() - 1;
     if (worlds_.size() == 1) {
@@ -96,11 +96,11 @@ void Simulation::updateAll() {
     xyzRecording_.onSimulationStep(*this);
 }
 
-void Simulation::setSizeBox(Vec3f newSize, int cellSize) {
+void Simulation::setSizeBox(glm::vec3 newSize, int cellSize) {
     world().resizeBox(newSize, static_cast<float>(cellSize));
 }
 
-void Simulation::createAtom(Vec3f start_coords, Vec3f start_speed, AtomData::Type type, bool fixed) {
+void Simulation::createAtom(glm::vec3 start_coords, glm::vec3 start_speed, AtomData::Type type, bool fixed) {
     world().addAtom(start_coords, start_speed, type, fixed);
 }
 

@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.17)
 cmake_policy(SET CMP0069 NEW)
+
 project(LatticeLab VERSION 0.1.2 LANGUAGES CXX)
 
 set(APP_NAME "${PROJECT_NAME}")
@@ -23,7 +24,7 @@ option(BUILD_RENDERING_TESTS "Build Rendering module tests" ON)
 # Внимание: -ffinite-math-only снимает гарантии на NaN/Inf — не для test/parity-сборок.
 option(FASTMATH_PHYSICS "Physics lib with -ffast-math (measured: physics-safe but NO perf win; default OFF)" OFF)
 
-set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
+set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -36,7 +37,7 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL "4.0")
     set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
 endif()
 
-if (WIN32)
+if(WIN32)
     set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build static libraries on Windows" FORCE)
 else()
     set(BUILD_SHARED_LIBS ON CACHE BOOL "Build shared libraries on Unix" FORCE)
@@ -44,34 +45,35 @@ endif()
 
 find_program(CCACHE_PROGRAM ccache)
 if(CCACHE_PROGRAM)
-    set(CMAKE_C_COMPILER_LAUNCHER   ${CCACHE_PROGRAM})
-    set(CMAKE_CXX_COMPILER_LAUNCHER ${CCACHE_PROGRAM})
+    set(CMAKE_C_COMPILER_LAUNCHER "${CCACHE_PROGRAM}")
+    set(CMAKE_CXX_COMPILER_LAUNCHER "${CCACHE_PROGRAM}")
     message(STATUS "Using ccache: ${CCACHE_PROGRAM}")
 endif()
 
-include(dependencies)
-include(CTest)
+function(enable_non_debug_ipo target_name)
+    set_target_properties(${target_name} PROPERTIES
+        INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE
+        INTERPROCEDURAL_OPTIMIZATION_RELWITHDEBINFO TRUE
+        INTERPROCEDURAL_OPTIMIZATION_MINSIZEREL TRUE
+    )
+endfunction()
 
-# Upstream split: App-only glob. Engine -> Lattice/ (Lattice lib),
-# Rendering -> Rendering/ (LatticeLab::Rendering). GUI/ merged into App/GUI/.
-file(GLOB_RECURSE CORE_SOURCES CONFIGURE_DEPENDS
-    "App/*.cpp"
-)
+include(CTest)
+include(dependencies)
 
 set(GENERATED_ROOT "${CMAKE_BINARY_DIR}/gen_includes")
 set(GENERATED_DIR "${GENERATED_ROOT}/generated")
 file(MAKE_DIRECTORY "${GENERATED_DIR}")
+
 configure_file(
     "${CMAKE_SOURCE_DIR}/App/AppVersion.h.in"
     "${GENERATED_DIR}/AppVersion.h"
     @ONLY
 )
 
-add_library(latticelab_lib STATIC ${CORE_SOURCES})
-
-set(G_RES_HEADERS "")
-include(embedded_resources)
-add_dependencies(latticelab_lib embedded_resources)
+file(GLOB_RECURSE CORE_SOURCES CONFIGURE_DEPENDS
+    "App/*.cpp"
+)
 
 # wgsl_shaders генерирует И апстрим-шейдеры, И наши physics_*.wgsl / gpu_cell_list /
 # integrate_verlet / nl_displacement (все в Rendering/shaders/, GLOB в shaders.cmake
@@ -80,7 +82,8 @@ add_dependencies(latticelab_lib embedded_resources)
 # (RendererWGPU тоже) и latticelab_lib. include(shaders) ДОЛЖЕН быть до add_subdirectory,
 # чтобы цель wgsl_shaders существовала, когда Lattice/Rendering вешают на неё add_dependencies.
 include(shaders)
-add_dependencies(latticelab_lib wgsl_shaders)
+include(embedded_resources)
+include(embedded_translate)
 
 # ── НАШЕ добавление: oneTBB через FetchContent (engine-only потребитель) ────────────
 # ВАЖНО: блок ДО add_subdirectory(Lattice), потому что движок (Lattice lib) — реальный
@@ -117,8 +120,12 @@ endif()
 add_subdirectory(Lattice)
 add_subdirectory(Rendering)
 
-include(embedded_translate)
-add_dependencies(latticelab_lib embedded_translate)
+add_library(latticelab_lib STATIC ${CORE_SOURCES})
+add_dependencies(latticelab_lib
+    embedded_resources
+    embedded_translate
+    wgsl_shaders
+)
 
 target_compile_options(latticelab_lib PRIVATE
     $<$<AND:$<BOOL:${OPTIMIZE_FOR_NATIVE}>,$<NOT:$<CONFIG:Debug>>,$<CXX_COMPILER_ID:GNU,Clang,AppleClang>>:-march=native>
@@ -140,15 +147,13 @@ target_include_directories(latticelab_lib PUBLIC
     ${webgpu_cpp_SOURCE_DIR}/wgpu-native
 )
 
-
-
 if(APPLE)
     find_library(COCOA_FRAMEWORK Cocoa)
     find_library(METAL_FRAMEWORK Metal)
     find_library(QUARTZCORE_FRAMEWORK QuartzCore)
 
     target_sources(latticelab_lib PRIVATE
-            Rendering/MetalBackend.mm
+        Rendering/MetalBackend.mm
     )
 
     target_link_libraries(latticelab_lib PUBLIC
@@ -159,14 +164,14 @@ if(APPLE)
         ${METAL_FRAMEWORK}
         ${QUARTZCORE_FRAMEWORK}
     )
-endif ()
-
+endif()
 
 target_link_libraries(latticelab_lib PUBLIC
-    Lattice
+    LatticeLab::Lattice
     LatticeLab::Rendering
     glfw
-    imgui ImGuiFileDialog_lib
+    imgui
+    ImGuiFileDialog_lib
     glm::glm
     webgpu
     zpp_bits
@@ -196,16 +201,8 @@ include(CheckIPOSupported)
 if(ENABLE_IPO)
     check_ipo_supported(RESULT lto_supported OUTPUT lto_error)
     if(lto_supported AND NOT MINGW)
-        set_target_properties(latticelab_lib PROPERTIES
-            INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE
-            INTERPROCEDURAL_OPTIMIZATION_RELWITHDEBINFO TRUE
-            INTERPROCEDURAL_OPTIMIZATION_MINSIZEREL TRUE
-        )
-        set_target_properties(${APP_NAME} PROPERTIES
-            INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE
-            INTERPROCEDURAL_OPTIMIZATION_RELWITHDEBINFO TRUE
-            INTERPROCEDURAL_OPTIMIZATION_MINSIZEREL TRUE
-        )
+        enable_non_debug_ipo(latticelab_lib)
+        enable_non_debug_ipo(${APP_NAME})
     elseif(MINGW)
         message(STATUS "IPO is disabled for MinGW")
     else()
@@ -221,6 +218,7 @@ include(windows_resources)
 
 install(TARGETS ${APP_NAME} RUNTIME DESTINATION .)
 install(DIRECTORY "${CMAKE_SOURCE_DIR}/assets" DESTINATION .)
+
 if(EXISTS "${CMAKE_SOURCE_DIR}/demo/scenes")
     install(DIRECTORY "${CMAKE_SOURCE_DIR}/demo/scenes" DESTINATION demo)
 endif()

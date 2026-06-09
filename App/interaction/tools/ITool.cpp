@@ -8,38 +8,38 @@ ITool::ITool(ToolContext& context) noexcept : context_(context) {}
 
 ITool::~ITool() = default;
 
-void ITool::onLeftPressed(Vec2i mousePos) { (void)mousePos; }
+void ITool::onLeftPressed(glm::ivec2 mousePos) { (void)mousePos; }
 
-void ITool::onLeftReleased(Vec2i mousePos) { (void)mousePos; }
+void ITool::onLeftReleased(glm::ivec2 mousePos) { (void)mousePos; }
 
-bool ITool::onRightPressed(Vec2i mousePos) {
+bool ITool::onRightPressed(glm::ivec2 mousePos) {
     (void)mousePos;
     return false;
 }
 
-void ITool::onFrame(Vec2i mousePos, float deltaTime) {
+void ITool::onFrame(glm::ivec2 mousePos, float deltaTime) {
     (void)mousePos;
     (void)deltaTime;
 }
 
 void ITool::reset() {}
 
-Vec3f ITool::screenToWorld(Vec2i mousePos) const {
+glm::vec3 ITool::screenToWorld(glm::ivec2 mousePos) const {
     if (BaseRenderer* renderer = context_.activeRenderer(); renderer != nullptr) {
         return renderer->camera.screenToWorld(mousePos);
     }
     return {};
 }
 
-Vec3f ITool::screenToLocalWorld(Vec2i mousePos) const {
-    Vec3f worldPos = screenToWorld(mousePos);
+glm::vec3 ITool::screenToLocalWorld(glm::ivec2 mousePos) const {
+    glm::vec3 worldPos = screenToWorld(mousePos);
     if (context_.simulation != nullptr) {
         worldPos -= context_.simulation->world().getRenderOffset();
     }
     return worldPos;
 }
 
-Vec2i ITool::worldToScreen(Vec3f worldPos) const {
+glm::ivec2 ITool::worldToScreen(glm::vec3 worldPos) const {
     if (BaseRenderer* renderer = context_.activeRenderer(); renderer != nullptr) {
         return renderer->camera.worldToScreen(worldPos);
     }

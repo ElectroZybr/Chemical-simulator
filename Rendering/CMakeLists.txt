@@ -1,40 +1,20 @@
-file(GLOB RENDERING_ROOT_SOURCES CONFIGURE_DEPENDS
+file(GLOB_RECURSE RENDERING_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp"
 )
-file(GLOB RENDERING_2D_SOURCES CONFIGURE_DEPENDS
-    "${CMAKE_CURRENT_SOURCE_DIR}/2d/*.cpp"
-)
-file(GLOB RENDERING_3D_SOURCES CONFIGURE_DEPENDS
-    "${CMAKE_CURRENT_SOURCE_DIR}/3d/*.cpp"
-)
-file(GLOB RENDERING_CAMERA_SOURCES CONFIGURE_DEPENDS
-    "${CMAKE_CURRENT_SOURCE_DIR}/camera/*.cpp"
-)
-file(GLOB RENDERING_API_SOURCES CONFIGURE_DEPENDS
-    "${CMAKE_CURRENT_SOURCE_DIR}/api/*.cpp"
+
+file(GLOB_RECURSE RENDERING_PUBLIC_HEADERS CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/*.h"
 )
 
-set(RENDERING_SOURCES
-    ${RENDERING_ROOT_SOURCES}
-    ${RENDERING_2D_SOURCES}
-    ${RENDERING_3D_SOURCES}
-    ${RENDERING_CAMERA_SOURCES}
-    ${RENDERING_API_SOURCES}
-)
-
-set(RENDERING_PUBLIC_HEADERS
-    BaseRenderer.h
-    RenderData.h
-    RenderMath.h
-    RendererWGPU.h
-    WGPUContext.h
-    2d/Renderer2DWGPU.h
-    3d/Renderer3DWGPU.h
-    camera/Camera.h
-)
+list(FILTER RENDERING_SOURCES EXCLUDE REGEX "/tests/")
+list(FILTER RENDERING_PUBLIC_HEADERS EXCLUDE REGEX "/tests/")
 
 if(APPLE)
-    list(APPEND RENDERING_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/MetalBackend.mm")
+    file(GLOB_RECURSE RENDERING_OBJCXX_SOURCES CONFIGURE_DEPENDS
+        "${CMAKE_CURRENT_SOURCE_DIR}/*.mm"
+    )
+    list(FILTER RENDERING_OBJCXX_SOURCES EXCLUDE REGEX "/tests/")
+    list(APPEND RENDERING_SOURCES ${RENDERING_OBJCXX_SOURCES})
 endif()
 
 add_library(latticelab_rendering STATIC
@@ -56,6 +36,7 @@ target_compile_definitions(latticelab_rendering PUBLIC
 
 target_include_directories(latticelab_rendering PUBLIC
     ${CMAKE_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}
     ${GENERATED_ROOT}
     ${imgui_SOURCE_DIR}
     ${imgui_SOURCE_DIR}/backends
@@ -79,7 +60,6 @@ if(APPLE)
 endif()
 
 target_link_libraries(latticelab_rendering PUBLIC
-    Lattice
     glfw
     glm::glm
     webgpu

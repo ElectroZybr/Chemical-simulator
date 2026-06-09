@@ -29,11 +29,11 @@
 #include "fixtures/RendererFixture.h" // benchmarkDevice()
 #include "Engine/NeighborSearch/NeighborList.h"
 #include "Engine/Simulation.h"
-#include "Engine/math/Vec3.h"
-#include "Engine/physics/AtomData.h"
-#include "Engine/physics/AtomStorage.h"
+#include <glm/glm.hpp>
+#include "Engine/physics/Atom/AtomData.h"
+#include "Engine/physics/Atom/AtomStorage.h"
 #include "Engine/physics/ForceFields/LJForceField.h"
-#include "Rendering/WGPUContext.h"
+#include "Rendering/backend/WGPUContext.h"
 
 #include "generated/shaders/physics_lj.wgsl.h"
 using namespace Lattice;
@@ -108,7 +108,7 @@ SceneData buildScene(int atomCount, Ordering ordering, float spacing, float cell
     // Identity — порядок уже z,y,x (как заполняет реальная решётка).
 
     Simulation sim;
-    sim.createWorld(Vec3f{static_cast<float>(side) * spacing + 20.0f, static_cast<float>(side) * spacing + 20.0f,
+    sim.createWorld(glm::vec3{static_cast<float>(side) * spacing + 20.0f, static_cast<float>(side) * spacing + 20.0f,
                           static_cast<float>(side) * spacing + 20.0f});
     sim.setSizeBox(sim.world().getWorldSize(), static_cast<int>(cellSize));
     sim.setLJEnabled(true);
@@ -116,7 +116,7 @@ SceneData buildScene(int atomCount, Ordering ordering, float spacing, float cell
     sim.neighborList().setMode(NeighborListMode::Full);
 
     for (uint32_t idx : order) {
-        sim.appendAtomFast(Vec3f{base[idx].x, base[idx].y, base[idx].z}, Vec3f{0.0f, 0.0f, 0.0f}, AtomData::Type::H, false);
+        sim.appendAtomFast(glm::vec3{base[idx].x, base[idx].y, base[idx].z}, glm::vec3{0.0f, 0.0f, 0.0f}, AtomData::Type::H, false);
     }
     sim.finalizeAtomBatch();
     sim.neighborList().build(sim.atoms(), sim.world());

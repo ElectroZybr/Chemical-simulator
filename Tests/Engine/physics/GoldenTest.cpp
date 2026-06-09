@@ -14,9 +14,9 @@
 
 #include "Engine/NeighborSearch/NeighborList.h"
 #include "Engine/Simulation.h"
-#include "Engine/math/Vec3.h"
-#include "Engine/physics/AtomData.h"
-#include "Engine/physics/AtomStorage.h"
+#include <glm/glm.hpp>
+#include "Engine/physics/Atom/AtomData.h"
+#include "Engine/physics/Atom/AtomStorage.h"
 using namespace Lattice;
 
 namespace {
@@ -26,12 +26,12 @@ constexpr float kGoldenP0X = 20.0000381f;
 
 Simulation makeFixed(NeighborListMode mode) {
     Simulation sim;
-    sim.createWorld(Vec3f{40.0f, 40.0f, 40.0f});
-    sim.setSizeBox(Vec3f{40.0f, 40.0f, 40.0f}, 6);
+    sim.createWorld(glm::vec3{40.0f, 40.0f, 40.0f});
+    sim.setSizeBox(glm::vec3{40.0f, 40.0f, 40.0f}, 6);
     sim.setLJEnabled(true);
     sim.setCoulombEnabled(false);
     sim.setBondFormationEnabled(false);
-    sim.setGravity(Vec3f{0.0f, 0.0f, 0.0f});
+    sim.setGravity(glm::vec3{0.0f, 0.0f, 0.0f});
     sim.setDt(0.01f);
     sim.setAccelDamping(1.0f);
     sim.neighborList().setMode(mode);
@@ -45,8 +45,8 @@ Simulation makeFixed(NeighborListMode mode) {
 // фикс-расстоянии 1.3.
 TEST(GoldenTest, LjPairForceHH) {
     Simulation sim = makeFixed(NeighborListMode::Half);
-    sim.appendAtomFast(Vec3f{20.0f, 20.0f, 20.0f}, Vec3f{0.0f, 0.0f, 0.0f}, AtomData::Type::H);
-    sim.appendAtomFast(Vec3f{21.3f, 20.0f, 20.0f}, Vec3f{0.0f, 0.0f, 0.0f}, AtomData::Type::H);
+    sim.appendAtomFast(glm::vec3{20.0f, 20.0f, 20.0f}, glm::vec3{0.0f, 0.0f, 0.0f}, AtomData::Type::H);
+    sim.appendAtomFast(glm::vec3{21.3f, 20.0f, 20.0f}, glm::vec3{0.0f, 0.0f, 0.0f}, AtomData::Type::H);
     sim.finalizeAtomBatch();
     sim.neighborList().build(sim.atoms(), sim.world());
     sim.forceField().computePairInteractions(sim.world());
@@ -75,7 +75,7 @@ TEST(GoldenTest, LjHalfEqualsFull) {
         for (int z = 0; z < 2; ++z) {
             for (int y = 0; y < 2; ++y) {
                 for (int x = 0; x < 2; ++x) {
-                    sim.appendAtomFast(Vec3f{20.0f + x * 3.0f, 20.0f + y * 3.0f, 20.0f + z * 3.0f}, Vec3f{0, 0, 0},
+                    sim.appendAtomFast(glm::vec3{20.0f + x * 3.0f, 20.0f + y * 3.0f, 20.0f + z * 3.0f}, glm::vec3{0, 0, 0},
                                        AtomData::Type::H);
                 }
             }
@@ -105,7 +105,7 @@ TEST(GoldenTest, SingleStepLattice) {
     for (int z = 0; z < 2; ++z) {
         for (int y = 0; y < 2; ++y) {
             for (int x = 0; x < 2; ++x) {
-                sim.appendAtomFast(Vec3f{20.0f + x * 3.0f, 20.0f + y * 3.0f, 20.0f + z * 3.0f}, Vec3f{0.0f, 0.0f, 0.0f},
+                sim.appendAtomFast(glm::vec3{20.0f + x * 3.0f, 20.0f + y * 3.0f, 20.0f + z * 3.0f}, glm::vec3{0.0f, 0.0f, 0.0f},
                                    AtomData::Type::H);
             }
         }

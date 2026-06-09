@@ -7,12 +7,12 @@
 #include <vector>
 
 #include "Engine/NeighborSearch/NeighborList.h"
-#include "Engine/physics/AtomData.h"
-#include "Engine/physics/AtomStorage.h"
+#include "Engine/physics/Atom/AtomData.h"
+#include "Engine/physics/Atom/AtomStorage.h"
 #include "Engine/physics/ForceFields/CoulombForceField.h" // kCoulombEvAngstrom (== CPU-константа в uniform)
 #include "Engine/physics/ForceFields/LJForceField.h"
 #include "Engine/physics/gpu/GpuNeighborListBuilder.h"
-#include "Rendering/WGPUContext.h"
+#include "Rendering/backend/WGPUContext.h"
 
 #include "generated/shaders/integrate_verlet.wgsl.h"
 #include "generated/shaders/nl_displacement.wgsl.h"

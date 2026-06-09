@@ -3,7 +3,7 @@
 
 #include "benchmarks/BenchmarkScenes.h"
 #include "Engine/Simulation.h"
-#include "Engine/math/Vec3.h"
+#include <glm/glm.hpp>
 using namespace Lattice;
 
 namespace {
@@ -43,13 +43,13 @@ float ySpread(const AtomStorage& atoms) {
 // 1) switch case SceneKind::IdealCrystal3D диспатчился в buildCrystal2D
 //    (copy-paste). Бенчи по IdealCrystal3D измеряли 2D-плоскость.
 //
-// 2) buildIdealCrystal3D передавал int side в Vec3f-параметр Scenes::hexLattice;
-//    неявная конверсия давала Vec3f(side, 0, 0) — 1D-линию атомов вдоль X.
+// 2) buildIdealCrystal3D передавал int side в glm::vec3-параметр Scenes::hexLattice;
+//    неявная конверсия давала glm::vec3(side, 0, 0) — 1D-линию атомов вдоль X.
 //
 // Корректная сцена IdealCrystal3D должна занимать все три оси.
 TEST(BenchmarkScenes, IdealCrystal3DBuildsThreeDimensionalVolume) {
     Simulation simulation;
-    simulation.createWorld(Vec3f{160.0f, 160.0f, 160.0f});
+    simulation.createWorld(glm::vec3{160.0f, 160.0f, 160.0f});
 
     // Новый API (upstream): Scenes::build(sim, SceneKind, atomCount) — BenchmarkCase убран.
     Benchmarks::Scenes::build(simulation, Benchmarks::SceneKind::IdealCrystal3D, 1000);

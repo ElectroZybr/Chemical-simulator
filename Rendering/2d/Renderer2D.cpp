@@ -1,24 +1,26 @@
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
-#include "Renderer2DWGPU.h"
+#include "Renderer2D.h"
 
 #include <glm/gtc/matrix_transform.hpp>
 
-#include "Rendering/RendererWGPU.h"
+#include "Rendering/Render.h"
 #include "generated/shaders/atom2d.wgsl.h"
 #include "generated/shaders/grid.wgsl.h"
 #include "generated/shaders/line.wgsl.h"
+#include "generated/shaders/memory_order.wgsl.h"
 
-Renderer2DWGPU::Renderer2DWGPU() {
+Renderer2D::Renderer2D() {
     initAtomPipeline(atom2dWGSL);
     initBoxPipeline(lineWGSL);
     initBondPipeline(lineWGSL);
+    initMemoryOrderPipeline(memory_orderWGSL);
     initGridPipeline(gridWGSL);
 
     camera.setMode(Camera::Mode::Mode2D);
     camera.resetView();
 }
 
-void Renderer2DWGPU::updateMatrices() {
+void Renderer2D::updateMatrices() {
     const float aspect = static_cast<float>(camera.screenSize.x) / static_cast<float>(camera.screenSize.y);
     const float viewWidth = static_cast<float>(camera.screenSize.x) / camera.getZoom();
     const float viewHeight = viewWidth / aspect;

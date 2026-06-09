@@ -42,9 +42,9 @@
 #include "fixtures/RendererFixture.h" // benchmarkDevice()
 #include "Engine/NeighborSearch/NeighborList.h"
 #include "Engine/Simulation.h"
-#include "Engine/math/Vec3.h"
-#include "Engine/physics/AtomData.h"
-#include "Engine/physics/AtomStorage.h"
+#include <glm/glm.hpp>
+#include "Engine/physics/Atom/AtomData.h"
+#include "Engine/physics/Atom/AtomStorage.h"
 #include "Engine/physics/Bond.h"
 #include "Engine/physics/gpu/GpuResidentPhysics.h"
 using namespace Lattice;
@@ -66,29 +66,29 @@ constexpr float kWorldSize = 24.0f; // max=23; атомы в районе цен
 struct PairSpec {
     AtomData::Type ta;
     AtomData::Type tb;
-    Vec3f pa;
-    Vec3f pb;
+    glm::vec3 pa;
+    glm::vec3 pb;
 };
 
 std::vector<PairSpec> pairSpecs() {
     return {
         // C-C, расстояние 1.1 по X (r0=1.0 → притяжение).
-        {AtomData::Type::C, AtomData::Type::C, Vec3f{8.0f, 8.0f, 8.0f}, Vec3f{9.1f, 8.0f, 8.0f}},
+        {AtomData::Type::C, AtomData::Type::C, glm::vec3{8.0f, 8.0f, 8.0f}, glm::vec3{9.1f, 8.0f, 8.0f}},
         // O-H, расстояние 0.9 по X (r0≈0.957 → отталкивание).
-        {AtomData::Type::O, AtomData::Type::H, Vec3f{8.0f, 14.0f, 8.0f}, Vec3f{8.9f, 14.0f, 8.0f}},
+        {AtomData::Type::O, AtomData::Type::H, glm::vec3{8.0f, 14.0f, 8.0f}, glm::vec3{8.9f, 14.0f, 8.0f}},
         // Ещё одна C-C на 1.1 в другом месте (больше directed-рёбер для CSR-сверки).
-        {AtomData::Type::C, AtomData::Type::C, Vec3f{14.0f, 8.0f, 8.0f}, Vec3f{15.1f, 8.0f, 8.0f}},
+        {AtomData::Type::C, AtomData::Type::C, glm::vec3{14.0f, 8.0f, 8.0f}, glm::vec3{15.1f, 8.0f, 8.0f}},
     };
 }
 
 // Общая конфигурация sim: LJ/Кулон ВЫКЛ (изолируем Morse), формация ВЫКЛ, gravity=0.
 void configureSim(Simulation& sim) {
-    sim.createWorld(Vec3f{kWorldSize, kWorldSize, kWorldSize});
+    sim.createWorld(glm::vec3{kWorldSize, kWorldSize, kWorldSize});
     sim.setSizeBox(sim.world().getWorldSize(), kCellSize);
     sim.setLJEnabled(false);
     sim.setCoulombEnabled(false);
     sim.setBondFormationEnabled(false);
-    sim.setGravity(Vec3f{0.0f, 0.0f, 0.0f});
+    sim.setGravity(glm::vec3{0.0f, 0.0f, 0.0f});
     sim.setDt(kDt);
     sim.setAccelDamping(kAccelDamping);
 }
@@ -96,8 +96,8 @@ void configureSim(Simulation& sim) {
 // Заполняет sim атомами пар (порядок детерминирован: пара k → атомы 2k, 2k+1).
 void fillPairs(Simulation& sim, const std::vector<PairSpec>& specs) {
     for (const PairSpec& s : specs) {
-        sim.appendAtomFast(s.pa, Vec3f{0.0f, 0.0f, 0.0f}, s.ta, false);
-        sim.appendAtomFast(s.pb, Vec3f{0.0f, 0.0f, 0.0f}, s.tb, false);
+        sim.appendAtomFast(s.pa, glm::vec3{0.0f, 0.0f, 0.0f}, s.ta, false);
+        sim.appendAtomFast(s.pb, glm::vec3{0.0f, 0.0f, 0.0f}, s.tb, false);
     }
     sim.finalizeAtomBatch();
 }
@@ -213,7 +213,7 @@ BondParityResult runBondParity() {
     const size_t atomCount = 2 * pairCount;
 
     // Стартовые позиции (для assert'а (a): CPU реально двинулся).
-    std::vector<Vec3f> startPos;
+    std::vector<glm::vec3> startPos;
     startPos.reserve(atomCount);
     for (const PairSpec& s : specs) {
         startPos.push_back(s.pa);
@@ -256,7 +256,7 @@ BondParityResult runBondParity() {
     {
         const AtomStorage& a = cpu.atoms();
         for (size_t i = 0; i < atomCount; ++i) {
-            const Vec3f sp = startPos[i];
+            const glm::vec3 sp = startPos[i];
             cpuSelfDisplacement = std::max(cpuSelfDisplacement, std::abs(static_cast<double>(a.posX(i)) - sp.x));
             cpuSelfDisplacement = std::max(cpuSelfDisplacement, std::abs(static_cast<double>(a.posY(i)) - sp.y));
             cpuSelfDisplacement = std::max(cpuSelfDisplacement, std::abs(static_cast<double>(a.posZ(i)) - sp.z));
@@ -272,8 +272,8 @@ BondParityResult runBondParity() {
     // (c) Runtime-add: добавить новую связь в GPU-режиме (новая пара атомов),
     // один update → re-upload подхватит → readback подтверждает новые рёбра.
     // Добавляем новую C-C пару в свободном месте; их valence > 0 (свежие атомы).
-    gpu.appendAtomFast(Vec3f{8.0f, 8.0f, 14.0f}, Vec3f{0.0f, 0.0f, 0.0f}, AtomData::Type::C, false);
-    gpu.appendAtomFast(Vec3f{9.1f, 8.0f, 14.0f}, Vec3f{0.0f, 0.0f, 0.0f}, AtomData::Type::C, false);
+    gpu.appendAtomFast(glm::vec3{8.0f, 8.0f, 14.0f}, glm::vec3{0.0f, 0.0f, 0.0f}, AtomData::Type::C, false);
+    gpu.appendAtomFast(glm::vec3{9.1f, 8.0f, 14.0f}, glm::vec3{0.0f, 0.0f, 0.0f}, AtomData::Type::C, false);
     gpu.finalizeAtomBatch();
     const size_t newA = gpu.atoms().size() - 2;
     const size_t newB = gpu.atoms().size() - 1;
@@ -317,7 +317,7 @@ BondParityResult runBondParity() {
 // в RESULTS.md). Дизайн §4.4: если > ~1e-1 — принципиальный потолок f32 (флаг).
 struct AngleSceneSpec {
     AtomData::Type t;
-    Vec3f p;
+    glm::vec3 p;
 };
 
 // O центр + 2 H плеча. r0(O-H)≈0.957 — ставим плечи РОВНО на r0, чтобы Morse-сила
@@ -325,17 +325,17 @@ struct AngleSceneSpec {
 // детерминирован: 0=O, 1=H, 2=H.
 std::vector<AngleSceneSpec> angleSpecs() {
     constexpr float r = 0.957f; // ~r0 O-H (BondTable.cpp:8) → Morse≈0, изолируем угол
-    const Vec3f o{12.0f, 12.0f, 12.0f};
+    const glm::vec3 o{12.0f, 12.0f, 12.0f};
     return {
         {AtomData::Type::O, o},
-        {AtomData::Type::H, Vec3f{o.x + r, o.y, o.z}},      // плечо вдоль +X
-        {AtomData::Type::H, Vec3f{o.x, o.y + r, o.z}},      // плечо вдоль +Y → угол ≈90°
+        {AtomData::Type::H, glm::vec3{o.x + r, o.y, o.z}},      // плечо вдоль +X
+        {AtomData::Type::H, glm::vec3{o.x, o.y + r, o.z}},      // плечо вдоль +Y → угол ≈90°
     };
 }
 
 void fillAngleScene(Simulation& sim, const std::vector<AngleSceneSpec>& specs) {
     for (const AngleSceneSpec& s : specs) {
-        sim.appendAtomFast(s.p, Vec3f{0.0f, 0.0f, 0.0f}, s.t, false);
+        sim.appendAtomFast(s.p, glm::vec3{0.0f, 0.0f, 0.0f}, s.t, false);
     }
     sim.finalizeAtomBatch();
 }
@@ -353,7 +353,7 @@ AngleParityResult runAngleParity() {
     const std::vector<AngleSceneSpec> specs = angleSpecs();
     const size_t atomCount = specs.size();
 
-    std::vector<Vec3f> startPos;
+    std::vector<glm::vec3> startPos;
     startPos.reserve(atomCount);
     for (const AngleSceneSpec& s : specs) {
         startPos.push_back(s.p);
@@ -403,7 +403,7 @@ AngleParityResult runAngleParity() {
     {
         const AtomStorage& a = cpu.atoms();
         for (size_t i = 0; i < atomCount; ++i) {
-            const Vec3f sp = startPos[i];
+            const glm::vec3 sp = startPos[i];
             cpuSelfDisplacement = std::max(cpuSelfDisplacement, std::abs(static_cast<double>(a.posX(i)) - sp.x));
             cpuSelfDisplacement = std::max(cpuSelfDisplacement, std::abs(static_cast<double>(a.posY(i)) - sp.y));
             cpuSelfDisplacement = std::max(cpuSelfDisplacement, std::abs(static_cast<double>(a.posZ(i)) - sp.z));
@@ -443,12 +443,12 @@ LJToggleResult runLJToggleDelivery() {
         constexpr float spacing = 3.0f;
         constexpr int side = 3;
         constexpr float worldSize = side * spacing + 40.0f;
-        sim.createWorld(Vec3f{worldSize, worldSize, worldSize});
+        sim.createWorld(glm::vec3{worldSize, worldSize, worldSize});
         sim.setSizeBox(sim.world().getWorldSize(), 6);
         sim.setLJEnabled(true); // LJ ВКЛ на старте — потом выключим в рантайме
         sim.setCoulombEnabled(false);
         sim.setBondFormationEnabled(false);
-        sim.setGravity(Vec3f{0.0f, 0.0f, 0.0f});
+        sim.setGravity(glm::vec3{0.0f, 0.0f, 0.0f});
         sim.setDt(kDt);
         sim.setAccelDamping(kAccelDamping);
         std::mt19937 rng(424242);
@@ -456,8 +456,8 @@ LJToggleResult runLJToggleDelivery() {
         for (int z = 0; z < side; ++z) {
             for (int y = 0; y < side; ++y) {
                 for (int x = 0; x < side; ++x) {
-                    sim.appendAtomFast(Vec3f{20.0f + x * spacing, 20.0f + y * spacing, 20.0f + z * spacing},
-                                       Vec3f{vel(rng), vel(rng), vel(rng)}, AtomData::Type::H, false);
+                    sim.appendAtomFast(glm::vec3{20.0f + x * spacing, 20.0f + y * spacing, 20.0f + z * spacing},
+                                       glm::vec3{vel(rng), vel(rng), vel(rng)}, AtomData::Type::H, false);
                 }
             }
         }

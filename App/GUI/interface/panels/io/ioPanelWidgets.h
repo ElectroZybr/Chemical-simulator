@@ -2,7 +2,7 @@
 
 #include <imgui.h>
 
-#include "Lattice/Engine/physics/AtomData.h"
+#include "Lattice/Engine/physics/Atom/AtomData.h"
 
 struct UiState;
 

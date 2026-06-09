@@ -24,7 +24,7 @@
 
 #include "fixtures/RendererFixture.h" // benchmarkDevice()
 #include "Engine/NeighborSearch/SpatialGrid.h"
-#include "Engine/math/Vec3.h"
+#include <glm/glm.hpp>
 #include "Engine/physics/gpu/GpuNeighborListBuilder.h"
 using namespace Lattice;
 
@@ -32,7 +32,7 @@ namespace {
 
 struct Scene {
     const char* name;
-    Vec3f world;
+    glm::vec3 world;
     float cellSize;
     std::vector<float> x, y, z;
 };
@@ -47,7 +47,7 @@ void addAtom(Scene& s, float px, float py, float pz) {
 
 // Маленькая регулярная решётка.
 Scene makeSmallGrid() {
-    Scene s{"small-grid", Vec3f(60, 60, 60), 6.0f, {}, {}, {}};
+    Scene s{"small-grid", glm::vec3(60, 60, 60), 6.0f, {}, {}, {}};
     for (int i = 0; i < 64; ++i) {
         const float px = 6.0f + 6.0f * static_cast<float>(i % 4);
         const float py = 6.0f + 6.0f * static_cast<float>((i / 4) % 4);
@@ -60,7 +60,7 @@ Scene makeSmallGrid() {
 // Плотный кластер: много атомов в малом объёме (несколько клеток по многу атомов
 // -> нагружает atomic scatter и счётчики клеток).
 Scene makeDense() {
-    Scene s{"dense-cluster", Vec3f(120, 120, 120), 6.0f, {}, {}, {}};
+    Scene s{"dense-cluster", glm::vec3(120, 120, 120), 6.0f, {}, {}, {}};
     std::mt19937 rng(12345);
     std::uniform_real_distribution<float> d(20.0f, 32.0f); // ~2x2x2 клеток (cell 6)
     for (int i = 0; i < 4000; ++i) {
@@ -71,7 +71,7 @@ Scene makeDense() {
 
 // Равномерный рандом по всему боксу.
 Scene makeRandom(int count, uint32_t seed) {
-    Scene s{"random", Vec3f(300, 300, 300), 6.0f, {}, {}, {}};
+    Scene s{"random", glm::vec3(300, 300, 300), 6.0f, {}, {}, {}};
     std::mt19937 rng(seed);
     std::uniform_real_distribution<float> d(0.0f, 300.0f);
     for (int i = 0; i < count; ++i) {
@@ -83,7 +83,7 @@ Scene makeRandom(int count, uint32_t seed) {
 // Около-граничные атомы: ровно на 0, на стенке, чуть за стенкой (тест clamp в
 // ghost-интерьер [1, size-2]) + немного внутри.
 Scene makeBoundary() {
-    Scene s{"boundary", Vec3f(90, 90, 90), 6.0f, {}, {}, {}};
+    Scene s{"boundary", glm::vec3(90, 90, 90), 6.0f, {}, {}, {}};
     const float w = 90.0f;
     const float pts[] = {-3.0f, 0.0f, 0.001f, 3.0f, w * 0.5f, w - 0.001f, w, w + 3.0f};
     for (float px : pts) {
@@ -105,7 +105,7 @@ Scene makeLargeRandom() { return makeRandom(60000, 999); }
 // (cellCount -> numBlocks0 -> numBlocks1 -> 1). Прямо нагружает самую глубокую
 // ветку рекурсии scan (главный риск 2a). 420^3, cell 6 -> ~72^3 ~= 373k клеток.
 Scene makeHugeGrid() {
-    Scene s{"huge-grid", Vec3f(420, 420, 420), 6.0f, {}, {}, {}};
+    Scene s{"huge-grid", glm::vec3(420, 420, 420), 6.0f, {}, {}, {}};
     std::mt19937 rng(31337);
     std::uniform_real_distribution<float> d(0.0f, 420.0f);
     for (int i = 0; i < 30000; ++i) {

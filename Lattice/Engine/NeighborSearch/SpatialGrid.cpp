@@ -6,7 +6,7 @@
 
 #include "Engine/metrics/Profiler.h"
 
-SpatialGrid::SpatialGrid(const Vec3f& worldSize, float cellSize) : cellSize(cellSize) {
+SpatialGrid::SpatialGrid(const glm::vec3& worldSize, float cellSize) : cellSize(cellSize) {
     if (worldSize.x < 0 || worldSize.y < 0 || worldSize.z < 0) {
         throw std::invalid_argument("SpatialGrid::SpatialGrid: size must be > 0");
     }
@@ -17,7 +17,7 @@ SpatialGrid::SpatialGrid(const Vec3f& worldSize, float cellSize) : cellSize(cell
     const float cellsX = std::max<float>(1.f + 2.f * kGhostLayers, (worldSize.x + this->cellSize - 1.f) / this->cellSize + 2.f * kGhostLayers);
     const float cellsY = std::max<float>(1.f + 2.f * kGhostLayers, (worldSize.y + this->cellSize - 1.f) / this->cellSize + 2.f * kGhostLayers);
     const float cellsZ = std::max<float>(1.f + 2.f * kGhostLayers, (worldSize.z + this->cellSize - 1.f) / this->cellSize + 2.f * kGhostLayers);
-    this->size = Vec3u(cellsX, cellsY, cellsZ);
+    this->size = glm::uvec3(static_cast<uint32_t>(cellsX), static_cast<uint32_t>(cellsY), static_cast<uint32_t>(cellsZ));
     countCells = this->size.x * this->size.y * this->size.z;
 
     offsets.assign(countCells + 1, 0);
@@ -89,7 +89,7 @@ void SpatialGrid::rebuild(std::span<const float> posX, std::span<const float> po
     stats_.recordRebuild(nonEmptyCellCount, maxAtomsPerCell, averageAtomsPerNonEmptyCell);
 }
 
-void SpatialGrid::resize(const Vec3f& newWorldSize, float newCellSize) {
+void SpatialGrid::resize(const glm::vec3& newWorldSize, float newCellSize) {
     if (newCellSize > 0) {
         cellSize = newCellSize;
     }

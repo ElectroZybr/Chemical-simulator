@@ -17,13 +17,14 @@
 
 void updateAtomSelectionDebug(const DebugViews& debugViews, const Lattice::Simulation& simulation) {
     const AtomStorage& atoms = simulation.atoms();
-    if (ToolsManager::pickingSystem->getSelectedIndices().size() == 1) {
+    const auto& selectedAtomIds = ToolsManager::pickingSystem->getSelectedAtomIds();
+    if (selectedAtomIds.size() == 1) {
         debugViews.atomSingle->visible = true;
         debugViews.atomBatch->visible = false;
-        const size_t selectedIndex = *ToolsManager::pickingSystem->getSelectedIndices().begin();
+        const size_t selectedIndex = atoms.indexOf(*selectedAtomIds.begin());
         if (selectedIndex < atoms.size()) {
             debugViews.atomSingle->add_data("Позиция", atoms.pos(selectedIndex));
-            const float speed = atoms.vel(selectedIndex).abs();
+            const float speed = glm::length(atoms.vel(selectedIndex));
             debugViews.atomSingle->add_data("Скорость (A/dt)", speed);
             debugViews.atomSingle->add_data("Скорость (м/с)", speed * Units::SpeedUnitToMps);
             debugViews.atomSingle->add_data("Скорость (км/ч)", speed * Units::SpeedUnitToKmph);
@@ -39,7 +40,7 @@ void updateAtomSelectionDebug(const DebugViews& debugViews, const Lattice::Simul
     else {
         debugViews.atomBatch->visible = true;
         debugViews.atomSingle->visible = false;
-        debugViews.atomBatch->add_data("Выбрано атомов", ToolsManager::pickingSystem->getSelectedIndices().size());
+        debugViews.atomBatch->add_data("Выбрано атомов", selectedAtomIds.size());
     }
 }
 

@@ -36,9 +36,9 @@
 #include "Engine/NeighborSearch/SpatialGrid.h"
 #include "Engine/Simulation.h"
 #include "Engine/World.h"
-#include "Engine/math/Vec3.h"
-#include "Engine/physics/AtomData.h"
-#include "Engine/physics/AtomStorage.h"
+#include <glm/glm.hpp>
+#include "Engine/physics/Atom/AtomData.h"
+#include "Engine/physics/Atom/AtomStorage.h"
 using namespace Lattice;
 
 namespace {
@@ -115,12 +115,12 @@ void runGpuDiagnosticsGrid(benchmark::State& state) {
 
     for (auto _ : state) {
         Simulation sim;
-        sim.createWorld(Vec3f{160.0f, 160.0f, 160.0f});
-        sim.setSizeBox(Vec3f{160.0f, 160.0f, 160.0f}, 6);
+        sim.createWorld(glm::vec3{160.0f, 160.0f, 160.0f});
+        sim.setSizeBox(glm::vec3{160.0f, 160.0f, 160.0f}, 6);
         sim.setLJEnabled(true);
         sim.setCoulombEnabled(false);
         sim.setBondFormationEnabled(false);
-        sim.setGravity(Vec3f{0.0f, 0.0f, 0.0f});
+        sim.setGravity(glm::vec3{0.0f, 0.0f, 0.0f});
         sim.setDt(0.01f);
 
         // 8^3 = 512 атомов с большими скоростями: смещение v*t = ~8*0.6 ~= нескольких
@@ -134,7 +134,7 @@ void runGpuDiagnosticsGrid(benchmark::State& state) {
                     const float vx = 8.0f * static_cast<float>((x % 3) - 1);
                     const float vy = 8.0f * static_cast<float>((y % 3) - 1);
                     const float vz = 8.0f * static_cast<float>((z % 3) - 1);
-                    sim.appendAtomFast(Vec3f{50.0f + x * 3.0f, 50.0f + y * 3.0f, 50.0f + z * 3.0f}, Vec3f{vx, vy, vz},
+                    sim.appendAtomFast(glm::vec3{50.0f + x * 3.0f, 50.0f + y * 3.0f, 50.0f + z * 3.0f}, glm::vec3{vx, vy, vz},
                                        AtomData::Type::H);
                 }
             }
@@ -204,12 +204,12 @@ void runGpuDiagnosticsGridMultiWorld(benchmark::State& state) {
 
     for (auto _ : state) {
         Simulation sim;
-        sim.createWorld(Vec3f{160.0f, 160.0f, 160.0f}); // world 0
-        sim.setSizeBox(Vec3f{160.0f, 160.0f, 160.0f}, 6);
+        sim.createWorld(glm::vec3{160.0f, 160.0f, 160.0f}); // world 0
+        sim.setSizeBox(glm::vec3{160.0f, 160.0f, 160.0f}, 6);
         sim.setLJEnabled(true);
         sim.setCoulombEnabled(false);
         sim.setBondFormationEnabled(false);
-        sim.setGravity(Vec3f{0.0f, 0.0f, 0.0f});
+        sim.setGravity(glm::vec3{0.0f, 0.0f, 0.0f});
         sim.setDt(0.01f);
 
         const int side = 8; // 512 движущихся атомов (как single-world кейс)
@@ -219,7 +219,7 @@ void runGpuDiagnosticsGridMultiWorld(benchmark::State& state) {
                     const float vx = 8.0f * static_cast<float>((x % 3) - 1);
                     const float vy = 8.0f * static_cast<float>((y % 3) - 1);
                     const float vz = 8.0f * static_cast<float>((z % 3) - 1);
-                    sim.appendAtomFast(Vec3f{50.0f + x * 3.0f, 50.0f + y * 3.0f, 50.0f + z * 3.0f}, Vec3f{vx, vy, vz},
+                    sim.appendAtomFast(glm::vec3{50.0f + x * 3.0f, 50.0f + y * 3.0f, 50.0f + z * 3.0f}, glm::vec3{vx, vy, vz},
                                        AtomData::Type::H);
                 }
             }
@@ -227,7 +227,7 @@ void runGpuDiagnosticsGridMultiWorld(benchmark::State& state) {
         sim.finalizeAtomBatch();
         sim.setGpuMode(true); // world 0 -> GPU (пока активен)
 
-        sim.createWorld(Vec3f{160.0f, 160.0f, 160.0f}); // world 1
+        sim.createWorld(glm::vec3{160.0f, 160.0f, 160.0f}); // world 1
         sim.setActiveWorld(1);                          // world 0 теперь GPU + НЕактивен
 
         for (int s = 0; s < 60; ++s) {

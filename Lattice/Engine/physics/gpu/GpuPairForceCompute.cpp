@@ -10,10 +10,10 @@
 
 #include "Engine/Consts.h"
 #include "Engine/NeighborSearch/NeighborList.h"
-#include "Engine/physics/AtomData.h"
-#include "Engine/physics/AtomStorage.h"
+#include "Engine/physics/Atom/AtomData.h"
+#include "Engine/physics/Atom/AtomStorage.h"
 #include "Engine/physics/ForceFields/LJForceField.h"
-#include "Rendering/WGPUContext.h"
+#include "Rendering/backend/WGPUContext.h"
 
 #include "generated/shaders/physics_lj.wgsl.h"
 

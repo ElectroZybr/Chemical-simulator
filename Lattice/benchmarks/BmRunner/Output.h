@@ -10,5 +10,6 @@ namespace Benchmarks::BmRunner {
     void printResultsTable(const BenchmarkData& data,
                            const std::unordered_map<std::string, BenchmarkMeta>& metadata,
                            const std::filesystem::path& resultsPath,
-                           std::string_view sceneKey);
+                           std::string_view sceneKey,
+                           std::string_view degradationKey);
 }

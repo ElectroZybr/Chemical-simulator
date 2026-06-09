@@ -27,6 +27,22 @@ int main(int argc, char** argv) {
             Benchmarks::setSelectedScene(Benchmarks::sceneFromString(arg.substr(8)));
             continue;
         }
+        if (arg == "--degradation" && i + 1 < argc) {
+            Benchmarks::setSelectedDegradationCriterion(Benchmarks::degradationCriterionFromString(argv[++i]));
+            continue;
+        }
+        if (arg.rfind("--degradation=", 0) == 0) {
+            Benchmarks::setSelectedDegradationCriterion(Benchmarks::degradationCriterionFromString(arg.substr(14)));
+            continue;
+        }
+        if (arg == "--warmup-steps" && i + 1 < argc) {
+            Benchmarks::setSelectedWarmupSteps(std::stoi(argv[++i]));
+            continue;
+        }
+        if (arg.rfind("--warmup-steps=", 0) == 0) {
+            Benchmarks::setSelectedWarmupSteps(std::stoi(arg.substr(15)));
+            continue;
+        }
         filteredArgs.push_back(argv[i]);
     }
 

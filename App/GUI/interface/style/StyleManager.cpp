@@ -2,6 +2,18 @@
 
 #include <algorithm>
 
+void StyleManager::refreshScale() {
+    scale = std::clamp(adaptiveScale * userScaleMultiplier, kMinUiScale, kMaxUiScale);
+
+    if (ImGui::GetCurrentContext() == nullptr) {
+        return;
+    }
+
+    ImGui::GetStyle() = baseStyle;
+    ImGui::GetStyle().ScaleAllSizes(scale);
+    ImGui::GetIO().FontGlobalScale = 1.0f;
+}
+
 void StyleManager::applyCustomStyle() {
     ImGuiStyle& style = ImGui::GetStyle();
     ImVec4* colors = style.Colors;
@@ -56,15 +68,17 @@ void StyleManager::applyCustomStyle() {
     colors[ImGuiCol_ModalWindowDimBg] = ImVec4(1.00, 0.98, 0.95, 0.73);
 
     baseStyle = style;
-    scale = 1;
-    ImGui::GetIO().FontGlobalScale = 1.0f;
+    adaptiveScale = 1.0f;
+    refreshScale();
 }
 
-void StyleManager::onResize(Vec2i newSize) {
-    Vec2f s = Vec2f(newSize) / Vec2f(BASE_W, BASE_H);
-    scale = std::clamp(std::min(s.x, s.y), 0.85f, 1.35f);
+void StyleManager::onResize(glm::ivec2 newSize) {
+    glm::vec2 s = glm::vec2(newSize) / glm::vec2(BASE_W, BASE_H);
+    adaptiveScale = std::clamp(std::min(s.x, s.y) * 0.8f, kMinUiScale, kMaxUiScale);
+    refreshScale();
+}
 
-    ImGui::GetStyle() = baseStyle;
-    ImGui::GetStyle().ScaleAllSizes(scale);
-    ImGui::GetIO().FontGlobalScale = 1.0f;
+void StyleManager::setUserScaleMultiplier(float multiplier) {
+    userScaleMultiplier = std::clamp(multiplier, kMinUiScale, kMaxUiScale);
+    refreshScale();
 }

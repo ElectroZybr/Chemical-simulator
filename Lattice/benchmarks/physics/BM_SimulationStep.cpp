@@ -2,15 +2,10 @@
 #include "Fixture.h"
 using namespace Lattice;
 
-// @bench_meta {"id":"Fixture/FullStepWithNeighborList","label":"Full Step with NeighborList","group":"Simulation/Simulation Step"}
+// @bench_meta {"id":"Fixture/FullStep","label":"Full Step","group":"Simulation/Simulation Step"}
 BENCHMARK_DEFINE_F(Fixture, FullStepWithNeighborList)(benchmark::State& state) {
-    constexpr int kWarmupSteps = 128;
-
     rebuildScene();
-    simulation_->setDt(Benchmarks::kDt);
-    for (int i = 0; i < kWarmupSteps; ++i) {
-        simulation_->update();
-    }
+    warmupScene();
     const size_t rebuildCountBefore = simulation_->neighborList().stats().rebuildCount();
 
     for (auto _ : state) {

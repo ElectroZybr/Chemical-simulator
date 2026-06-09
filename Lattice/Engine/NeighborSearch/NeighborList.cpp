@@ -9,7 +9,7 @@
 #include "Engine/NeighborSearch/SpatialGrid.h"
 #include "Engine/World.h"
 #include "Engine/metrics/Profiler.h"
-#include "Engine/physics/AtomStorage.h"
+#include "Engine/physics/Atom/AtomStorage.h"
 #include "Engine/restrict.h"
 
 #ifdef LATTICELAB_USE_TBB
@@ -24,6 +24,13 @@ namespace {
 // Значение совпадает с ForceField::kParallelMobileThreshold, но НЕЗАВИСИМ — тюнится
 // отдельно (стоимость построения NL не равна стоимости force-loop).
 constexpr uint32_t kParallelBuildThreshold = 5000;
+
+// Порог Morton-сортировки атомов по ячейкам. Сортировка улучшает локальность кэша, но это
+// СЕРИЙНЫЙ radix-sort + remap всех per-atom массивов — стоимость растёт с N и не параллелится.
+// Измерено: на 1M ~320ms/rebuild, all-core 1M проседает 48 -> 2.9 шаг/с (16x); выигрыш же
+// ничтожен (104k 1 поток лишь +0.6ms, all-core в пределах шума). Поэтому сортируем только
+// малые/средние сцены ниже порога — большие параллельные не платят серийный sort.
+constexpr size_t kMortonSortThreshold = 200000;
 
 #ifdef LATTICELAB_USE_TBB
 // Минимальная РЕАЛЬНАЯ параллельность, при которой параллельная форма данных окупается.
@@ -99,8 +106,17 @@ void NeighborList::clear() {
     resetStats();
 }
 
-void NeighborList::rebuildPipeline(const AtomStorage& atoms, World& world, int simStep) {
-    // перестройка пространственной сетки
+void NeighborList::rebuildPipeline(AtomStorage& atoms, World& world, int simStep) {
+    // Morton-сортировка атомов по ячейкам (upstream) гейтится по числу атомов — серийный
+    // radix-sort + remap не окупается на больших сценах (см. kMortonSortThreshold). НО octree
+    // дальнего Кулона ТРЕБУЕТ Morton-порядок (Octree::buildNode полагается на группировку по
+    // октантам), поэтому при включённом long-range сортируем независимо от порога — иначе octree
+    // читал бы неупорядоченные атомы и давал мусорные силы.
+    if (atoms.mobileCount() < kMortonSortThreshold || world.isCoulombLongRangeEnabled()) {
+        atoms.sort(world.getGrid());
+        world.remapAtomIndices(atoms.lastSortOldToNew());
+    }
+    // перестройка пространственной сетки уже под новый порядок атомов
     world.getGrid().rebuild(atoms.xDataSpan(), atoms.yDataSpan(), atoms.zDataSpan());
     // перестройка списка соседей (контракт cellSize >= listRadius проверяется в build)
     build(atoms, world);

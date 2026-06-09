@@ -4,7 +4,7 @@
 #include <vector>
 
 #include "Lattice/Engine/Simulation.h"
-#include "Lattice/Engine/physics/AtomData.h"
+#include "Lattice/Engine/physics/Atom/AtomData.h"
 
 namespace Generators {
     struct AtomTypeSpec {

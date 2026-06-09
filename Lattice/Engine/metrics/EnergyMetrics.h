@@ -1,9 +1,17 @@
 #pragma once
 
-#include "Engine/physics/AtomData.h"
-#include "Engine/physics/AtomStorage.h"
+#include <glm/geometric.hpp>
+#include <glm/glm.hpp>
+
+#include "Engine/Consts.h"
+#include "Engine/physics/Atom/AtomData.h"
+#include "Engine/physics/Atom/AtomStorage.h"
 
 namespace EnergyMetrics {
+    using glm::dot;
+    using glm::length;
+    using glm::vec3;
+
     struct Snapshot {
         float averageKineticEnergyEv = 0.0f;
         float averagePotentialEnergyEv = 0.0f;
@@ -26,7 +34,9 @@ namespace EnergyMetrics {
         }
     };
 
-    inline float kineticEnergy(AtomData::Type type, const Vec3f& speed) { return 0.5f * AtomData::getProps(type).mass * speed.sqrAbs(); }
+    inline float kineticEnergy(AtomData::Type type, const vec3& speed) {
+        return 0.5f * AtomData::getProps(type).mass * dot(speed, speed);
+    }
 
     inline Snapshot buildSnapshot(const AtomStorage& atomStorage) {
         Snapshot snapshot;
@@ -39,8 +49,9 @@ namespace EnergyMetrics {
         float totalSpeed = 0.0f;
         const size_t mobileCount = atomStorage.mobileCount();
         for (size_t atomIndex = 0; atomIndex < mobileCount; ++atomIndex) {
-            totalKineticEnergy += kineticEnergy(atomStorage.type(atomIndex), atomStorage.vel(atomIndex));
-            totalSpeed += atomStorage.vel(atomIndex).abs();
+            const vec3 speed = atomStorage.vel(atomIndex);
+            totalKineticEnergy += kineticEnergy(atomStorage.type(atomIndex), speed);
+            totalSpeed += length(speed);
         }
         for (size_t atomIndex = 0; atomIndex < atomStorage.size(); ++atomIndex) {
             totalPotentialEnergy += atomStorage.energy(atomIndex);

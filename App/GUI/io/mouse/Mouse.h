@@ -2,18 +2,17 @@
 #include <memory>
 
 #include <GLFW/glfw3.h>
-
-#include "Lattice/Engine/math/Vec2.h"
+#include <glm/vec2.hpp>
 #include "Rendering/BaseRenderer.h"
 
 class Mouse {
     friend class EventManager;
 
 public:
-    static Vec2i getMousePos() {
+    static glm::ivec2 getMousePos() {
         double x, y;
         glfwGetCursorPos(Mouse::window, &x, &y);
-        return Vec2i(x, y);
+        return glm::ivec2(static_cast<int>(x), static_cast<int>(y));
     }
 
     static void init(GLFWwindow* w, std::unique_ptr<BaseRenderer>& renderer, class Interface& appInterface);

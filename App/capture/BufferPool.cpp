@@ -4,7 +4,7 @@
 
 #include <webgpu/webgpu-raii.hpp>
 
-#include "Rendering/WGPUContext.h"
+#include "Rendering/backend/WGPUContext.h"
 
 void BufferPool::init(size_t bufferSize, size_t initialCount) {
     this->bufferSize = bufferSize;

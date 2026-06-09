@@ -3,8 +3,8 @@
 #include <algorithm>
 #include <cmath>
 
-#include "Engine/physics/AtomData.h"
-#include "Engine/physics/AtomStorage.h"
+#include "Engine/physics/Atom/AtomData.h"
+#include "Engine/physics/Atom/AtomStorage.h"
 
 namespace {
     constexpr double kBondBreakDistance = 3.0;
@@ -113,7 +113,7 @@ void Bond::angleForce(AtomStorage& atomStorage, size_t aIndex, size_t bIndex, si
     }
 
     double angle_theta = std::acos(cos_theta);
-    constexpr double theta_0 = 60.0 / 180.0 * std::numbers::pi;
+    constexpr double theta_0 = 104.5 / 180.0 * std::numbers::pi;
     double angle_loss = angle_theta - theta_0;
 
     double sin_theta = std::sqrt(sin_theta_sqr);

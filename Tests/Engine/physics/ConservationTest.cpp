@@ -13,9 +13,9 @@
 
 #include "Engine/NeighborSearch/NeighborList.h"
 #include "Engine/Simulation.h"
-#include "Engine/math/Vec3.h"
-#include "Engine/physics/AtomData.h"
-#include "Engine/physics/AtomStorage.h"
+#include <glm/glm.hpp>
+#include "Engine/physics/Atom/AtomData.h"
+#include "Engine/physics/Atom/AtomStorage.h"
 using namespace Lattice;
 
 namespace {
@@ -26,12 +26,12 @@ namespace {
 // система. setMode фиксирует режим NL (Half=serial, Full+>=5000=TBB parallel).
 Simulation makeBulk(uint32_t n, float box, float spacing, float velScale, uint32_t seed, NeighborListMode mode) {
     Simulation sim;
-    sim.createWorld(Vec3f{box, box, box});
-    sim.setSizeBox(Vec3f{box, box, box}, 6);
+    sim.createWorld(glm::vec3{box, box, box});
+    sim.setSizeBox(glm::vec3{box, box, box}, 6);
     sim.setLJEnabled(true);
     sim.setCoulombEnabled(false);
     sim.setBondFormationEnabled(false);
-    sim.setGravity(Vec3f{0.0f, 0.0f, 0.0f});
+    sim.setGravity(glm::vec3{0.0f, 0.0f, 0.0f});
     sim.setDt(0.005f);
     sim.setAccelDamping(1.0f); // без демпфирования — импульс/энергия не диссипируют
     sim.neighborList().setMode(mode);
@@ -44,8 +44,8 @@ Simulation makeBulk(uint32_t n, float box, float spacing, float velScale, uint32
     for (int z = 0; z < side && placed < n; ++z) {
         for (int y = 0; y < side && placed < n; ++y) {
             for (int x = 0; x < side && placed < n; ++x, ++placed) {
-                sim.appendAtomFast(Vec3f{margin + x * spacing, margin + y * spacing, margin + z * spacing},
-                                   Vec3f{vel(rng), vel(rng), vel(rng)}, AtomData::Type::H, /*fixed=*/false);
+                sim.appendAtomFast(glm::vec3{margin + x * spacing, margin + y * spacing, margin + z * spacing},
+                                   glm::vec3{vel(rng), vel(rng), vel(rng)}, AtomData::Type::H, /*fixed=*/false);
             }
         }
     }

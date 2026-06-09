@@ -12,6 +12,21 @@ union Color {
     };
 };
 
+enum class AtomCategory : uint8_t {
+    Custom,
+    AlkaliMetal,
+    AlkalineEarthMetal,
+    TransitionMetal,
+    PostTransitionMetal,
+    Metalloid,
+    ReactiveNonmetal,
+    Halogen,
+    NobleGas,
+    Lanthanide,
+    Actinide,
+    Unknown,
+};
+
 struct StaticAtomicData {
     const float mass;
     const float radius;
@@ -20,10 +35,13 @@ struct StaticAtomicData {
     const Color color;
     const float ljA0;
     const float ljEps;
+    const AtomCategory category;
 };
 
 class AtomData {
 public:
+    using Category = AtomCategory;
+
     // clang-format off
     enum class Type : uint8_t {
         Z,
@@ -59,4 +77,7 @@ private:
 public:
     static const StaticAtomicData& getProps(Type type) { return properties.at(static_cast<int>(type)); }
     static std::string_view symbol(Type type);
+    static std::string_view name(Type type);
+    static Category category(Type type);
+    static std::string_view categoryName(Category category);
 };

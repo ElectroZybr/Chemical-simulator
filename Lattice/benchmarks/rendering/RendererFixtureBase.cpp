@@ -1,9 +1,10 @@
 #include <stdexcept>
+#include <glm/gtc/random.hpp>
 
 #include <GLFW/glfw3.h>
 
 #include "fixtures/RendererFixture.h"
-#include "Rendering/WGPUContext.h"
+#include "Rendering/backend/WGPUContext.h"
 using namespace Lattice;
 
 namespace {
@@ -42,7 +43,7 @@ wgpu::TextureFormat benchmarkSurfaceFormat() {
 void RendererFixtureBase::prepareAtoms(benchmark::State& state) {
     ensureBenchmarkContext();
     if (simulation_.worldCount() == 0) {
-        simulation_.createWorld(Vec3f(300, 300, 300));
+        simulation_.createWorld(glm::vec3(300, 300, 300));
     }
     simulation_.world().getAtomStorage() = makeGridAtoms(state.range(0));
 }
@@ -96,8 +97,8 @@ AtomStorage RendererFixtureBase::makeGridAtoms(int count) {
     atoms.reserve(count);
     const int side = static_cast<int>(std::cbrt(count)) + 1;
     for (int i = 0; i < count; ++i) {
-        atoms.addAtom(Vec3f((i % side) * 3.0, ((i / side) % side) * 3.0, (i / static_cast<double>(side * side)) * 3.0),
-                      Vec3f::Random() * 0.5, AtomData::Type::H);
+        atoms.addAtom(glm::vec3((i % side) * 3.0, ((i / side) % side) * 3.0, (i / static_cast<double>(side * side)) * 3.0),
+                      glm::sphericalRand(0.5f), AtomData::Type::H);
     }
     return atoms;
 }

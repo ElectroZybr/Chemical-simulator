@@ -7,7 +7,6 @@
 #include <vector>
 
 namespace Signals {
-    //  Connection — обработчик для управления подпиской
     class Connection {
     public:
         Connection() = default;
@@ -41,7 +40,6 @@ namespace Signals {
         template <typename> friend class Signal;
     };
 
-    //  ScopedConnection — RAII обёртка
     class ScopedConnection {
     public:
         ScopedConnection() = default;
@@ -91,7 +89,6 @@ namespace Signals {
         Signal(Signal&&) noexcept = default;
         Signal& operator=(Signal&&) noexcept = default;
 
-        // connect: callable (лямбда, свободная функция, функтор)
         template <typename Fn>
             requires std::invocable<Fn, Args...>
         [[nodiscard]] Connection connect(Fn&& fn) {
@@ -100,7 +97,6 @@ namespace Signals {
             return Connection{state};
         }
 
-        // connect: member-функция + raw pointer
         template <typename T> [[nodiscard]] Connection connect(R (T::*method)(Args...), T* obj) {
             assert(obj != nullptr);
             return connect([obj, method](Args... args) -> R { return (obj->*method)(args...); });
@@ -111,8 +107,6 @@ namespace Signals {
             return connect([obj, method](Args... args) -> R { return (obj->*method)(args...); });
         }
 
-        // connect: member-функция + shared_ptr (weak tracking).
-        // Слот автоматически молчит после смерти объекта
         template <typename T> [[nodiscard]] Connection connect(R (T::*method)(Args...), std::shared_ptr<T> obj) {
             std::weak_ptr<T> weak = obj;
             return connect([weak, method](Args... args) -> R {
@@ -138,7 +132,7 @@ namespace Signals {
         }
 
         void emit(Args... args) {
-            auto slots_copy = slots; // защита от рекурсивного emit
+            auto slots_copy = slots;
             bool has_dead = false;
 
             for (auto& [fn, state] : slots_copy) {

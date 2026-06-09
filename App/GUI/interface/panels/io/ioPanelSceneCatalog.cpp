@@ -14,7 +14,7 @@
 #include <zstd.h>
 
 #include "App/save_system/AppSaveState.h"
-#include "Rendering/WGPUContext.h"
+#include "Rendering/backend/WGPUContext.h"
 
 namespace {
     struct ParsedSceneInfo {
@@ -290,7 +290,7 @@ std::vector<IOPanelSceneTile> loadIOPanelSceneTiles(std::string_view scenesDirec
 
             tile.previewTexture = texture;
             tile.previewTextureView = texture->createView();
-            tile.previewSize = Vec2u(parsed.imageWidth, parsed.imageHeight);
+            tile.previewSize = glm::uvec2(static_cast<unsigned>(parsed.imageWidth), static_cast<unsigned>(parsed.imageHeight));
             tile.hasPreview = true;
         }
 

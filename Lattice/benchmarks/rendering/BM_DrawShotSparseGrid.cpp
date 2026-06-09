@@ -2,7 +2,7 @@
 
 #include "fixtures/RendererFixture.h"
 #include "Rendering/3d/Renderer3DWGPU.h"
-#include "Rendering/WGPUContext.h"
+#include "Rendering/backend/WGPUContext.h"
 using namespace Lattice;
 
 // Бенч рендера сцены с включённой сеткой (drawGrid=true) и крайне разреженным

@@ -1,7 +1,18 @@
 #include "HexLattice.h"
 
+#include <cstdlib>
+
 namespace Generators {
-    void hexLattice(Lattice::Simulation& sim, Vec3f count, AtomData::Type type, float start_force, float margin) {
+    namespace {
+        glm::vec3 randomVelocity(float scale) {
+            auto randomComponent = []() {
+                return 2.0f * static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX) - 1.0f;
+            };
+            return glm::vec3(randomComponent(), randomComponent(), randomComponent()) * scale;
+        }
+    }
+
+    void hexLattice(Lattice::Simulation& sim, glm::ivec3 count, AtomData::Type type, float start_force, float margin) {
         const size_t atomTotal = static_cast<size_t>(count.x) * static_cast<size_t>(count.y) * static_cast<size_t>(count.z);
 
         const float lj_min = AtomData::getProps(type).ljA0 * std::pow(2.0f, 1.0f / 6.0f);
@@ -9,8 +20,8 @@ namespace Generators {
         const float layerShiftY = lj_min * std::sqrt(3.0f) / 6.0f;
         const float layerStep = lj_min * std::sqrt(2.0f / 3.0f);
 
-        sim.setSizeBox(Vec3f(2.0f * margin + count.x * lj_min + 1.5f * lj_min, 2.0f * margin + count.y * rowStep + 1.5f * lj_min,
-                             2.0f * margin + count.z * layerStep + lj_min));
+        sim.setSizeBox(glm::vec3(2.0f * margin + count.x * lj_min + 1.5f * lj_min, 2.0f * margin + count.y * rowStep + 1.5f * lj_min,
+                                 2.0f * margin + count.z * layerStep + lj_min));
 
         sim.reserveAtoms(sim.atoms().size() + atomTotal);
         for (int z = 0; z < count.z; ++z) {
@@ -23,7 +34,7 @@ namespace Generators {
 
                 for (int x = 0; x < count.x; ++x) {
                     const float xCoord = margin + x * lj_min + xOffset;
-                    sim.appendAtomFast(Vec3f(xCoord, yCoord, zCoord), Vec3f::Random() * start_force, type);
+                    sim.appendAtomFast(glm::vec3(xCoord, yCoord, zCoord), randomVelocity(start_force), type);
                 }
             }
         }

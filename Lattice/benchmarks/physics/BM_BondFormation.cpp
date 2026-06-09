@@ -3,8 +3,8 @@
 #include <benchmark/benchmark.h>
 
 #include "Engine/Simulation.h"
-#include "Engine/math/Vec3.h"
-#include "Engine/physics/AtomData.h"
+#include <glm/glm.hpp>
+#include "Engine/physics/Atom/AtomData.h"
 #include "Engine/physics/Bond.h"
 #include "Engine/physics/ForceFields/BondForceField.h"
 using namespace Lattice;
@@ -21,8 +21,8 @@ public:
     void SetUp(benchmark::State& state) override {
         atomCount_ = static_cast<int>(state.range(0));
         simulation_ = std::make_unique<Simulation>();
-        simulation_->createWorld(Vec3f{160.0f, 160.0f, 160.0f});
-        simulation_->setSizeBox(Vec3f{160.0f, 160.0f, 160.0f}, 6);
+        simulation_->createWorld(glm::vec3{160.0f, 160.0f, 160.0f});
+        simulation_->setSizeBox(glm::vec3{160.0f, 160.0f, 160.0f}, 6);
 
         const int side = static_cast<int>(std::cbrt(static_cast<double>(atomCount_))) + 1;
         int placed = 0;
@@ -32,7 +32,7 @@ public:
                     const float fx = 10.0f + static_cast<float>(x) * 1.7f;
                     const float fy = 10.0f + static_cast<float>(y) * 1.7f;
                     const float fz = 10.0f + static_cast<float>(z) * 1.7f;
-                    simulation_->appendAtomFast(Vec3f{fx, fy, fz}, Vec3f{0.0f, 0.0f, 0.0f}, AtomData::Type::C,
+                    simulation_->appendAtomFast(glm::vec3{fx, fy, fz}, glm::vec3{0.0f, 0.0f, 0.0f}, AtomData::Type::C,
                                                 /*fixed=*/false);
                     ++placed;
                 }

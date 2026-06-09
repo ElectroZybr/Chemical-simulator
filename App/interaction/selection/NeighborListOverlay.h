@@ -5,7 +5,7 @@
 #include <imgui.h>
 
 #include "Lattice/Engine/NeighborSearch/NeighborList.h"
-#include "Lattice/Engine/math/Vec3.h"
+#include <glm/vec3.hpp>
 
 class BaseRenderer;
 class PickingSystem;
@@ -21,10 +21,10 @@ public:
 private:
     size_t skinSelectedIndex_ = static_cast<size_t>(-1);
     size_t skinRebuildCount_ = static_cast<size_t>(-1);
-    Vec3f skinCenter_{};
+    glm::vec3 skinCenter_{};
 
     static void drawSelectedNeighbors(const AtomStorage& atoms, const SpatialGrid& grid, const NeighborList& neighborList,
-                                      const Vec3f& renderOffset, size_t selectedIndex, const BaseRenderer& renderer);
-    void updateSkinCenter(size_t selectedIndex, size_t rebuildCount, Vec3f atomPos);
-    static void drawWorldCircle(const BaseRenderer& renderer, Vec3f center, float radius, ImU32 color, float thickness);
+                                      const glm::vec3& renderOffset, size_t selectedIndex, const BaseRenderer& renderer);
+    void updateSkinCenter(size_t selectedIndex, size_t rebuildCount, glm::vec3 atomPos);
+    static void drawWorldCircle(const BaseRenderer& renderer, glm::vec3 center, float radius, ImU32 color, float thickness);
 };

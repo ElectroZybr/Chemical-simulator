@@ -3,10 +3,9 @@
 #include <string>
 #include <string_view>
 #include <vector>
+#include <glm/vec2.hpp>
 
 #include <webgpu/webgpu-raii.hpp>
-
-#include "Lattice/Engine/math/Vec2.h"
 
 struct IOPanelSceneTile {
     std::string path;
@@ -14,7 +13,7 @@ struct IOPanelSceneTile {
     std::string description;
     wgpu::raii::Texture previewTexture;
     wgpu::raii::TextureView previewTextureView;
-    Vec2u previewSize;
+    glm::uvec2 previewSize;
     bool hasPreview = false;
 };
 

@@ -6,6 +6,8 @@
 #include "generated/translate/translate.h"
 
 namespace i18n {
+    std::string operator""_tr (const char16_t*, size_t);
+
     enum class Lang { En, Ru };
 
     inline Lang currentLanguage = Lang::Ru;
@@ -30,4 +32,6 @@ namespace i18n {
 
     inline std::string_view tr(std::string_view key) noexcept { return Table::get(key, currentLanguage); }
     constexpr std::string_view tr(std::string_view key, Lang lang) noexcept { return Table::get(key, lang); }
+
+    inline std::string_view operator""_tr(const char* key, size_t) noexcept { return i18n::tr(key); }
 }

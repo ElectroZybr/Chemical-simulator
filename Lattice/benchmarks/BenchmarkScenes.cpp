@@ -34,10 +34,9 @@ namespace Benchmarks {
 
     void Scenes::buildIdealCrystal3D(Lattice::Simulation& simulation, int atomCount) {
         const int side = cubeSideFromCount(atomCount);
-        // ФОРК-ФИКС (нёс из старого Benchmarks/BenchmarkScenes.cpp, потерян при merge):
-        // hexLattice принимает Vec3f count (не int). Передача int side давала неявно
-        // Vec3f(side,0,0) — 1D-линию атомов вдоль X. Полный 3D-объём = Vec3f(side,side,side).
-        Generators::hexLattice(simulation, Vec3f(side, side, side), AtomData::Type::Z);
+        // glm::ivec3(side) = (side,side,side) — broadcast скаляра по всем осям даёт полный
+        // 3D-объём, а не 1D-линию (форк-фикс прежней int-перегрузки теперь покрыт upstream).
+        Generators::hexLattice(simulation, glm::ivec3(side), AtomData::Type::Z);
     }
 
     void Scenes::buildCrystal2D(Lattice::Simulation& simulation, int atomCount) {

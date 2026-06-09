@@ -37,9 +37,9 @@
 #include "fixtures/RendererFixture.h" // benchmarkDevice()
 #include "Engine/NeighborSearch/NeighborList.h"
 #include "Engine/Simulation.h"
-#include "Engine/math/Vec3.h"
-#include "Engine/physics/AtomData.h"
-#include "Engine/physics/AtomStorage.h"
+#include <glm/glm.hpp>
+#include "Engine/physics/Atom/AtomData.h"
+#include "Engine/physics/Atom/AtomStorage.h"
 using namespace Lattice;
 
 namespace {
@@ -51,7 +51,7 @@ constexpr int kCellSize = 6;
 // Общая конфигурация sim (CPU и GPU одинаковы, кроме режима). Gravity ставит
 // вызывающий ДО setGpuMode (для GPU) — чтобы первичный upload её нёс.
 void configureSim(Simulation& sim, float worldSize) {
-    sim.createWorld(Vec3f{worldSize, worldSize, worldSize});
+    sim.createWorld(glm::vec3{worldSize, worldSize, worldSize});
     sim.setSizeBox(sim.world().getWorldSize(), kCellSize);
     sim.setLJEnabled(true);
     sim.setCoulombEnabled(false);
@@ -74,7 +74,7 @@ void fillWallScene(Simulation& sim, float worldSize) {
         for (int gz = 0; gz < 3; ++gz) {
             const AtomData::Type t = (idx % 2 == 0) ? AtomData::Type::H : AtomData::Type::Ar;
             // Шаг 6 в плоскости (X,Z) >= cutoff+skin: пары вне списка соседей.
-            sim.appendAtomFast(Vec3f{3.0f + gx * 6.0f, y0, 3.0f + gz * 6.0f}, Vec3f{0.0f, 0.0f, 0.0f}, t, false);
+            sim.appendAtomFast(glm::vec3{3.0f + gx * 6.0f, y0, 3.0f + gz * 6.0f}, glm::vec3{0.0f, 0.0f, 0.0f}, t, false);
             ++idx;
         }
     }
@@ -91,7 +91,7 @@ void fillInteriorScene(Simulation& sim, float worldSize) {
     for (int gx = 0; gx < 3; ++gx) {
         for (int gz = 0; gz < 3; ++gz) {
             const AtomData::Type t = (idx % 2 == 0) ? AtomData::Type::H : AtomData::Type::Ar;
-            sim.appendAtomFast(Vec3f{c - 6.0f + gx * 6.0f, c, c - 6.0f + gz * 6.0f}, Vec3f{0.0f, 0.0f, 0.0f}, t, false);
+            sim.appendAtomFast(glm::vec3{c - 6.0f + gx * 6.0f, c, c - 6.0f + gz * 6.0f}, glm::vec3{0.0f, 0.0f, 0.0f}, t, false);
             ++idx;
         }
     }
@@ -117,7 +117,7 @@ double maxAbsPositionDiff(const AtomStorage& a, const AtomStorage& b) {
 // Чистый паритет wall+gravity без правок в hot loop → tight tolerance.
 double runStaticCase() {
     const float worldSize = 24.0f; // max=23; вмещает сетку (X,Z в {3,9,15}); нижняя стена Y [0,2]
-    const Vec3f gravity{0.0f, -5.0f, 0.0f};
+    const glm::vec3 gravity{0.0f, -5.0f, 0.0f};
     constexpr int kSteps = 50;
 
     Simulation cpu;
@@ -154,8 +154,8 @@ struct RuntimeResult {
 };
 RuntimeResult runRuntimeCase() {
     const float worldSize = 20.0f;
-    const Vec3f g0{0.0f, -3.0f, 0.0f};
-    const Vec3f g1{2.0f, 4.0f, 0.0f}; // смена и направления, и величины
+    const glm::vec3 g0{0.0f, -3.0f, 0.0f};
+    const glm::vec3 g1{2.0f, 4.0f, 0.0f}; // смена и направления, и величины
     constexpr int kStepsBefore = 20;
     constexpr int kStepsAfter = 25;
 
