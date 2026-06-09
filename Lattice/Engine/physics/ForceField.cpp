@@ -15,10 +15,15 @@ namespace {
     // эмпирический порог 3-8k; начали с 5k и оставили серийный путь для меньших N.
     constexpr size_t kParallelMobileThreshold = 5000;
 
-    template <bool UseLJ, bool UseCoulomb>
+    template <bool UseLJ, bool UseCoulomb, bool FullMode>
     inline void processAtomNeighbors(AtomStorage& atoms, const std::vector<uint32_t>& offsets, const std::vector<uint32_t>& neighbours,
                                      const LJForceField& ljForceField, const CoulombForceField& coulombForceField, size_t atomIndex,
-                                     float cutoffSqr, bool writeNeighbor) {
+                                     float cutoffSqr) {
+        // Half NL (FullMode=false): соседи мобильного атома сами мобильны (Half хранит j<i,
+        // а центр < mobileCount) → fixed-проверка не нужна; пишем соседу (Newton-3). Full NL
+        // (FullMode=true): сосед может быть fixed → пропуск; пишем только в центр (пара
+        // обходится дважды). writeNeighbor — compile-time, ветка в pairInteraction свёрнута.
+        constexpr bool writeNeighbor = !FullMode;
         const uint32_t begin = offsets[atomIndex];
         const uint32_t end = offsets[atomIndex + 1];
         if (begin > end || static_cast<size_t>(end) > neighbours.size()) {
@@ -29,7 +34,7 @@ namespace {
         // pair-сил на мобильных. В Half NL это вытекало автоматически
         // (j<i + force loop до mobileCount), в Full NL fixed может попасть как
         // сосед мобильного, поэтому фильтр явный.
-        const size_t mobileCount = atoms.mobileCount();
+        [[maybe_unused]] const size_t mobileCount = atoms.mobileCount();
 
         const float posX = atoms.posX(atomIndex);
         const float posY = atoms.posY(atomIndex);
@@ -56,27 +61,28 @@ namespace {
 
         for (uint32_t p = begin; p < end; ++p) {
             const uint32_t bIndex = neighbours[p];
-            if (bIndex >= mobileCount) {
-                // fixed neighbor — пропускаем, см. addAtom doc выше.
-                continue;
+            if constexpr (FullMode) {
+                if (bIndex >= mobileCount) {
+                    // fixed neighbor — пропуск (только в Full; в Half соседи мобильны, см. выше).
+                    continue;
+                }
             }
             const float dx = atoms.posX(bIndex) - posX;
             const float dy = atoms.posY(bIndex) - posY;
             const float dz = atoms.posZ(bIndex) - posZ;
             const float d2 = dx * dx + dy * dy + dz * dz;
 
-            if (d2 > cutoffSqr) {
-                continue;
-            }
-
+            // Физический cutoff применяется БЕЗ ветки внутри pairInteraction (маской по
+            // cutoffSqr) — continue здесь убран: data-dependent переход на плотной сцене
+            // стоил ~2x в force-loop (codex+godbolt). Результат бит-в-бит как прежний пропуск.
             if constexpr (UseLJ) {
-                ljForceField.pairInteraction(atoms, bIndex, dx, dy, dz, d2, *ljPairRow, forceX, forceY, forceZ, potentialEnergy,
-                                             writeNeighbor);
+                ljForceField.pairInteraction(atoms, bIndex, dx, dy, dz, d2, cutoffSqr, *ljPairRow, forceX, forceY, forceZ,
+                                             potentialEnergy, writeNeighbor);
             }
             if constexpr (UseCoulomb) {
                 if (charge != 0.0f) {
-                    coulombForceField.pairInteraction(atoms, bIndex, dx, dy, dz, d2, charge, forceX, forceY, forceZ, potentialEnergy,
-                                                      writeNeighbor);
+                    coulombForceField.pairInteraction(atoms, bIndex, dx, dy, dz, d2, cutoffSqr, charge, forceX, forceY, forceZ,
+                                                      potentialEnergy, writeNeighbor);
                 }
             }
         }
@@ -101,7 +107,6 @@ namespace {
         // Full NL хранит каждую пару дважды (один раз с каждой стороны) → запись
         // только в центральный, иначе сила удвоится.
         const bool fullMode = (neighborList.mode() == NeighborListMode::Full);
-        const bool writeNeighbor = !fullMode;
 
 #ifdef LATTICELAB_USE_TBB
         if (fullMode && mobileCount >= kParallelMobileThreshold) {
@@ -109,17 +114,26 @@ namespace {
                 tbb::blocked_range<size_t>(0, mobileCount),
                 [&](const tbb::blocked_range<size_t>& range) {
                     for (size_t i = range.begin(); i != range.end(); ++i) {
-                        processAtomNeighbors<UseLJ, UseCoulomb>(atoms, offsets, neighbours, ljForceField, coulombForceField, i,
-                                                                cutoffSqr, writeNeighbor);
+                        processAtomNeighbors<UseLJ, UseCoulomb, true>(atoms, offsets, neighbours, ljForceField, coulombForceField, i,
+                                                                      cutoffSqr);
                     }
                 });
             return;
         }
 #endif
 
-        for (size_t atomIndex = 0; atomIndex < mobileCount; ++atomIndex) {
-            processAtomNeighbors<UseLJ, UseCoulomb>(atoms, offsets, neighbours, ljForceField, coulombForceField, atomIndex, cutoffSqr,
-                                                    writeNeighbor);
+        // Серийный путь — Half (мало ядер / малые сцены) или Full (порог TBB не пройден).
+        // Диспетчеризуем на compile-time режим, чтобы Half-путь не платил за fixed-ветку.
+        if (fullMode) {
+            for (size_t atomIndex = 0; atomIndex < mobileCount; ++atomIndex) {
+                processAtomNeighbors<UseLJ, UseCoulomb, true>(atoms, offsets, neighbours, ljForceField, coulombForceField, atomIndex,
+                                                              cutoffSqr);
+            }
+        } else {
+            for (size_t atomIndex = 0; atomIndex < mobileCount; ++atomIndex) {
+                processAtomNeighbors<UseLJ, UseCoulomb, false>(atoms, offsets, neighbours, ljForceField, coulombForceField, atomIndex,
+                                                               cutoffSqr);
+            }
         }
     }
 }
