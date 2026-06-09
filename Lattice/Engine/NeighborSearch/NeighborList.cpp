@@ -14,7 +14,9 @@
 
 #ifdef LATTICELAB_USE_TBB
 #include <tbb/blocked_range.h>
+#include <tbb/global_control.h>
 #include <tbb/parallel_for.h>
+#include <tbb/task_arena.h>
 #endif
 
 namespace {
@@ -22,6 +24,26 @@ namespace {
 // Значение совпадает с ForceField::kParallelMobileThreshold, но НЕЗАВИСИМ — тюнится
 // отдельно (стоимость построения NL не равна стоимости force-loop).
 constexpr uint32_t kParallelBuildThreshold = 5000;
+
+#ifdef LATTICELAB_USE_TBB
+// Минимальная РЕАЛЬНАЯ параллельность, при которой параллельная форма данных окупается.
+// Full NL удваивает парную работу, 3-проходный build добавляет проходы — на 1-2 ядрах это
+// чистый штраф (был single-thread регресс). Поэтому выбор Full/parallel гейтится не только
+// числом атомов, но и фактическим параллелизмом: 1-3 ядра идут Half + serial (как чистый
+// upstream), >= 4 — параллельная форма с выигрышем.
+constexpr size_t kMinParallelConcurrency = 4;
+
+// Фактический доступный параллелизм TBB. hardware_concurrency() тут НЕ годится: он не видит
+// tbb::global_control(max_allowed_parallelism) (например принудительный 1 поток) и ограничения
+// арены. Берём минимум глобального лимита потоков и ёмкости текущей арены.
+size_t effectiveConcurrency() {
+    const size_t globalLimit =
+        tbb::global_control::active_value(tbb::global_control::max_allowed_parallelism);
+    const int arena = tbb::this_task_arena::max_concurrency();
+    const size_t arenaLimit = arena > 0 ? static_cast<size_t>(arena) : 1;
+    return std::min(globalLimit, arenaLimit);
+}
+#endif
 } // namespace
 
 void NeighborList::setCutoff(float cutoff) {
@@ -102,11 +124,18 @@ void NeighborList::build(const AtomStorage& atoms, World& box) {
             "27-cell stencil cannot cover the radius otherwise");
     }
 
-    // Auto-mode: режим выбирается по mobileCount на каждом rebuild.
-    // На малых сценах Half дешевле (1x работа в force loop, нет 2x памяти NL);
-    // на больших — Full окупает 2x работу parallel-выгодой.
+    // Auto-mode: режим выбирается по mobileCount И по реальному параллелизму на каждом rebuild.
+    // Half дёшев на малых сценах (1x работа, нет 2x памяти NL) И на малоядерных машинах: Full
+    // окупается, только когда force loop реально параллелится. Без гейта по ядрам на 1-2 ядрах
+    // Full давал 2x лишней работы без выигрыша — это и был single-thread регресс.
     if (autoMode_) {
-        mode_ = (atoms.mobileCount() >= autoThreshold_) ? NeighborListMode::Full : NeighborListMode::Half;
+        bool useFull = atoms.mobileCount() >= autoThreshold_;
+#ifdef LATTICELAB_USE_TBB
+        useFull = useFull && effectiveConcurrency() >= kMinParallelConcurrency;
+#else
+        useFull = false; // без TBB параллелить нечем — Full только тратит работу
+#endif
+        mode_ = useFull ? NeighborListMode::Full : NeighborListMode::Half;
     }
 
     const SpatialGrid& grid = box.getGrid();
@@ -125,7 +154,7 @@ void NeighborList::build(const AtomStorage& atoms, World& box) {
     //    как серийный (тот же порядок).
     //  • Малые сцены / без TBB: один проход emplace_back (накладные параллелизма не окупаются).
 #ifdef LATTICELAB_USE_TBB
-    if (atomCount >= kParallelBuildThreshold) {
+    if (atomCount >= kParallelBuildThreshold && effectiveConcurrency() >= kMinParallelConcurrency) {
         tbb::parallel_for(tbb::blocked_range<uint32_t>(0, atomCount), [&](const tbb::blocked_range<uint32_t>& r) {
             for (uint32_t i = r.begin(); i != r.end(); ++i) {
                 offsets_[i + 1] = countAtomNeighbors(grid, x, y, z, i, x[i], y[i], z[i]);
