@@ -753,22 +753,50 @@ read-only → нет гонок), затем по префиксной сумм�
 | 103 823 | ~23.4 ms | ~5.9 ms | ~4.0× |
 | 1 000 000 | ~208 ms | ~56 ms | ~3.7× |
 
-Полный шаг на трёх конфигурациях (i7-14700K / RTX 4070 SUPER, медиана 3), шаг/с:
+Полный шаг на трёх конфигурациях (i7-14700K / RTX 4070 SUPER, High-priority, медиана 5), шаг/с:
 
 | N атомов | CPU 1 ядро | CPU все 28 ядер (TBB) | GPU резидентный |
 |---|---|---|---|
-| 103 823 | 12.6 (79 ms) | 169 (5.9 ms) | ~9 780 (0.102 ms) |
-| 1 000 000 | 0.8 (1295 ms) | 17.9 (56 ms) | ~962 (1.04 ms) |
+| 103 823 | 56 (17.9 ms) | 228 (4.4 ms) | ~9 780 (0.102 ms) |
+| 1 000 000 | 4.6 (216 ms) | 21 (47.9 ms) | ~962 (1.04 ms) |
 
-CPU все ядра vs 1 ядро: ~13× (104k) / ~23× (1M); GPU vs CPU все ядра: ~58× (104k) / ~54× (1M).
-1M CPU-шаг шумный (мало перестроек NL в окне замера) — числа порядковые, перепроверяйте прогоном.
+CPU все ядра vs 1 ядро: ~4× (104k) / ~4.6× (1M); GPU vs CPU все ядра: ~43× (104k) / ~46× (1M).
+1M в один поток шумный (cv ~20%, мало перестроек NL в окне) — число порядковое. Однопоток на
+уровне чистого upstream fd28dc8 (104k 58, 1M ~4.4 шаг/с) — это итог после фикса двух регрессий
+(ниже); первые пост-мерж замеры 1-ядра были в РАЗЫ хуже.
 
-Провенанс: `FullStepWithNeighborList` (`Lattice/benchmarks/physics/BM_SimulationStep.cpp`) через
-`Simulation::updateAll` в CPU-режиме; CPU 1-ядро — тот же бенч под affinity 0x1; GPU —
-`BM_GpuFullStep_Resident` (per-iter / 20 шагов); код — `NeighborList::build`
-(`Lattice/Engine/NeighborSearch/NeighborList.cpp`, ветви `LATTICELAB_USE_TBB`, порог
-`kParallelBuildThreshold=5000`); корректность — `NeighborListTest.MatchesBruteForce` +
-`BaselineParityTest`. Сборка `cmake --preset bench`.
+### Две однопоточные регрессии (найдены по фидбеку upstream, исправлены)
+
+Первая пост-мерж версия имела однопоток в РАЗЫ хуже базы fd28dc8 (1 ядро: 104k ~19, 1M ~0.8
+шаг/с против базы 58 / ~4.4). Обе причины — наши правки, не отсутствие upstream-оптимизаций
+(Morton-сортировки у нас нет, но её нет и у fd28dc8, а он был быстрее):
+
+1. Параллельная форма данных (Full NL = 2× парной работы + 3-проходный parallel-build)
+   выбиралась по числу атомов, без учёта реального параллелизма — на 1-2 ядрах чистый штраф.
+   Фикс: гейт по эффективному TBB-параллелизму (минимум global_control и ёмкости арены; НЕ
+   hardware_concurrency — он не видит ограничения потоков). < 4 ядер → Half NL + serial build.
+
+2. Фильтр физического cutoff (C1) стоял веткой `if (d2 > cutoffSqr) continue;` в горячем
+   pair-force цикле. На плотной сцене список доходит до listRadius = cutoff + skin (~32 соседа
+   против ~18 в cutoff), и data-dependent переход дороже экономии — цикл сил был ~2× медленнее.
+   Фикс: cutoff как множитель active = (d2 ≤ cutoffSqr) ? 1 : 0 в LJ/Coulomb pairInteraction —
+   за cutoff вклад × 0, бит-в-бит как пропуск, но без перехода. Плюс шаблон по режиму NL: Half
+   не платит за fixed-проверку соседа, writeNeighbor стал compile-time.
+
+После обоих фиксов 1 ядро вернулось к базе (104k 56 vs 58; 1M 4.6 vs 4.4 шаг/с, в пределах
+шума). Многоядерный путь регресс не затрагивал — на всех 28 ядрах до и после фикса почти одно
+и то же (1M ~49 → 48 ms/шаг, 104k ~5.2 → 4.4 ms/шаг; cutoff-фикс дал небольшой бонус на 104k,
+где доля force-loop выше). Багом просел только однопоток (1M ~1250 → 216 ms/шаг). Физика
+бит-в-бит, 36/36 юнит-тестов.
+
+Провенанс: `FullStepWithNeighborList` (`Lattice/benchmarks/physics/BM_SimulationStep.cpp`);
+1 ядро — env `LL_TBB_THREADS=1` (global_control; НЕ affinity-pin — pin сгоняет все воркеры на
+одно ядро и даёт ложный спин-трэшинг, завышавший штраф); процесс High-priority (иначе 1M cv
+высок); GPU — `BM_GpuFullStep_Resident` (per-iter / 20 шагов); код фиксов — `NeighborList.cpp`
+(гейт concurrency), `ForceField.cpp` + `LJForceField.h` + `CoulombForceField.h` (branchless
+cutoff + Half/Full шаблон); сравнение с базой — worktree fd28dc8, тот же бенч, ucrt64 clang,
+флаги -O3 -march=native; корректность — `NeighborListTest.MatchesBruteForce` +
+`BaselineParityTest`, 36/36. Сборка `cmake --preset bench`.
 
 ## Воспроизведение
 
