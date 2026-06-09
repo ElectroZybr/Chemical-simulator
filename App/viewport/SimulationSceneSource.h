@@ -3,6 +3,7 @@
 #include <unordered_set>
 
 #include "Lattice/Engine/Simulation.h"
+#include "Lattice/Engine/physics/gpu/GpuResidentPhysics.h"
 #include "Rendering/BaseRenderer.h"
 
 namespace App::Viewport {
@@ -78,6 +79,22 @@ namespace App::Viewport {
             RenderData& renderData = renderer.getRenderData(worldId);
 
             renderData.atoms = makeRenderAtomsView(world);
+
+            // ФОРК (zero-copy): если у мира включена GPU-резидентная физика — отдаём рендеру
+            // дескриптор её VRAM-буферов, он рисует прямо из резидентных позиций (свежих на
+            // каждом updateAll-шаге) без CPU-download. Для ВСЕХ миров, включая неактивные:
+            // иначе неактивный GPU-мир застывал бы на устаревшей CPU-копии. Если GPU выключен,
+            // .gpu valid=false → CPU-путь (makeRenderAtomsView). App — единственный слой, кому
+            // положено знать движок; рендер Simulation не видит.
+            if (const auto* gpu = simulation.gpuResidentAt(worldId)) {
+                renderData.atoms.gpu = RenderAtomsGpuResidency{
+                    .valid = true,
+                    .positions = gpu->positionsBuffer(),
+                    .velocities = gpu->velocitiesBuffer(),
+                    .generation = gpu->renderBufferGeneration(),
+                    .boundCount = gpu->renderBoundCount(),
+                };
+            }
             renderData.hasBox = true;
             renderData.worldSize = makeRenderBoxSize(world);
             renderData.renderOffset = world.getRenderOffset();

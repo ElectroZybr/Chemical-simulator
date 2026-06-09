@@ -34,9 +34,9 @@ public:
         return std::span<const uint32_t>(atomsInCells.data() + begin, offsets[linearIndex + 1] - begin);
     }
 
-    uint worldToCellX(float x) const { return toCell(x, size.x); }
-    uint worldToCellY(float y) const { return toCell(y, size.y); }
-    uint worldToCellZ(float z) const { return toCell(z, size.z); }
+    uint32_t worldToCellX(float x) const { return toCell(x, size.x); }
+    uint32_t worldToCellY(float y) const { return toCell(y, size.y); }
+    uint32_t worldToCellZ(float z) const { return toCell(z, size.z); }
 
     [[nodiscard]] int countAtomsInCell(int cx, int cy, int cz) const {
         const size_t idx = static_cast<size_t>(index(cx, cy, cz));
@@ -47,6 +47,13 @@ public:
     [[nodiscard]] const std::array<int, 27>& neighborOffsets27() const noexcept { return neighborOffsets27_; }
 
     [[nodiscard]] int index(int x, int y, int z) const noexcept { return (z * size.y + y) * size.x + x; }
+
+    // Линейные индексы непустых клеток. Заполняется в rebuild и переиспользуется
+    // для render-обхода сетки: без него drawGridImpl шёл O(всех клеток) даже
+    // для разреженных сцен (на 100k клетках это ms-долго).
+    [[nodiscard]] std::span<const uint32_t> nonEmptyCells() const noexcept {
+        return {nonEmptyCellIndices_.data(), nonEmptyCellIndices_.size()};
+    }
 
 private:
     static constexpr uint32_t kGhostLayers = 1;
@@ -59,6 +66,7 @@ private:
     // рабочие буферы rebuild — переиспользуются между вызовами
     std::vector<uint32_t> cellIndices_;
     std::vector<uint32_t> counts_;
+    std::vector<uint32_t> nonEmptyCellIndices_;
 
     SpatialGridStats stats_{};
 

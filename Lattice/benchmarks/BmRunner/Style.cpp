@@ -7,6 +7,7 @@
 #include <sstream>
 
 #include <unistd.h>
+using namespace Lattice;
 
 namespace Benchmarks::BmRunner {
     bool useColor() {

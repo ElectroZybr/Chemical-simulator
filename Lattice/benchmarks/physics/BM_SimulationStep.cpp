@@ -1,5 +1,6 @@
 #include <benchmark/benchmark.h>
 #include "Fixture.h"
+using namespace Lattice;
 
 // @bench_meta {"id":"Fixture/FullStep","label":"Full Step","group":"Simulation/Simulation Step"}
 BENCHMARK_DEFINE_F(Fixture, FullStepWithNeighborList)(benchmark::State& state) {
@@ -30,4 +31,5 @@ BENCHMARK_REGISTER_F(Fixture, FullStepWithNeighborList)
     ->Arg(5)
     ->Arg(10)
     ->Arg(25)
-    ->Arg(47);
+    ->Arg(47)
+    ->Arg(100);

@@ -24,7 +24,23 @@ bool BondForceField::compute(AtomStorage& atoms, Bond::List& bonds, const Neighb
     });
 
     if (allowBondFormation) {
-        changed = formBonds(atoms, bonds, neighborList) || changed;
+        // Пересобрать adjacency из живых bonds для O(degree) dup-check в
+        // последующих Bond::CreateBond. Cтоит O(N + B), но окупается на
+        // больших B (где линейный скан был O(B) на каждую кандидатную пару).
+        const size_t n = atoms.size();
+        if (adjacencyScratch_.size() < n) {
+            adjacencyScratch_.resize(n);
+        }
+        for (size_t i = 0; i < n; ++i) {
+            adjacencyScratch_[i].clear();
+        }
+        for (const Bond& bond : bonds) {
+            if (bond.aIndex < n && bond.bIndex < n) {
+                adjacencyScratch_[bond.aIndex].push_back(static_cast<uint32_t>(bond.bIndex));
+                adjacencyScratch_[bond.bIndex].push_back(static_cast<uint32_t>(bond.aIndex));
+            }
+        }
+        changed = formBonds(atoms, bonds, neighborList, adjacencyScratch_) || changed;
     }
 
     for (Bond& bond : bonds) {
@@ -35,7 +51,8 @@ bool BondForceField::compute(AtomStorage& atoms, Bond::List& bonds, const Neighb
     return changed;
 }
 
-bool BondForceField::formBonds(AtomStorage& atoms, Bond::List& bonds, const NeighborList& neighborList) const {
+bool BondForceField::formBonds(AtomStorage& atoms, Bond::List& bonds, const NeighborList& neighborList,
+                               Bond::Adjacency& adjacency) const {
     PROFILE_SCOPE("ForceField::FormBonds(NL)");
     const uint32_t atomCount = static_cast<uint32_t>(atoms.size());
     if (atomCount < 2) {
@@ -52,13 +69,14 @@ bool BondForceField::formBonds(AtomStorage& atoms, Bond::List& bonds, const Neig
         const uint32_t begin = offsets[atomIndex];
         const uint32_t end = offsets[atomIndex + 1];
         for (uint32_t p = begin; p < end; ++p) {
-            changed = tryCreateBond(atoms, bonds, atomIndex, neighbours[p]) || changed;
+            changed = tryCreateBond(atoms, bonds, atomIndex, neighbours[p], adjacency) || changed;
         }
     }
     return changed;
 }
 
-bool BondForceField::tryCreateBond(AtomStorage& atoms, Bond::List& bonds, uint32_t aIndex, uint32_t bIndex) const {
+bool BondForceField::tryCreateBond(AtomStorage& atoms, Bond::List& bonds, uint32_t aIndex, uint32_t bIndex,
+                                   Bond::Adjacency& adjacency) const {
     Bond::ensureInitialized();
 
     if (aIndex >= atoms.size() || bIndex >= atoms.size() || aIndex == bIndex) {
@@ -80,38 +98,47 @@ bool BondForceField::tryCreateBond(AtomStorage& atoms, Bond::List& bonds, uint32
         return false;
     }
 
-    return Bond::CreateBond(bonds, aIndex, bIndex, atoms) != nullptr;
+    return Bond::CreateBond(bonds, aIndex, bIndex, atoms, &adjacency) != nullptr;
 }
 
-void BondForceField::applyAngleForces(AtomStorage& atoms, const Bond::List& bonds) {
+void BondForceField::applyAngleForces(AtomStorage& atoms, const Bond::List& bonds) const {
     if (bonds.size() < 2) {
         return;
     }
 
-    std::vector<uint16_t> degree(atoms.size(), 0);
+    const size_t n = atoms.size();
+
+    // degreeScratch_ — счётчик степеней. resize(n, 0) делает только аллокацию при росте,
+    // assign(n, 0) обнуляет и shrink не нужен. Капасити переиспользуется между шагами.
+    degreeScratch_.assign(n, 0);
     for (const Bond& bond : bonds) {
-        if (bond.aIndex < atoms.size() && bond.bIndex < atoms.size()) {
-            ++degree[bond.aIndex];
-            ++degree[bond.bIndex];
+        if (bond.aIndex < n && bond.bIndex < n) {
+            ++degreeScratch_[bond.aIndex];
+            ++degreeScratch_[bond.bIndex];
         }
     }
 
-    std::vector<std::vector<size_t>> bondedNeighbours(atoms.size());
-    for (size_t atomIndex = 0; atomIndex < atoms.size(); ++atomIndex) {
-        if (degree[atomIndex] > 0) {
-            bondedNeighbours[atomIndex].reserve(degree[atomIndex]);
+    // neighborsScratch_ — list[N] списков соседей. resize до n; для каждого слота
+    // .clear() сохраняет capacity, поэтому повторные шаги не делают malloc/free.
+    if (neighborsScratch_.size() < n) {
+        neighborsScratch_.resize(n);
+    }
+    for (size_t i = 0; i < n; ++i) {
+        neighborsScratch_[i].clear();
+        if (degreeScratch_[i] > 0) {
+            neighborsScratch_[i].reserve(degreeScratch_[i]);
         }
     }
 
     for (const Bond& bond : bonds) {
-        if (bond.aIndex < atoms.size() && bond.bIndex < atoms.size()) {
-            bondedNeighbours[bond.aIndex].emplace_back(bond.bIndex);
-            bondedNeighbours[bond.bIndex].emplace_back(bond.aIndex);
+        if (bond.aIndex < n && bond.bIndex < n) {
+            neighborsScratch_[bond.aIndex].emplace_back(bond.bIndex);
+            neighborsScratch_[bond.bIndex].emplace_back(bond.aIndex);
         }
     }
 
-    for (size_t atomIndex = 0; atomIndex < bondedNeighbours.size(); ++atomIndex) {
-        const auto& neighbours = bondedNeighbours[atomIndex];
+    for (size_t atomIndex = 0; atomIndex < n; ++atomIndex) {
+        const auto& neighbours = neighborsScratch_[atomIndex];
         if (neighbours.size() < 2) {
             continue;
         }

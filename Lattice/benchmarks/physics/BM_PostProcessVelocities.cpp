@@ -1,6 +1,7 @@
 #include <benchmark/benchmark.h>
 #include <vector>
 #include "Fixture.h"
+using namespace Lattice;
 
 namespace {
     struct VelocityPostProcessData {

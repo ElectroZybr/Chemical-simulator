@@ -3,7 +3,14 @@
 #include <string>
 #include <vector>
 
+#ifdef LATTICELAB_USE_TBB
+#include <cstdlib>
+#include <optional>
+#include <tbb/global_control.h>
+#endif
+
 #include "Fixture.h"
+using namespace Lattice;
 
 int main(int argc, char** argv) {
     std::vector<char*> filteredArgs;
@@ -45,6 +52,21 @@ int main(int argc, char** argv) {
     if (benchmark::ReportUnrecognizedArguments(filteredArgc, filteredArgs.data())) {
         return 1;
     }
+
+    // Диагностический хук: env LL_TBB_THREADS=N ограничивает TBB N потоками
+    // (max_allowed_parallelism). Нужно для замера single-thread на параллельном
+    // коде БЕЗ affinity-pin — pin загоняет все воркеры на одно ядро и даёт ложный
+    // спин-трэшинг. Не задан -> поведение прежнее (все ядра).
+#ifdef LATTICELAB_USE_TBB
+    std::optional<tbb::global_control> tbbLimit;
+    if (const char* t = std::getenv("LL_TBB_THREADS")) {
+        const int n = std::atoi(t);
+        if (n > 0)
+            tbbLimit.emplace(tbb::global_control::max_allowed_parallelism,
+                             static_cast<std::size_t>(n));
+    }
+#endif
+
     benchmark::RunSpecifiedBenchmarks();
     benchmark::Shutdown();
     return 0;

@@ -51,7 +51,10 @@ void AtomSort::applyViewToStorage(AtomStorage& atoms, size_t index, const AtomVi
     atoms.type(index) = view.type;
     atoms.valenceCount(index) = view.valenceCount;
     atoms.setAtomId(index, view.id);
-    oldToNew_[view.id] = index;
+    // oldToNew_ строится в mortonOrder (position-indexed: oldToNew_[oldPos]=newPos, как ждёт
+    // World::remapAtomIndices для связей). Здесь его НЕ трогаем: прежняя запись
+    // oldToNew_[view.id]=index была id-индексированной и перезатирала позиционную карту при
+    // id != position (после addAtom/removeAtom/setFixed) — ремап связей уезжал на чужие индексы.
 }
 
 void AtomSort::reorder(AtomStorage& atoms, std::span<uint32_t> indices) {

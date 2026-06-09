@@ -14,6 +14,15 @@
 #include "Engine/physics/Atom/AtomData.h"
 #include "Engine/physics/Atom/AtomSort.h"
 
+// Хранилище атомов в раскладке SoA (structure-of-arrays): все поля
+// (x, y, z, vx..vz, fx..fz, prev-силы, pe, invMass, charge) лежат в ОДНОМ
+// непрерывном буфере floatData_ блоками по capacity_ элементов, а
+// x_/y_/.../charge_ — raw-указатели на начала блоков (их наводит rebind).
+// Зачем: обход одного поля по всем атомам (напр. все x подряд) идёт линейно
+// по памяти — дружелюбно к кэшу и автовекторизации горячих циклов сил и
+// интегратора. Инвариант раскладки: блок поля f начинается с
+// floatData_[f * capacity_]; при росте capacity_ буфер переаллоцируется
+// целиком и указатели наводятся заново.
 class AtomStorage {
 public:
     using AtomId = uint32_t;
@@ -79,6 +88,9 @@ private:
             return;
         }
 
+        // Геометрический рост (×1.5): добавление атомов по одному даёт
+        // амортизированный O(1) на атом вместо O(n) реаллокаций; +1 уводит
+        // с нуля.
         size_t newCap = (capacity_ == 0) ? required : capacity_;
         while (newCap < required) {
             newCap = newCap * 3 / 2 + 1;
@@ -201,6 +213,15 @@ public:
         atomIds_.reserve(count);
     }
 
+    // fixed=true создаёт декоративный атом: он попадает в конец массива (в диапазон
+    // [mobileCount, count)) и в дальнейшем не участвует в физике.
+    //   - Integrator (Verlet/KDK) итерирует только [0, mobileCount) — атом не двигается.
+    //   - ForceField::computePairInteractions ходит до mobileCount как центр пары.
+    //   - NeighborList — half-list (j < i), так что для mobile i < mobileCount соседи
+    //     j < mobileCount тоже всегда mobile. Mobile-fixed пары в NL не попадают.
+    // Из этого следует: fixed-атомы не оказывают LJ/Coulomb-сил на мобильные. Если
+    // понадобится семантика anchor (fixed влияет на mobile, но сам не двигается) —
+    // это отдельная фича, требующая правки NL build и force loop.
     void addAtom(const glm::vec3& coords, const glm::vec3& speed, AtomData::Type type, bool fixed = false) {
         ensureCapacity(count_ + 1);
 

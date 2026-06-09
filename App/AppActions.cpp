@@ -29,6 +29,11 @@ namespace {
         const glm::vec3 oldSize = world.getWorldSize();
         const glm::vec3 delta = (newSize - oldSize) * 0.5f;
 
+        // shiftAtoms правит позиции на месте — в GPU-режиме подтянуть актуальные
+        // позиции ДО сдвига, иначе сдвиг ляжет на устаревший снимок, а позже
+        // слияние/синк затрёт его. Снимает dirty, так что setSizeBox ниже не
+        // перекачивает заново.
+        simulation.syncGpuBeforeEdit();
         shiftAtoms(simulation.atoms(), delta);
         world.setRenderOffset(world.getRenderOffset() - delta);
         simulation.setSizeBox(newSize);
@@ -53,8 +58,14 @@ namespace {
 
 namespace AppActions {
     void Handler::trackIOPanel(CaptureController& captureController, UiState& uiState, Lattice::Simulation& simulation, SceneViewport& renderer) {
-        track(AppSignals::UI::SaveSimulation.connect(
-            [&](std::string_view path) { AppStateIO::save(captureController, uiState.scenePreviewRect, simulation, renderer.renderer(), path); }));
+        track(AppSignals::UI::SaveSimulation.connect([&](std::string_view path) {
+            // В GPU-режиме позиции/скорости живут в VRAM; Инкремент B убрал безусловный
+            // per-frame download, поэтому CPU AtomStorage может быть устаревшим. Синкаем
+            // ПЕРЕД save (AppStateIO читает atoms() через const Simulation& и сам синкнуть
+            // не может). Без этого файл нёс бы устаревшие координаты. В CPU-режиме no-op.
+            simulation.syncFromGpuIfNeeded();
+            AppStateIO::save(captureController, uiState.scenePreviewRect, simulation, renderer.renderer(), path);
+        }));
         track(AppSignals::UI::LoadSimulation.connect([&](std::string_view path) {
             AppStateIO::load(simulation, renderer.renderer(), path);
             renderer.syncScene(simulation);

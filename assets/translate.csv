@@ -56,6 +56,8 @@ imgui_neighbour_list;Neighbour list;Список соседей
 imgui_cell_size;Cell size;Cell size
 imgui_cutoff_nl;Cutoff NL;Cutoff NL
 imgui_skin_nl;Skin NL;Skin NL
+imgui_gpu_physics;GPU physics (LJ + walls + bonds + Coulomb);GPU физика (LJ + стены + связи + Кулон)
+imgui_gpu_physics_lj_only;GPU mode: LJ + walls + gravity + static bonds (Morse + angle) + Coulomb, bond formation/breaking disabled;GPU-режим: LJ + стены + гравитация + статичные связи (Morse + угол) + Кулон, образование/разрыв связей отключены
 imgui_write;Record;Запись
 imgui_video_saving_folder;Video save folder;Папка сохранения видео
 imgui_capture_dir;##capture_dir;##capture_dir
@@ -71,3 +73,8 @@ imgui_windowed;Windowed;Оконный режим
 imgui_exit_button;Exit;Exit
 version_text_pre;LatticeLab v;LatticeLab v
 version_text_after; demo; demo
+imgui_box_size_x;Size X;Размер X
+imgui_box_size_y;Size Y;Размер Y
+imgui_box_size_z;Size Z;Размер Z
+imgui_interface;Interface;Интерфейс
+imgui_interface_scale;Interface scale;Масштаб интерфейса

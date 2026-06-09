@@ -14,6 +14,7 @@
 #include "BmRunner/Data.h"
 #include "BmRunner/Style.h"
 #include "BmRunner/Support.h"
+using namespace Lattice;
 
 namespace fs = std::filesystem;
 

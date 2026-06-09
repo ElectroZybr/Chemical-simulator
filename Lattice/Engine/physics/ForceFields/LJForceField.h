@@ -25,11 +25,19 @@ public:
 
     [[nodiscard]] const LJPairRow& pairRow(AtomData::Type type) const;
 
-    inline void pairInteraction(AtomStorage& atoms, uint32_t bIndex, float dx, float dy, float dz, float d2, const LJPairRow& ljPairRow,
-                                float& forceX, float& forceY, float& forceZ, float& potenE) const {
+    inline void pairInteraction(AtomStorage& atoms, uint32_t bIndex, float dx, float dy, float dz, float d2, float cutoffSqr,
+                                const LJPairRow& ljPairRow, float& forceX, float& forceY, float& forceZ, float& potenE,
+                                bool writeNeighbor = true) const {
         if (d2 <= Consts::Epsilon) {
             return;
         }
+
+        // Физический cutoff (C1) применяется БЕЗ ветки в горячем цикле: за cutoff вклад
+        // обнуляется множителем active, а не пропуском пары через continue. Data-dependent
+        // переход на плотной сцене стоил ~2x в force-loop (codex+godbolt: ветка не
+        // векторизуется и дорога по control-flow); множитель компилируется в vcmpless+vandps.
+        // Результат бит-в-бит как пропуск: при active=0 сила/энергия = 0, при active=1 — без изменений.
+        const float active = (d2 <= cutoffSqr) ? 1.0f : 0.0f;
 
         const LJParams& params = ljPairRow[static_cast<size_t>(atoms.type(bIndex))];
 
@@ -40,23 +48,28 @@ public:
         const float term6 = params.potentialC6 * invD6;
         const float term12 = params.potentialC12 * invD12;
 
-        const float forceScale = (12.0f * term12 - 6.0f * term6) * invD2;
-        const float potential = term12 - term6;
+        const float forceScale = (12.0f * term12 - 6.0f * term6) * invD2 * active;
+        const float potential = (term12 - term6) * active;
 
         const float pairForceX = dx * forceScale;
         const float pairForceY = dy * forceScale;
         const float pairForceZ = dz * forceScale;
+        const float halfPotential = 0.5f * potential;
 
         forceX -= pairForceX;
         forceY -= pairForceY;
         forceZ -= pairForceZ;
+        potenE += halfPotential;
 
-        atoms.forceX(bIndex) += pairForceX;
-        atoms.forceY(bIndex) += pairForceY;
-        atoms.forceZ(bIndex) += pairForceZ;
-
-        potenE += 0.5f * potential;
-        atoms.energy(bIndex) += 0.5f * potential;
+        // writeNeighbor=false используется в parallel-режиме (NeighborListMode::Full),
+        // где каждая пара (i,j) обходится дважды: один раз центральный=i пишет в i,
+        // другой раз центральный=j пишет в j. Никакого race на atoms.forceX(bIndex).
+        if (writeNeighbor) {
+            atoms.forceX(bIndex) += pairForceX;
+            atoms.forceY(bIndex) += pairForceY;
+            atoms.forceZ(bIndex) += pairForceZ;
+            atoms.energy(bIndex) += halfPotential;
+        }
     }
 
 private:

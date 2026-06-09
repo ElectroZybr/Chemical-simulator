@@ -2,6 +2,8 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cstdint>
+#include <format>
 #include <string>
 
 #include "App/debug/CreateDebugPanels.h"
@@ -10,6 +12,7 @@
 #include "Lattice/Engine/Simulation.h"
 #include "Lattice/Engine/metrics/MemoryMetrics.h"
 #include "Lattice/Engine/metrics/Profiler.h"
+#include "Lattice/Engine/physics/gpu/GpuResidentPhysics.h" // nlRebuildCount() в GPU-режиме
 #include "GUI/interface/panels/debug/view/DebugView.h"
 
 void updateAtomSelectionDebug(const DebugViews& debugViews, const Lattice::Simulation& simulation) {
@@ -98,14 +101,41 @@ void updateSimulationDebug(const DebugViews& debugViews, const Lattice::Simulati
     debugViews.neighbor->add_data("Память AtomStorage (МБ)", static_cast<float>(atoms.memoryBytes()) / 1024.0f / 1024.0f);
     debugViews.neighbor->add_data("Память NeighborList (МБ)", static_cast<float>(neighborList.memoryBytes()) / 1024.0f / 1024.0f);
     debugViews.neighbor->add_data("Память SpatialGrid (МБ)", static_cast<float>(world.getGrid().memoryBytes()) / 1024.0f / 1024.0f);
-    debugViews.neighbor->add_data("Пар в NL", neighborList.pairStorageSize());
-    debugViews.neighbor->add_data("Ср. соседей на атом", neighborList.stats().avgNeighborsPerAtom(neighborList));
+
+    // В GPU-режиме CPU NeighborList не перестраивается (NL резидентен в VRAM),
+    // поэтому его собственная статистика (число пар, соседей/атом, тайминг и
+    // интервалы перестроек) застыла бы на снимке входа в GPU-режим. Показывать
+    // застывшее число как живое нельзя; GPU-аналога без дорогого per-frame readback
+    // нет — поэтому для этих метрик в GPU-режиме выводим честную метку. Cutoff/Skin/
+    // List radius остаются валидны (GPU NL использует те же параметры).
+    const GpuResidentPhysics* gpu = simulation.activeGpuResident();
+    const bool gpuMode = gpu != nullptr;
+    const std::string cpuOnlyNa = "н/д (CPU NL, в GPU-режиме)"; // плейсхолдер для CPU-only метрик
+    if (gpuMode) {
+        debugViews.neighbor->add_data("Пар в NL", cpuOnlyNa);
+        debugViews.neighbor->add_data("Ср. соседей на атом", cpuOnlyNa);
+    }
+    else {
+        debugViews.neighbor->add_data("Пар в NL", std::format("{}", neighborList.pairStorageSize()));
+        debugViews.neighbor->add_data("Ср. соседей на атом", std::format("{:.3f}", neighborList.stats().avgNeighborsPerAtom(neighborList)));
+    }
     debugViews.neighbor->add_data("Cutoff", neighborList.cutoff());
     debugViews.neighbor->add_data("Skin", neighborList.skin());
     debugViews.neighbor->add_data("List radius", neighborList.listRadius());
-    debugViews.neighbor->add_data("Ребилдов NL", neighborList.stats().rebuildCount());
-    debugViews.neighbor->add_data("Шагов между ребилдами (recent)", neighborList.stats().recentAverageStepsBetweenRebuilds());
-    debugViews.neighbor->add_data("Время ребилда NL (мс)", neighborList.stats().lastRebuildTimeMs());
+    // Число перестроек NL: в GPU-режиме берём GPU-счётчик (2e) — CPU-счётчик там
+    // всегда 0. Метрика осмысленна в обоих режимах, поэтому остаётся числом.
+    const uint64_t nlRebuilds =
+        gpuMode ? gpu->nlRebuildCount() : static_cast<uint64_t>(neighborList.stats().rebuildCount());
+    debugViews.neighbor->add_data("Ребилдов NL", nlRebuilds);
+    if (gpuMode) {
+        debugViews.neighbor->add_data("Шагов между ребилдами (recent)", cpuOnlyNa);
+        debugViews.neighbor->add_data("Время ребилда NL (мс)", cpuOnlyNa);
+    }
+    else {
+        debugViews.neighbor->add_data("Шагов между ребилдами (recent)",
+                                      std::format("{:.2f}", neighborList.stats().recentAverageStepsBetweenRebuilds()));
+        debugViews.neighbor->add_data("Время ребилда NL (мс)", std::format("{:.4f}", neighborList.stats().lastRebuildTimeMs()));
+    }
     debugViews.neighbor->add_data("SG заполненных ячеек", static_cast<int>(world.getGrid().stats().lastNonEmptyCellCount()));
     debugViews.neighbor->add_data("SG макс атомов в ячейке", static_cast<int>(world.getGrid().stats().lastMaxAtomsPerCell()));
     debugViews.neighbor->add_data("SG ср. атомов/ячейку", world.getGrid().stats().lastAverageAtomsPerNonEmptyCell());

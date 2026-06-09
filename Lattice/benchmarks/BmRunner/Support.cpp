@@ -6,6 +6,7 @@
 #include <fstream>
 #include <iostream>
 #include <sstream>
+using namespace Lattice;
 
 namespace fs = std::filesystem;
 

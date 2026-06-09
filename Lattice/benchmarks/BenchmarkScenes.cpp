@@ -5,6 +5,7 @@
 
 #include "Engine/Simulation.h"
 #include "Lattice/Generators/Generators.h"
+using namespace Lattice;
 
 namespace Benchmarks {
     void Scenes::build(Lattice::Simulation& simulation, SceneKind scene, int atomCount) {
@@ -12,7 +13,7 @@ namespace Benchmarks {
 
         switch (scene) {
         case SceneKind::IdealCrystal3D:
-            buildCrystal2D(simulation, atomCount);
+            buildIdealCrystal3D(simulation, atomCount);
             break;
         case SceneKind::Crystal2D:
             buildCrystal2D(simulation, atomCount);
@@ -33,6 +34,8 @@ namespace Benchmarks {
 
     void Scenes::buildIdealCrystal3D(Lattice::Simulation& simulation, int atomCount) {
         const int side = cubeSideFromCount(atomCount);
+        // glm::ivec3(side) = (side,side,side) — broadcast скаляра по всем осям даёт полный
+        // 3D-объём, а не 1D-линию (форк-фикс прежней int-перегрузки теперь покрыт upstream).
         Generators::hexLattice(simulation, glm::ivec3(side), AtomData::Type::Z);
     }
 

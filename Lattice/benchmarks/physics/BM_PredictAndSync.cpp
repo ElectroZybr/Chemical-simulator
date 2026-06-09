@@ -1,5 +1,6 @@
 #include <benchmark/benchmark.h>
 #include "Fixture.h"
+using namespace Lattice;
 
 // @bench_meta {"id":"Fixture/PredictAndSync","label":"Predict + Sync","group":"Simulation/Integrator"}
 BENCHMARK_DEFINE_F(Fixture, PredictAndSync)(benchmark::State& state) {

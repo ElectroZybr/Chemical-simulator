@@ -1,5 +1,6 @@
 #include <benchmark/benchmark.h>
 #include "Fixture.h"
+using namespace Lattice;
 
 // @bench_meta {"id":"Fixture/SpatialGridRebuild","label":"SpatialGrid Rebuild","group":"Simulation/Grid and Neighbors"}
 BENCHMARK_DEFINE_F(Fixture, SpatialGridRebuild)(benchmark::State& state) {

@@ -1,5 +1,6 @@
 #include "SettingsPanel.h"
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstdio>
@@ -148,6 +149,13 @@ void SettingsPanel::draw(float uiScale, glm::ivec2 windowSize, Lattice::Simulati
 
         for (Integrator::Scheme scheme : schemes) {
             const bool isSelected = (scheme == currentIntegrator);
+            // RK4 и Langevin сейчас стабы — Engine/physics/integrators/RK4Scheme.cpp:5
+            // и LangevinScheme.cpp:5 молча вызывают Verlet. Чтобы пользователь не
+            // выбирал их как новые варианты, опции задизаблены. Уже выбранный
+            // stub-режим (например из сохранённой сцены) остаётся видимым, чтобы
+            // переключение обратно на Verlet работало, а warning ниже виден.
+            const bool isStub = (scheme == Integrator::Scheme::RK4 || scheme == Integrator::Scheme::Langevin);
+            ImGui::BeginDisabled(isStub && !isSelected);
             if (ImGui::Selectable(integratorName(scheme).data(), isSelected)) {
                 simulation.world().getIntegrator().setScheme(scheme);
                 currentIntegrator = scheme;
@@ -155,6 +163,7 @@ void SettingsPanel::draw(float uiScale, glm::ivec2 windowSize, Lattice::Simulati
             if (isSelected) {
                 ImGui::SetItemDefaultFocus();
             }
+            ImGui::EndDisabled();
         }
         ImGui::EndCombo();
     }
@@ -258,9 +267,9 @@ void SettingsPanel::draw(float uiScale, glm::ivec2 windowSize, Lattice::Simulati
         ImGui::TextUnformatted(label);
         return changed;
     };
-    boxSizeChanged |= drawBoxSizeDrag("Size X", "##settings_box_size_x", boxSize.x);
-    boxSizeChanged |= drawBoxSizeDrag("Size Y", "##settings_box_size_y", boxSize.y);
-    boxSizeChanged |= drawBoxSizeDrag("Size Z", "##settings_box_size_z", boxSize.z);
+    boxSizeChanged |= drawBoxSizeDrag("imgui_box_size_x"_tr.data(), "##settings_box_size_x", boxSize.x);
+    boxSizeChanged |= drawBoxSizeDrag("imgui_box_size_y"_tr.data(), "##settings_box_size_y", boxSize.y);
+    boxSizeChanged |= drawBoxSizeDrag("imgui_box_size_z"_tr.data(), "##settings_box_size_z", boxSize.z);
     ImGui::PopItemWidth();
     if (boxSizeChanged) {
         AppSignals::UI::ResizeBox.emit(boxSize);
@@ -280,10 +289,14 @@ void SettingsPanel::draw(float uiScale, glm::ivec2 windowSize, Lattice::Simulati
     if (ImGui::Checkbox("imgui_coulomb"_tr.data(), &coulombEnabled)) {
         simulation.world().setCoulombEnabled(coulombEnabled);
     }
+    // Long-range Кулон (octree) считается только на CPU-пути; в GPU-режиме он инертен —
+    // дизейблим чекбокс, чтобы UI не вводил в заблуждение (галка без эффекта).
     bool coulombLongRangeEnabled = simulation.world().isCoulombLongRangeEnabled();
+    ImGui::BeginDisabled(simulation.isGpuMode());
     if (ImGui::Checkbox("imgui_coulomb_long_range"_tr.data(), &coulombLongRangeEnabled)) {
         simulation.world().setCoulombLongRangeEnabled(coulombLongRangeEnabled);
     }
+    ImGui::EndDisabled();
 
     ImGui::SeparatorText("imgui_render"_tr.data());
     ImGui::Checkbox("imgui_atoms"_tr.data(), &activeRenderData.drawAtoms);
@@ -338,14 +351,30 @@ void SettingsPanel::draw(float uiScale, glm::ivec2 windowSize, Lattice::Simulati
     ImGui::EndDisabled();
     ImGui::PopItemWidth();
 
-    ImGui::SeparatorText("Interface");
+    // --- CPU/GPU тумблер физики ---
+    // GPU-режим — резидентная физика на GPU: LJ + soft-wall + gravity + силы связей
+    // (Morse + угловые) по СТАТИЧНОЙ топологии. Образование/разрыв связей и Кулон в
+    // GPU-режиме отключены (предупреждение ниже). Оба пути рабочие, переключение
+    // синхронизирует состояние через AtomStorage.
+    bool gpuMode = simulation.isGpuMode();
+    if (ImGui::Checkbox("imgui_gpu_physics"_tr.data(), &gpuMode)) {
+        simulation.setGpuMode(gpuMode);
+    }
+    if (gpuMode) {
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.00f, 0.75f, 0.25f, 1.00f));
+        ImGui::TextWrapped("%s", "imgui_gpu_physics_lj_only"_tr.data());
+        ImGui::PopStyleColor();
+    }
+
+    // upstream: ползунок масштаба интерфейса
+    ImGui::SeparatorText("imgui_interface"_tr.data());
     const float currentInterfaceScale = std::round(appInterface.uiScaleMultiplier() * 10.0f) / 10.0f;
     if (!interfaceScaleEditing_) {
         pendingInterfaceScale_ = currentInterfaceScale;
     }
 
     ImGui::PushItemWidth(180.0f * uiScale);
-    if (ImGui::SliderFloat("Interface scale", &pendingInterfaceScale_, StyleManager::kMinUiScale, StyleManager::kMaxUiScale, "%.1f",
+    if (ImGui::SliderFloat("imgui_interface_scale"_tr.data(), &pendingInterfaceScale_, StyleManager::kMinUiScale, StyleManager::kMaxUiScale, "%.1f",
                            ImGuiSliderFlags_AlwaysClamp)) {
         pendingInterfaceScale_ = std::round(pendingInterfaceScale_ * 10.0f) / 10.0f;
         interfaceScaleEditing_ = true;
@@ -361,18 +390,33 @@ void SettingsPanel::draw(float uiScale, glm::ivec2 windowSize, Lattice::Simulati
     }
 
     ImGui::SeparatorText("imgui_neighbour_list"_tr.data());
+    // cellSize >= cutoff + skin — иначе NL 27-cell stencil тихо потеряет пары
+    // на (cellSize, listRadius]. Engine кидает invalid_argument при нарушении,
+    // UI клампит слайдеры так, чтобы попасть в это нельзя.
+    const float currentCutoff = simulation.getNeighborListCutoff();
+    const float currentSkin = simulation.getNeighborListSkin();
+    const float currentListRadius = currentCutoff + currentSkin;
+    const float currentCellSizeF = static_cast<float>(simulation.world().getGridCellSize());
+
     int cellSize = simulation.world().getGridCellSize();
-    if (ImGui::SliderInt("imgui_cell_size"_tr.data(), &cellSize, 1, 32)) {
+    const int cellSizeMin = std::max(1, static_cast<int>(std::ceil(currentListRadius)));
+    if (cellSize < cellSizeMin) {
+        cellSize = cellSizeMin;
+        simulation.setSizeBox(simulation.world().getWorldSize(), cellSize);
+    }
+    if (ImGui::SliderInt("imgui_cell_size"_tr.data(), &cellSize, cellSizeMin, 32)) {
         simulation.setSizeBox(simulation.world().getWorldSize(), cellSize);
     }
 
-    float cutoff = simulation.getNeighborListCutoff();
-    if (ImGui::SliderFloat("imgui_cutoff_nl"_tr.data(), &cutoff, 0.5f, 20.0f, "%.2f")) {
+    float cutoff = currentCutoff;
+    const float cutoffMax = std::max(0.5f, std::min(20.0f, currentCellSizeF - currentSkin));
+    if (ImGui::SliderFloat("imgui_cutoff_nl"_tr.data(), &cutoff, 0.5f, cutoffMax, "%.2f")) {
         simulation.setNeighborListCutoff(cutoff);
     }
 
-    float skin = simulation.getNeighborListSkin();
-    if (ImGui::SliderFloat("imgui_skin_nl"_tr.data(), &skin, 0.1f, 10.0f, "%.2f")) {
+    float skin = currentSkin;
+    const float skinMax = std::max(0.1f, std::min(10.0f, currentCellSizeF - currentCutoff));
+    if (ImGui::SliderFloat("imgui_skin_nl"_tr.data(), &skin, 0.1f, skinMax, "%.2f")) {
         simulation.setNeighborListSkin(skin);
     }
 

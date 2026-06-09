@@ -11,8 +11,18 @@ set(APP_VERSION_STRING "${PROJECT_VERSION}")
 
 option(OPTIMIZE_FOR_NATIVE "Enable native CPU optimizations outside Debug builds" OFF)
 option(BUILD_BENCHMARKS "Build benchmarks" OFF)
+option(BUILD_TESTS "Build unit tests" OFF)
+option(USE_TBB "Use Intel oneTBB for parallel CPU paths" ON)
 option(ENABLE_IPO "Enable link-time optimization for non-Debug builds when supported" ON)
 option(BUILD_RENDERING_TESTS "Build Rendering module tests" ON)
+# -ffast-math ТОЛЬКО на физический код (latticelab_lib + Lattice + Rendering),
+# не на зависимости. ИЗМЕРЕНО (2026-05-30, см. RESULTS.md «-ffast-math — измерено,
+# отклонено»): физику НЕ ломает (LJ/Morse остаются бит-в-бит CPU==GPU, Coulomb
+# сдвигается на ~5e-7 от reassociation — много меньше порога гейтов, все 36 тестов
+# + parity-гейты зелёные), НО и ускорения НЕ даёт (force-loop memory-bound и уже
+# векторизован на -O3 -march=native). Оставлено OFF как задокументированный тумблер.
+# Внимание: -ffinite-math-only снимает гарантии на NaN/Inf — не для test/parity-сборок.
+option(FASTMATH_PHYSICS "Physics lib with -ffast-math (measured: physics-safe but NO perf win; default OFF)" OFF)
 
 set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -65,9 +75,47 @@ file(GLOB_RECURSE CORE_SOURCES CONFIGURE_DEPENDS
     "App/*.cpp"
 )
 
+# wgsl_shaders генерирует И апстрим-шейдеры, И наши physics_*.wgsl / gpu_cell_list /
+# integrate_verlet / nl_displacement (все в Rendering/shaders/, GLOB в shaders.cmake
+# берёт их автоматически). Зависимость нужна трём таргетам: Lattice (наш GPU-compute
+# код Lattice/Engine/physics/gpu/*.cpp включает generated/shaders/*.wgsl.h), Rendering
+# (RendererWGPU тоже) и latticelab_lib. include(shaders) ДОЛЖЕН быть до add_subdirectory,
+# чтобы цель wgsl_shaders существовала, когда Lattice/Rendering вешают на неё add_dependencies.
 include(shaders)
 include(embedded_resources)
 include(embedded_translate)
+
+# ── НАШЕ добавление: oneTBB через FetchContent (engine-only потребитель) ────────────
+# ВАЖНО: блок ДО add_subdirectory(Lattice), потому что движок (Lattice lib) — реальный
+# потребитель TBB (Engine/Simulation.cpp, Engine/physics/ForceField.cpp). Линковка
+# TBB::tbb + define LATTICELAB_USE_TBB происходит ВНУТРИ Lattice/CMakeLists.txt
+# (см. правку там), но сама цель TBB::tbb должна уже существовать к тому моменту.
+if(USE_TBB)
+    # TBB v2023.0.0 безусловно добавляет -fPIC в Clang.cmake (Linux-парадигма);
+    # clang на Windows MSVC-таргете не понимает этот флаг. PATCH_COMMAND убирает
+    # его, и только на Windows-clang — другим платформам ничего не трогается.
+    if(WIN32 AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        set(_TBB_PATCH_CMD
+            ${CMAKE_COMMAND} -DSRC_DIR=<SOURCE_DIR>
+            -P ${CMAKE_SOURCE_DIR}/cmake/patch_tbb_clang_fpic.cmake)
+    else()
+        set(_TBB_PATCH_CMD "")
+    endif()
+
+    FetchContent_Declare(
+        onetbb
+        GIT_REPOSITORY https://github.com/uxlfoundation/oneTBB.git
+        GIT_TAG        v2023.0.0
+        GIT_SHALLOW    ON
+        PATCH_COMMAND  ${_TBB_PATCH_CMD}
+    )
+    set(TBB_TEST       OFF CACHE BOOL "" FORCE)
+    set(TBB_EXAMPLES   OFF CACHE BOOL "" FORCE)
+    set(TBB_INSTALL    OFF CACHE BOOL "" FORCE)
+    set(TBB_STRICT     OFF CACHE BOOL "" FORCE)
+
+    FetchContent_MakeAvailable(onetbb)
+endif()
 
 add_subdirectory(Lattice)
 add_subdirectory(Rendering)
@@ -76,10 +124,12 @@ add_library(latticelab_lib STATIC ${CORE_SOURCES})
 add_dependencies(latticelab_lib
     embedded_resources
     embedded_translate
+    wgsl_shaders
 )
 
 target_compile_options(latticelab_lib PRIVATE
     $<$<AND:$<BOOL:${OPTIMIZE_FOR_NATIVE}>,$<NOT:$<CONFIG:Debug>>,$<CXX_COMPILER_ID:GNU,Clang,AppleClang>>:-march=native>
+    $<$<AND:$<BOOL:${FASTMATH_PHYSICS}>,$<NOT:$<CONFIG:Debug>>,$<CXX_COMPILER_ID:GNU,Clang,AppleClang>>:-ffast-math>
 )
 
 target_compile_definitions(latticelab_lib PUBLIC
@@ -128,25 +178,36 @@ target_link_libraries(latticelab_lib PUBLIC
     libzstd_static
 )
 
+# Примечание про TBB: FetchContent(onetbb) выполнен ВЫШЕ (до add_subdirectory(Lattice)).
+# Линковка TBB::tbb + define LATTICELAB_USE_TBB=1 сделана внутри Lattice/CMakeLists.txt
+# (engine — единственный потребитель). latticelab_lib получает их ТРАНЗИТИВНО через
+# PUBLIC-линковку Lattice, поэтому здесь повторно линковать TBB не нужно.
+
+if (WIN32)
+    add_executable(${APP_NAME} WIN32 main.cpp)
+    # WIN32 ставит /subsystem:windows, чей дефолтный entry — WinMainCRTStartup
+    # (ждёт WinMain). У нас обычный int main(), поэтому под clang+lld-link
+    # явно указываем mainCRTStartup — CRT-entry, который инициализирует
+    # рантайм и зовёт main(), сохраняя windows-subsystem (без консоли).
+    # MSVC-линкер сам разрешает это, clang+lld-link — нет.
+    if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        target_link_options(${APP_NAME} PRIVATE -Xlinker /entry:mainCRTStartup)
+    endif()
+else()
+    add_executable(${APP_NAME} main.cpp)
+endif()
+
 include(CheckIPOSupported)
 if(ENABLE_IPO)
     check_ipo_supported(RESULT lto_supported OUTPUT lto_error)
     if(lto_supported AND NOT MINGW)
         enable_non_debug_ipo(latticelab_lib)
+        enable_non_debug_ipo(${APP_NAME})
     elseif(MINGW)
         message(STATUS "IPO is disabled for MinGW")
     else()
         message(STATUS "IPO is not supported: ${lto_error}")
     endif()
-endif()
-
-add_executable(${APP_NAME} main.cpp)
-set_target_properties(${APP_NAME} PROPERTIES
-    WIN32_EXECUTABLE $<BOOL:${WIN32}>
-)
-
-if(ENABLE_IPO AND lto_supported AND NOT MINGW)
-    enable_non_debug_ipo(${APP_NAME})
 endif()
 
 target_link_libraries(${APP_NAME} PRIVATE latticelab_lib)
@@ -160,4 +221,26 @@ install(DIRECTORY "${CMAKE_SOURCE_DIR}/assets" DESTINATION .)
 
 if(EXISTS "${CMAKE_SOURCE_DIR}/demo/scenes")
     install(DIRECTORY "${CMAKE_SOURCE_DIR}/demo/scenes" DESTINATION demo)
+endif()
+
+# ── НАШИ добавления: GoogleBenchmark + GoogleTest FetchContent ──────────────────────
+# ВНИМАНИЕ ОБ ИЗМЕНЕНИИ РАСКЛАДКИ: апстрим перенёс googlebenchmark + add_subdirectory(benchmarks)
+# ВНУТРЬ Lattice/CMakeLists.txt (под if(BUILD_BENCHMARKS)). Чтобы не дублировать
+# FetchContent googlebenchmark и не плодить два вызова add_subdirectory(benchmarks),
+# benchmark-блок здесь УБРАН — его роль исполняет Lattice/CMakeLists.txt.
+# Здесь в корне остаётся ТОЛЬКО наш googletest-блок (тесты — наш форк-онли).
+if(BUILD_TESTS)
+    FetchContent_Declare(
+        googletest
+        GIT_REPOSITORY https://github.com/google/googletest.git
+        GIT_TAG        v1.17.0
+        GIT_SHALLOW    ON
+    )
+    set(BUILD_GMOCK     OFF CACHE BOOL "" FORCE)
+    set(INSTALL_GTEST   OFF CACHE BOOL "" FORCE)
+    set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+
+    FetchContent_MakeAvailable(googletest)
+
+    add_subdirectory(Tests)
 endif()

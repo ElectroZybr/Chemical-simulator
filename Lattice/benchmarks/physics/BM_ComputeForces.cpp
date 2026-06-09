@@ -1,5 +1,6 @@
 #include <benchmark/benchmark.h>
 #include "Fixture.h"
+using namespace Lattice;
 
 // @bench_meta {"id":"Fixture/ComputeForces","label":"Force Computation","group":"Simulation/Forces"}
 BENCHMARK_DEFINE_F(Fixture, ComputeForces)(benchmark::State& state) {

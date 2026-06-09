@@ -43,6 +43,13 @@ void AddAtomTool::onLeftPressed(glm::ivec2 mousePos) {
         return;
     }
 
+    // В GPU-режиме подтянуть свежие CPU-позиции из VRAM ПЕРЕД overlap-check
+    // (Инкремент B убрал безусловный per-frame download; §11 edit 1). createAtom
+    // ниже синкает через syncGpuBeforeEdit, но цикл проверки перекрытия читает
+    // atoms.pos РАНЬШЕ — без этого синка новый атом сверялся бы с устаревшими
+    // координатами и мог лечь поверх уехавшего соседа. В CPU-режиме no-op.
+    ctx.simulation->syncFromGpuIfNeeded();
+
     const float atomRadius = AtomData::getProps(atomType).radius;
     for (size_t atomIndex = 0; atomIndex < atoms.size(); ++atomIndex) {
         const glm::vec3 atomPos = atoms.pos(atomIndex);

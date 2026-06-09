@@ -38,7 +38,9 @@ struct UserSettings {
     bool simulationBondFormationEnabled = true;
     bool simulationLJEnabled = true;
     bool simulationCoulombEnabled = true;
-    bool simulationCoulombLongRangeEnabled = true;
+    // false как и движковый дефолт (World::longRangeForcesEnabled): octree-Кулон —
+    // экспериментальный, не сохраняет импульс. Не пере-включаем его на свежем старте.
+    bool simulationCoulombLongRangeEnabled = false;
 };
 
 class UserSettingsIO {

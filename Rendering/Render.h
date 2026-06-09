@@ -8,6 +8,21 @@
 
 #include "Rendering/BaseRenderer.h"
 
+// MERGE-RESOLUTION (zero-copy x upstream render/engine split)
+// ----------------------------------------------------------------------------
+// Upstream откреплил рендер от движка: RendererWGPU теперь наследует BaseRenderer
+// и читает данные атомов ТОЛЬКО через RenderData/RenderAtomsView (struct сырых
+// указателей), которые наполняет App-слой (SimulationSceneSource::syncRendererWith
+// Simulation). Рендер БОЛЬШЕ НЕ включает Engine/Simulation.
+//
+// Наш zero-copy (резидентные pos/vel в VRAM у GpuResidentPhysics) встроен НЕ
+// прямой связью рендер↔движок, а через РАСШИРЕНИЕ RenderAtomsView: опциональный
+// дескриптор RenderAtomsGpuResidency (см. RenderData.h) несёт два wgpu::Buffer
+// (pos/vel), generation и boundCount. Его наполняет тот же App-слой из
+// simulation.gpuResidentAt(worldId) — единственная точка, которой и положено знать
+// движок. Рендер зависит только от wgpu-типов, которые уже использует; #include
+// "GpuResidentPhysics.h" из Rendering УБРАН. Так контракт «рендер не зависит от
+// движка/компонентов» сохранён, а per-frame download убран ровно как в нашей ветке.
 class RendererWGPU : public BaseRenderer {
 public:
     RendererWGPU();
@@ -85,6 +100,21 @@ private:
 
     wgpu::raii::BindGroup atomBindGroup;
 
+    // Zero-copy GPU-режим: отдельная atom-bind-group, биндящая РЕЗИДЕНТНЫЕ pos/vel
+    // физики (binding 1/2) + renderer-owned type/radius/sel (binding 3/4/5). Layout
+    // тот же (atomBindGroupLayout), меняются только два буфера. Пере-собирается
+    // лениво по кеш-ключу ниже — на статичной сцене горячий путь её не трогает.
+    wgpu::raii::BindGroup atomBindGroupGpu_;
+    // Кеш-ключ GPU-bind-group: пересобираем только при расхождении. valid==false
+    // означает «ещё не собрана». Раньше ключ хранил GpuResidentPhysics* (рендер знал
+    // движок); теперь — wgpu::Buffer pos (как стабильный идентификатор резидентного
+    // источника) + generation, что не требует знания типа движка.
+    bool gpuBindValid_ = false;
+    WGPUBuffer gpuBindPosBuffer_ = nullptr;  // какой резидентный pos-буфер биндили (идентичность источника)
+    uint64_t gpuBindGeneration_ = 0;         // его generation на момент сборки
+    size_t gpuBindSbCapacity_ = 0;           // ёмкость renderer-owned sbType/sbRadius/sbSel
+    size_t gpuBindBoundCount_ = 0;           // boundCount, под который выставлен bound size резидентных pos/vel
+
     wgpu::raii::RenderPassEncoder currentPass;
 
     wgpu::TextureFormat surfaceFormat;
@@ -100,6 +130,12 @@ private:
     // Helpers
     void ensureStorageBuffers(size_t count);
     template <typename T> void uploadStorageBuffer(wgpu::Buffer& buf, const T* data, size_t count);
+    // Гарантирует валидную atom-bind-group для текущего режима. В GPU-режиме
+    // (residency.valid) лениво пере-собирает atomBindGroupGpu_ из резидентных
+    // pos/vel (boundCount*16) + renderer-owned type/radius/sel и возвращает её; в
+    // CPU-режиме возвращает обычную atomBindGroup. boundCount нужен для bound size
+    // резидентных биндингов (min-clamp на стороне вызывающего).
+    wgpu::BindGroup ensureAtomBindGroup(size_t boundCount, const RenderAtomsGpuResidency& residency);
 
     // Draw
     void drawWorldPass(wgpu::TextureView targetView, wgpu::TextureView depthView, const RenderData& renderData, wgpu::LoadOp targetLoadOp,

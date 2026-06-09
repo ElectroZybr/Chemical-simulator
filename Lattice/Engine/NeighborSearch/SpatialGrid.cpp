@@ -27,6 +27,14 @@ SpatialGrid::SpatialGrid(const glm::vec3& worldSize, float cellSize) : cellSize(
     atomsInCells.reserve(256);
 }
 
+// Перестроение cell-list через counting sort за O(n) — три прохода без
+// сравнений и без per-cell аллокаций:
+//   1) каждому атому считаем его клетку и инкрементим счётчик клетки counts_;
+//   2) prefix-sum counts_ -> offsets (начало диапазона каждой клетки в
+//      atomsInCells); попутно собираем индексы непустых клеток для
+//      sparse-обхода рендером;
+//   3) раскладываем атомы: после prefix-sum counts_[cell] равен началу клетки
+//      и переиспользуется как курсор записи.
 void SpatialGrid::rebuild(std::span<const float> posX, std::span<const float> posY, std::span<const float> posZ) {
     PROFILE_SCOPE("SpatialGrid::rebuild");
     const size_t n = posX.size();
@@ -34,6 +42,7 @@ void SpatialGrid::rebuild(std::span<const float> posX, std::span<const float> po
     if (n == 0) {
         atomsInCells.clear();
         std::fill(offsets.begin(), offsets.end(), 0);
+        nonEmptyCellIndices_.clear(); // иначе рендер сетки рисует фантомные клетки удалённых атомов
         stats_.recordRebuild(0, 0, 0.0f);
         return;
     }
@@ -41,19 +50,26 @@ void SpatialGrid::rebuild(std::span<const float> posX, std::span<const float> po
     cellIndices_.resize(n);
     counts_.assign(countCells, 0);
 
+    // Проход 1: клетка каждого атома + счётчик атомов на клетку.
     for (size_t i = 0; i < n; ++i) {
         const size_t cell = static_cast<size_t>(index(worldToCellX(posX[i]), worldToCellY(posY[i]), worldToCellZ(posZ[i])));
         cellIndices_[i] = cell;
         ++counts_[cell];
     }
 
+    // Проход 2: prefix-sum счётчиков в offsets; counts_[cell] переустанавливаем
+    // в начало клетки (станет курсором в проходе 3), копим непустые клетки.
     offsets.resize(countCells + 2);
     uint32_t running = 0;
     size_t nonEmptyCellCount = 0;
     uint32_t maxAtomsPerCell = 0;
+    nonEmptyCellIndices_.clear();
     for (size_t cell = 0; cell < countCells; ++cell) {
         const uint32_t cnt = counts_[cell];
-        nonEmptyCellCount += (cnt > 0);
+        if (cnt > 0) {
+            nonEmptyCellIndices_.push_back(static_cast<uint32_t>(cell));
+            ++nonEmptyCellCount;
+        }
         maxAtomsPerCell = std::max(counts_[cell], maxAtomsPerCell);
         counts_[cell] = running;
         offsets[cell] = running;
@@ -61,6 +77,8 @@ void SpatialGrid::rebuild(std::span<const float> posX, std::span<const float> po
     }
     offsets[countCells] = running;
 
+    // Проход 3: counts_[cell] здесь — курсор записи (после prefix-sum указывает
+    // на начало клетки), ++ сдвигает его на следующую свободную позицию.
     atomsInCells.resize(n);
     for (size_t i = 0; i < n; ++i) {
         const size_t cell = cellIndices_[i];

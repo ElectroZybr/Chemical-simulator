@@ -6,6 +6,7 @@
 #include <string_view>
 
 #include "BmRunner/Support.h"
+using namespace Lattice;
 
 namespace fs = std::filesystem;
 

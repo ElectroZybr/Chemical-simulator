@@ -5,6 +5,7 @@
 
 #include "Engine/io/SimulationStateIO.h"
 #include "Engine/metrics/Profiler.h"
+#include "Engine/physics/gpu/GpuResidentPhysics.h"
 
 namespace Lattice {
 
@@ -120,4 +121,30 @@ void Simulation::setXYZRecordingStepInterval(uint32_t stepInterval) {
 }
 
 bool Simulation::isXYZRecording() const noexcept { return xyzRecording_.isRecording(); }
+
+// === GPU-режим: фасад над per-world резидентной физикой (живёт в World) ===
+
+void Simulation::syncFromGpuIfNeeded() {
+    // По ВСЕМ мирам: updateAll() шагает каждый мир, неактивный GPU-мир тоже
+    // продвигается в VRAM, его CPU-копию надо скачать для рендера/метрик.
+    for (auto& w : worlds_) {
+        w.syncFromGpuIfNeeded();
+    }
+}
+
+void Simulation::refreshDiagnosticsGrid() {
+    // По ВСЕМ мирам (рендер рисует и неактивные); World::refreshDiagnosticsGrid сам
+    // пропускает CPU-миры. Precondition «позиции синканы» обеспечивает вызывающий
+    // (syncFromGpuIfNeeded в начале кадра).
+    for (auto& w : worlds_) {
+        w.refreshDiagnosticsGrid();
+    }
+}
+
+const GpuResidentPhysics* Simulation::gpuResidentAt(WorldId worldId) const {
+    if (worldId >= worlds_.size()) {
+        throw std::out_of_range("Simulation::gpuResidentAt: invalid world id");
+    }
+    return worlds_[worldId].gpuResident(); // nullptr если мир в CPU-режиме
+}
 }

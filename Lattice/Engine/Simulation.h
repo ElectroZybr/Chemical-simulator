@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -21,10 +22,10 @@ public:
     WorldId createWorld(glm::vec3 size, glm::vec3 renderOffset = glm::vec3{0.0f, 0.0f, 0.0f});
     bool removeWorld(WorldId worldId);
     bool setActiveWorld(WorldId worldId);
-    
+
     [[nodiscard]] WorldId activeWorldId() const noexcept { return activeWorldIndex_; }
     [[nodiscard]] size_t worldCount() const noexcept { return worlds_.size(); }
-    
+
     [[nodiscard]] World& worldAt(WorldId worldId);
     [[nodiscard]] const World& worldAt(WorldId worldId) const;
 
@@ -110,6 +111,50 @@ public:
     [[nodiscard]] uint32_t xyzRecordingStepInterval() const noexcept { return xyzRecording_.stepInterval(); }
     [[nodiscard]] uint64_t xyzFrameCount() const noexcept { return xyzRecording_.frameCount(); }
     [[nodiscard]] float xyzFPS() const noexcept { return xyzRecording_.fps(); }
+
+    // ============================================================================
+    // GPU-режим (резидентная физика). В новой архитектуре per-world шаг и резидентный
+    // GPU живут в World; Simulation — тонкий фасад. Тумблер действует на АКТИВНЫЙ мир
+    // (как и остальные per-world сеттеры через world()), а sync/диагностика идут по
+    // ВСЕМ мирам, потому что рендер рисует все миры (updateAll шагает каждый).
+    // ============================================================================
+
+    // CPU/GPU тумблер физики активного мира. Подробности контракта — в World::setGpuMode.
+    void setGpuMode(bool enable) { world().setGpuMode(enable); }
+    [[nodiscard]] bool isGpuMode() const { return world().isGpuMode(); }
+
+    // Скачивает позиции/скорости из VRAM в AtomStorage для ВСЕХ GPU-миров, у которых
+    // CPU-копия устарела. По всем мирам, а не только активному: updateAll() шагает
+    // каждый мир, поэтому неактивный GPU-мир тоже продвигается в VRAM, и его CPU-копию
+    // надо скачать для рендера/метрик (иначе неактивный GPU-мир "застывает" на экране).
+    // Вызывать перед рендером/метриками/сохранением. В CPU-мирах — no-op.
+    void syncFromGpuIfNeeded();
+
+    // Пере-биннинг CPU SpatialGrid ВСЕХ GPU-миров из текущих CPU-позиций — ТОЛЬКО для
+    // диагностических потребителей (viz-сетка, overlay соседей, debug-панель). По всем
+    // мирам (рендер рисует и неактивные). PRECONDITION: позиции уже синканы из VRAM
+    // (syncFromGpuIfNeeded в начале кадра). CPU-миры пропускаются.
+    void refreshDiagnosticsGrid();
+
+    // Перед правкой CPU-сцены активного мира подтянуть актуальное состояние из VRAM.
+    // В CPU-режиме no-op. (Большинство правок сцены уже синкают сами внутри World —
+    // этот публичный метод оставлен для App-сторонних тулов, правящих AtomStorage
+    // напрямую перед собственной мутацией.)
+    void syncGpuBeforeEdit() { world().syncGpuBeforeEdit(); }
+    // Сообщить резидентному GPU активного мира, что сцена изменена вне обычного шага.
+    void notifySceneEdited() { world().notifySceneEdited(); }
+
+    // Диагностика async disp-check активного GPU-мира (бенч-матрица). Нули вне GPU-режима.
+    using GpuDispCounts = World::GpuDispCounts;
+    [[nodiscard]] GpuDispCounts activeGpuDispCounts() const { return world().gpuDispCounts(); }
+
+    // Read-only seam: резидентная GPU-физика активного мира, либо nullptr вне
+    // GPU-режима (бенч-гейты читают резидентные NL-буфера через readbackNl*).
+    [[nodiscard]] const GpuResidentPhysics* activeGpuResident() const { return world().gpuResident(); }
+    // Read-only render-bind seam: резидентная GPU-физика мира worldId, либо nullptr
+    // если он в CPU-режиме. Рендер рисует ВСЕ миры (drawShot цикл по worldId), каждому
+    // GPU-миру нужен render-bind его резидентных pos/vel. Bounds-check как worldAt.
+    [[nodiscard]] const GpuResidentPhysics* gpuResidentAt(WorldId worldId) const;
 
 private:
     friend class SimulationStateIO;
