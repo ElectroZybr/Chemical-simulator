@@ -26,4 +26,5 @@ namespace Units {
     // скорость
     inline constexpr float SpeedUnitToMps = 1e-10f / kTimeUnitToS;     // коэффициент перевода ангстрем/dt в м/с
     inline constexpr float SpeedUnitToKmph = 1e-13f / kTimeUnitToHour;   // коэффициент перевода ангстрем/dt в км/ч
+    inline constexpr float WorldBorderSpeed = 1e-1f; 
 }

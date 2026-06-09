@@ -22,8 +22,20 @@ void World::reset() {
     resetRuntimeState();
 }
 
-void World::resizeBox(const glm::vec3& newSize, float cellSize) {
+void World::setNewBoxSize(const glm::vec3& newSize, float cellSize) {
+    const glm::vec3 delta = (newSize - size) * 0.5f;
+
+    shiftAtoms(getAtomStorage(), delta);
+    setRenderOffset(getRenderOffset() - delta);
+
     setWorldSize(newSize);
+    setTargetWorldSize(newSize);
+    setGridCellSize(cellSize);
+    finalizeAtomBatch();
+}
+
+void World::setNewTargetBoxSize(const glm::vec3& newSize, float cellSize) {
+    setTargetWorldSize(newSize);
     setGridCellSize(cellSize);
     finalizeAtomBatch();
 }
@@ -104,6 +116,8 @@ const EnergyMetrics::Snapshot& World::getMetrics() const {
 }
 
 void World::update() {
+    updateWorldSize();
+
     // Перестроить список соседей если необходимо
     if (neighborList_.needsRebuild(atomStorage_)) {
         neighborList_.rebuildPipeline(atomStorage_, *this, state_.sim_step);

@@ -20,7 +20,7 @@ namespace Generators {
         const float layerShiftY = lj_min * std::sqrt(3.0f) / 6.0f;
         const float layerStep = lj_min * std::sqrt(2.0f / 3.0f);
 
-        sim.setSizeBox(glm::vec3(2.0f * margin + count.x * lj_min + 1.5f * lj_min, 2.0f * margin + count.y * rowStep + 1.5f * lj_min,
+        sim.setBoxSize(glm::vec3(2.0f * margin + count.x * lj_min + 1.5f * lj_min, 2.0f * margin + count.y * rowStep + 1.5f * lj_min,
                                  2.0f * margin + count.z * layerStep + lj_min));
 
         sim.reserveAtoms(sim.atoms().size() + atomTotal);

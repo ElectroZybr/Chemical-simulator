@@ -245,7 +245,7 @@ namespace {
             kPadding - minCoords.z,
         };
 
-        simulation.setSizeBox(worldSize);
+        simulation.setBoxSize(worldSize);
         simulation.setWorldTitle(std::filesystem::path(path).stem().string());
         simulation.setWorldDescription(lastFrameComment);
         simulation.reserveAtoms(lastFrameAtoms.size());
@@ -402,7 +402,7 @@ namespace {
             }
         }
 
-        simulation.setSizeBox(boxSize, cellSize);
+        simulation.setBoxSize(boxSize, cellSize);
         simulation.setDt(loadedDt);
         simulation.setIntegrator(static_cast<Integrator::Scheme>(loadedIntegrator));
         simulation.setGravity(loadedGravity);
@@ -547,7 +547,7 @@ namespace {
             }
         }
 
-        simulation.setSizeBox(worldSize, cellSize);
+        simulation.setBoxSize(worldSize, cellSize);
         simulation.setDt(loadedDt);
         simulation.setIntegrator(static_cast<Integrator::Scheme>(loadedIntegrator));
         simulation.setGravity(loadedGravity);

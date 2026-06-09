@@ -149,7 +149,7 @@ namespace Generators {
 
         const double span = sideCount * effectiveSpacing + 2.0 * margin;
 
-        sim.setSizeBox(glm::vec3(span, span, is3d ? span : 6.0));
+        sim.setBoxSize(glm::vec3(span, span, is3d ? span : 6.0));
 
         randomGasInCurrentBox(sim, atomCount, type, is3d, 4.0f, speedScale, 20, seed);
     }
@@ -222,7 +222,7 @@ namespace Generators {
                                    : std::max(1, static_cast<int>(std::ceil(std::sqrt(static_cast<double>(totalAtomCount)))));
 
         const double span = sideCount * effectiveSpacing + 2.0 * margin;
-        sim.setSizeBox(glm::vec3(span, span, is3d ? span : 6.0));
+        sim.setBoxSize(glm::vec3(span, span, is3d ? span : 6.0));
 
         // Создаем газ для каждого типа атома
         uint32_t currentSeed = detail::resolveSeed(seed);

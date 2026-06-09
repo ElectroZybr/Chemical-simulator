@@ -11,8 +11,13 @@
 
 namespace AppSignals {
     namespace UI {
+<<<<<<< HEAD
         inline Signals::Signal<void(const glm::vec3& newSize)> ResizeBox;
         inline Signals::Signal<void(const glm::vec3& newSize, float speed)> LerpResizeBox;
+=======
+        inline Signals::Signal<void(const glm::vec3& newSize)> NewBoxSize;
+        inline Signals::Signal<void(const glm::vec3& newSize)> NewTargetBoxSize;
+>>>>>>> 6a09a121750ed242f23abc63949e4ac7f20b7448
 
         inline Signals::Signal<void()> ClearSimulation;
         inline Signals::Signal<void(int atomCount, AtomData::Type atomType, bool is3D, float density)> CreateGas;

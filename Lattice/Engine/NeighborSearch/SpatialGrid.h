@@ -1,5 +1,9 @@
 #pragma once
+<<<<<<< HEAD
 typedef unsigned int uint;
+=======
+typedef unsigned int    uint;
+>>>>>>> 6a09a121750ed242f23abc63949e4ac7f20b7448
 #include <algorithm>
 #include <array>
 #include <cstddef>
