@@ -90,8 +90,8 @@ namespace AppActions {
         track(AppSignals::UI::SetCameraMode.connect([&](Camera::Mode mode) { renderer.renderer().camera.setMode(mode); }));
     }
 
-    void Handler::trackSettingsPanel(GLFWwindow* window) {
-        track(AppSignals::UI::ExitApplication.connect([window]() { glfwSetWindowShouldClose(window, GLFW_TRUE); }));
+    void Handler::trackSettingsPanel(bool& exitRequested) {
+        track(AppSignals::UI::ExitApplication.connect([&exitRequested]() { exitRequested = true; }));
     }
 
     void Handler::trackKeyboard(Lattice::Simulation& simulation) {
@@ -102,10 +102,11 @@ namespace AppActions {
         track(AppSignals::UI::StepPhysics.connect([&]() { simulation.update(); }));
     }
 
-    Handler::Handler(GLFWwindow* window, CaptureController& captureController, Lattice::Simulation& simulation, SceneViewport& renderer, UiState& uiState) {
+    Handler::Handler(CaptureController& captureController, Lattice::Simulation& simulation, SceneViewport& renderer, UiState& uiState,
+                     bool& exitRequested) {
         trackIOPanel(captureController, uiState, simulation, renderer);
         trackToolsPanel(simulation, renderer);
-        trackSettingsPanel(window);
+        trackSettingsPanel(exitRequested);
         trackSimControlPanel(simulation);
         trackKeyboard(simulation);
     }

@@ -381,6 +381,10 @@ void WindowController::processPendingToggle() {
     toggleFullscreen();
 }
 
+bool WindowController::isFullscreenMode() {
+    return isFullscreen;
+}
+
 UserSettings::WindowState WindowController::snapshot() {
     UserSettings::WindowState state{};
     state.fullscreen = isFullscreen;

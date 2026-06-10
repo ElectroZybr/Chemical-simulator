@@ -68,7 +68,8 @@ int Application::run() {
     Interface appInterface(window, simulation, renderer.rendererHandle(), captureController);
     appInterface.toolsPanel.setRendererType(renderer.renderer().camera.getMode() == Camera::Mode::Mode2D ? RendererType::Renderer2D : RendererType::Renderer3D);
 
-    AppActions::Handler appActions(window, captureController, simulation, renderer, appInterface.state());
+    bool exitRequested = false;
+    AppActions::Handler appActions(captureController, simulation, renderer, appInterface.state(), exitRequested);
     CaptureActions::Handler captureActions(captureController);
     if (appInterface.init() != EXIT_SUCCESS) {
         return EXIT_FAILURE;
@@ -139,6 +140,13 @@ int Application::run() {
         logAccum += deltaTime;
 
         EventManager::poll();
+        if (exitRequested) {
+            glfwSetWindowShouldClose(window, GLFW_TRUE);
+        }
+        if (glfwWindowShouldClose(window)) {
+            break;
+        }
+
         EventManager::frame(deltaTime);
         captureController.update(deltaTime);
         simulation.setXYZRecordingStepInterval(makeXYZStepInterval(uiState.simulationSpeed, captureController.settings().fps));
@@ -162,7 +170,11 @@ int Application::run() {
             renderAccum -= renderInterval;
             simulation.world().updateVectorField();
             renderer.renderFrame(simulation, appInterface, debugViews);
-            WindowController::processPendingToggle();
+            if (exitRequested) {
+                glfwSetWindowShouldClose(window, GLFW_TRUE);
+            } else {
+                WindowController::processPendingToggle();
+            }
         }
 
         Profiler::instance().endFrame();

@@ -2,8 +2,6 @@
 
 #include <memory>
 
-#include <GLFW/glfw3.h>
-
 #include "App/Signals.h"
 
 namespace Lattice {
@@ -16,12 +14,12 @@ struct UiState;
 namespace AppActions {
     class Handler : public Signals::Trackable {
     public:
-        Handler(GLFWwindow* window, CaptureController& captureController, Lattice::Simulation& simulation, SceneViewport& renderer, UiState& uiState);
+        Handler(CaptureController& captureController, Lattice::Simulation& simulation, SceneViewport& renderer, UiState& uiState, bool& exitRequested);
 
     private:
         void trackIOPanel(CaptureController& captureController, UiState& uiState, Lattice::Simulation& simulation, SceneViewport& renderer);
         void trackToolsPanel(Lattice::Simulation& simulation, SceneViewport& renderer);
-        void trackSettingsPanel(GLFWwindow* window);
+        void trackSettingsPanel(bool& exitRequested);
         void trackKeyboard(Lattice::Simulation& simulation);
         void trackSimControlPanel(Lattice::Simulation& simulation);
     };

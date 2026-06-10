@@ -10,6 +10,7 @@ public:
     static void toggleFullscreen();
     static void requestToggleFullscreen();
     static void processPendingToggle();
+    static bool isFullscreenMode();
     static UserSettings::WindowState snapshot();
 
 private:
