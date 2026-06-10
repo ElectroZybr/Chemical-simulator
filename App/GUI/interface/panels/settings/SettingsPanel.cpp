@@ -472,7 +472,7 @@ void SettingsPanel::draw(float uiScale, glm::ivec2 windowSize, Lattice::Simulati
     const bool isFullscreen = WindowController::snapshot().fullscreen;
     const char* fullscreenButtonLabel = isFullscreen ? "imgui_windowed"_tr.data() : "imgui_fullscreen"_tr.data();
     if (ImGui::Button(fullscreenButtonLabel, ImVec2(190.0f * uiScale, 0.0f))) {
-        WindowController::toggleFullscreen();
+        WindowController::requestToggleFullscreen();
     }
     ImGui::SameLine();
     const float languageButtonWidth = 86.0f * uiScale;

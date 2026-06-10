@@ -8,6 +8,8 @@ class WindowController {
 public:
     static void init(GLFWwindow* window, const UserSettings::WindowState& initialWindowState);
     static void toggleFullscreen();
+    static void requestToggleFullscreen();
+    static void processPendingToggle();
     static UserSettings::WindowState snapshot();
 
 private:
@@ -23,6 +25,7 @@ private:
 
     static GLFWwindow* window;
     static bool isFullscreen;
+    static bool fullscreenToggleRequested;
     static bool windowedWasMaximized;
     static int windowedMonitorIndex;
     static int windowedX;

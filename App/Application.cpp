@@ -162,6 +162,7 @@ int Application::run() {
             renderAccum -= renderInterval;
             simulation.world().updateVectorField();
             renderer.renderFrame(simulation, appInterface, debugViews);
+            WindowController::processPendingToggle();
         }
 
         Profiler::instance().endFrame();

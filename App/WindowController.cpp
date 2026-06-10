@@ -35,6 +35,7 @@ void logWindowState(const char* label, GLFWwindow* window, bool isFullscreen, bo
 
 GLFWwindow* WindowController::window = nullptr;
 bool WindowController::isFullscreen = false;
+bool WindowController::fullscreenToggleRequested = false;
 bool WindowController::windowedWasMaximized = false;
 int WindowController::windowedMonitorIndex = 0;
 int WindowController::windowedX = 160;
@@ -240,6 +241,19 @@ void WindowController::toggleFullscreen() {
     applyFullscreen(monitor);
     isFullscreen = true;
     logWindowState("after-toggle", window, isFullscreen, windowedWasMaximized);
+}
+
+void WindowController::requestToggleFullscreen() {
+    fullscreenToggleRequested = true;
+}
+
+void WindowController::processPendingToggle() {
+    if (!fullscreenToggleRequested) {
+        return;
+    }
+
+    fullscreenToggleRequested = false;
+    toggleFullscreen();
 }
 
 UserSettings::WindowState WindowController::snapshot() {
