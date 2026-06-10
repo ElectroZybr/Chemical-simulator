@@ -20,12 +20,16 @@ private:
     static GLFWmonitor* currentMonitor();
     static GLFWmonitor* monitorByIndex(int index);
     static int monitorIndex(GLFWmonitor* monitor);
+    static void clampWindowedStateToMonitor();
     static void applyWindowedState();
-    static void applyFullscreen(GLFWmonitor* monitor);
+    static bool applyFullscreen(GLFWmonitor* monitor);
+    static void processPendingWindowedMaximize();
 
     static GLFWwindow* window;
     static bool isFullscreen;
     static bool fullscreenToggleRequested;
+    static bool windowedMaximizeRequested;
+    static int windowedMaximizeDelayFrames;
     static bool windowedWasMaximized;
     static int windowedMonitorIndex;
     static int windowedX;
