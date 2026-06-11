@@ -14,6 +14,7 @@ void World::clear() {
     neighborList_.clear();
     grid.rebuild(atomStorage_.xDataSpan(), atomStorage_.yDataSpan(), atomStorage_.zDataSpan());
     invalidateMetrics();
+    invalidateVectorField();
 }
 
 void World::reset() {
@@ -32,6 +33,7 @@ void World::addAtom(const glm::vec3& start_coords, const glm::vec3& start_speed,
     atomStorage_.addAtom(start_coords, start_speed, type, fixed);
     grid.rebuild(atomStorage_.xDataSpan(), atomStorage_.yDataSpan(), atomStorage_.zDataSpan());
     invalidateMetrics();
+    invalidateVectorField();
 }
 
 void World::addBond(size_t aIndex, size_t bIndex) { Bond::CreateBond(bonds_, aIndex, bIndex, atomStorage_); }
@@ -85,12 +87,14 @@ void World::removeAtom(size_t atomIndex) {
     atomStorage_.removeAtom(atomIndex);
     grid.rebuild(atomStorage_.xDataSpan(), atomStorage_.yDataSpan(), atomStorage_.zDataSpan());
     invalidateMetrics();
+    invalidateVectorField();
 }
 
 void World::finalizeAtomBatch() {
     grid.rebuild(atomStorage_.xDataSpan(), atomStorage_.yDataSpan(), atomStorage_.zDataSpan());
     neighborList_.clear();
     invalidateMetrics();
+    invalidateVectorField();
 }
 
 const EnergyMetrics::Snapshot& World::getMetrics() const {
@@ -127,4 +131,14 @@ void World::update() {
     state_.metricsCacheValid_ = false;
     ++state_.sim_step;
     state_.sim_time_ns += state_.Dt * Units::kTimeUnitToNs;
+    invalidateVectorField();
+}
+
+void World::updateVectorField() {
+    if (!vectorFieldDirty_) {
+        return;
+    }
+
+    vectorField_.compute(state_.forceField_, atomStorage_, grid);
+    vectorFieldDirty_ = false;
 }

@@ -28,12 +28,15 @@ protected:
 
     void initAtomPipeline(std::string_view atomWGSL);
     void initGridPipeline(std::string_view gridWGSL);
+    void initPotentialFieldPipeline(std::string_view potentialFieldWGSL);
+    void initFieldArrowPipeline(std::string_view fieldArrowWGSL);
     void initBoxPipeline(std::string_view boxWGSL);
     void initBondPipeline(std::string_view bondWGSL);
     void initMemoryOrderPipeline(std::string_view memoryOrderWGSL);
 
 private:
-    static constexpr size_t kLineUniformSlotCount = 4;
+    static constexpr size_t kLineUniformSlotCount = 6;
+    static constexpr size_t kGridUniformSlotCount = 2;
 
     struct SceneUniforms {
         glm::mat4 view;
@@ -53,6 +56,8 @@ private:
     wgpu::raii::RenderPipeline bondPipeline;
     wgpu::raii::RenderPipeline boxPipeline;
     wgpu::raii::RenderPipeline gridPipeline;
+    wgpu::raii::RenderPipeline potentialFieldPipeline;
+    wgpu::raii::RenderPipeline fieldArrowPipeline;
     wgpu::raii::RenderPipeline memoryOrderPipeline;
 
     // Bind group layouts
@@ -61,14 +66,18 @@ private:
     wgpu::raii::BindGroupLayout gridBindGroupLayout;
     std::array<wgpu::raii::Buffer, kLineUniformSlotCount> lineUniformBuffers;
     std::array<wgpu::raii::BindGroup, kLineUniformSlotCount> lineBindGroups;
-    wgpu::raii::BindGroup gridBindGroup;
+    std::array<wgpu::raii::Buffer, kGridUniformSlotCount> gridUniformBuffers;
+    std::array<wgpu::raii::BindGroup, kGridUniformSlotCount> gridBindGroups;
 
     // Vertex buffers
     wgpu::raii::Buffer atomQuadVb;
     wgpu::raii::Buffer bondVb;
+    wgpu::raii::Buffer fieldArrowVb;
     wgpu::raii::Buffer boxVb;
     wgpu::raii::Buffer gridLineVb;
+    wgpu::raii::Buffer potentialFieldQuadVb;
     wgpu::raii::Buffer gridInstVb;
+    wgpu::raii::Buffer potentialFieldInstVb;
     wgpu::raii::Buffer memoryOrderVb;  // для отрисовки линий между атомами в той же последовательности в которой они леат в памяти
 
     // Storage buffers
@@ -80,7 +89,9 @@ private:
 
     size_t sbCapacity_ = 0;
     size_t bondVbCapacity_ = 0;
+    size_t fieldArrowVbCapacity_ = 0;
     size_t gridInstVbCapacity_ = 0;
+    size_t potentialFieldInstVbCapacity_ = 0;
     size_t memoryOrderVbCapacity_ = 0;
 
     wgpu::raii::BindGroup atomBindGroup;
@@ -93,7 +104,9 @@ private:
     void initAtomQuadBuffer();
     void initBoxBuffer();
     void initBondBuffer();
+    void initFieldArrowBuffer();
     void initGridLineBuffer();
+    void initPotentialFieldQuadBuffer();
     void initMemoryOrderBuffer();
     void initLinePipeline(wgpu::RenderPipeline& outPipeline, std::string_view wgsl);
 
@@ -109,7 +122,8 @@ private:
     void drawBondsImpl(const RenderAtomsView& atoms, const RenderBondsView& bonds);
     void drawBoxImpl(const glm::vec3& worldSize);
     void drawGridImpl(const RenderGridView& grid);
-    void drawVectorFieldImpl(const RenderVectorFieldView& field);
+    void drawVectorFieldImpl(const RenderData& renderData);
+    void drawFieldArrowsImpl(const RenderData& renderData);
     void drawMemoryOrderImpl(const RenderAtomsView& atoms);
     void setLineColor(const glm::vec4& color);
 
@@ -118,6 +132,13 @@ private:
         glm::vec4 origin;
         float cellSize;
         float atomCount;
+        float pad[2] = {};
+    };
+
+    struct FieldInstance {
+        glm::vec4 origin;
+        glm::vec4 potentials;
+        glm::vec2 cellSize;
         float pad[2] = {};
     };
 
@@ -132,6 +153,7 @@ private:
     std::vector<AtomVec4> velData_;
 
     std::vector<GridInstance> gridData;
+    std::vector<FieldInstance> fieldData;
     std::vector<glm::vec4> typeColorsData;
     std::vector<float> selectedData;
     std::vector<float> radii;
@@ -142,4 +164,5 @@ private:
     wgpu::raii::CommandEncoder currentEncoder;
     SceneUniforms currentSceneUniforms_{};
     size_t lineUniformSlotIndex_ = 0;
+    size_t gridUniformSlotIndex_ = 0;
 };

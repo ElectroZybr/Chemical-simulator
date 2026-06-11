@@ -30,7 +30,7 @@ public:
     void resetView();
 
     void syncScene(const Lattice::Simulation& simulation);
-    void renderFrame(const Lattice::Simulation& simulation, Interface& appInterface, const DebugViews& debugViews);
+    void renderFrame(Lattice::Simulation& simulation, Interface& appInterface, const DebugViews& debugViews);
 
     bool setRendererType(RendererType type, const Lattice::Simulation& simulation);
 

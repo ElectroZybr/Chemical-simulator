@@ -74,18 +74,29 @@ struct RenderGridView {
     }
 };
 
-using RenderVectorFieldCellVisitor = void (*)(const RenderGridCell& cell, void* userData);
-
 struct RenderVectorFieldView {
-    const void* context = nullptr;
-    size_t count = 0;
-    void (*forEachFn)(const void* context, RenderVectorFieldCellVisitor visitor, void* userData) = nullptr;
+    const float* values = nullptr;
+    const glm::vec2* vectors = nullptr;
+    glm::ivec2 gridSize{0, 0};
+    glm::ivec2 coverageSize{0, 0};
+    float cellSize = 1.0f;
+    float z = 0.0f;
 
-    [[nodiscard]] bool empty() const noexcept { return count == 0 || context == nullptr || forEachFn == nullptr; }
-    void forEach(RenderVectorFieldCellVisitor visitor, void* userData) const {
-        if (!empty()) {
-            forEachFn(context, visitor, userData);
+    [[nodiscard]] bool empty() const noexcept { return values == nullptr || gridSize.x < 2 || gridSize.y < 2; }
+    [[nodiscard]] size_t cellCount() const noexcept {
+        if (empty()) {
+            return 0;
         }
+        return static_cast<size_t>(gridSize.x - 1) * static_cast<size_t>(gridSize.y - 1);
+    }
+    [[nodiscard]] float valueAt(int x, int y) const noexcept {
+        return values[x + gridSize.x * y];
+    }
+    [[nodiscard]] glm::vec2 vectorAt(int x, int y) const noexcept {
+        return vectors == nullptr ? glm::vec2(0.0f) : vectors[x + gridSize.x * y];
+    }
+    [[nodiscard]] size_t vectorCount() const noexcept {
+        return empty() ? 0 : static_cast<size_t>(gridSize.x) * static_cast<size_t>(gridSize.y);
     }
 };
 
@@ -112,10 +123,15 @@ public:
     bool drawAtoms = true;
     bool drawGrid = false;
     bool drawVectorField = false;
+    bool drawFieldArrows = false;
     bool drawBonds = false;
     bool drawBox = true;
     bool drawMemoryOrder = false;
+    bool fieldAutoScale = true;
     SpeedColorMode speedColorMode = SpeedColorMode::AtomColor;
     float speedGradientMax = 5.0f;
+    float fieldPotentialScale = 50.0f;
+    float fieldCellSize = 1.0f;
+    float fieldSmoothing = 1.0f;
     float alpha = 0.05f;
 };

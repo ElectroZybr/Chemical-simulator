@@ -1,5 +1,7 @@
 #include "AppActions.h"
 
+#include <cmath>
+
 #include "App/AppSignals.h"
 #include "Lattice/Generators/Generators.h"
 #include "App/capture/CaptureOutputPath.h"
@@ -11,6 +13,19 @@
 #include "GUI/interface/UiState.h"
 
 namespace {
+    glm::vec3 clampBoxSize(glm::vec3 size) {
+        return glm::max(size, glm::vec3(1.0f));
+    }
+
+    glm::vec3 moveTowards(glm::vec3 current, glm::vec3 target, float maxStep) {
+        const glm::vec3 delta = target - current;
+        return glm::vec3(
+            std::abs(delta.x) <= maxStep ? target.x : current.x + std::copysign(maxStep, delta.x),
+            std::abs(delta.y) <= maxStep ? target.y : current.y + std::copysign(maxStep, delta.y),
+            std::abs(delta.z) <= maxStep ? target.z : current.z + std::copysign(maxStep, delta.z)
+        );
+    }
+
     void shiftAtoms(AtomStorage& atomStorage, glm::vec3 delta) {
         float* x = atomStorage.xData();
         float* y = atomStorage.yData();
@@ -26,12 +41,13 @@ namespace {
 
     void applyResizeBox(Lattice::Simulation& simulation, const glm::vec3& newSize) {
         World& world = simulation.world();
+        const glm::vec3 clampedSize = clampBoxSize(newSize);
         const glm::vec3 oldSize = world.getWorldSize();
-        const glm::vec3 delta = (newSize - oldSize) * 0.5f;
+        const glm::vec3 delta = (clampedSize - oldSize) * 0.5f;
 
         shiftAtoms(simulation.atoms(), delta);
         world.setRenderOffset(world.getRenderOffset() - delta);
-        simulation.setSizeBox(newSize);
+        simulation.setSizeBox(clampedSize);
     }
 
     void toggleXYZRecording(CaptureController& captureController, Lattice::Simulation& simulation) {
@@ -52,6 +68,23 @@ namespace {
 }
 
 namespace AppActions {
+    void Handler::applySmoothResizeStep(Lattice::Simulation& simulation) {
+        if (!smoothResizeActive_) {
+            return;
+        }
+
+        const float maxStep = smoothResizeMaxSpeed_ * std::max(simulation.getDt(), 0.0f);
+        if (maxStep <= 0.0f) {
+            return;
+        }
+
+        const glm::vec3 nextSize = moveTowards(simulation.world().getWorldSize(), smoothResizeTarget_, maxStep);
+        applyResizeBox(simulation, nextSize);
+        if (nextSize == smoothResizeTarget_) {
+            smoothResizeActive_ = false;
+        }
+    }
+
     void Handler::trackIOPanel(CaptureController& captureController, UiState& uiState, Lattice::Simulation& simulation, SceneViewport& renderer) {
         track(AppSignals::UI::SaveSimulation.connect(
             [&](std::string_view path) { AppStateIO::save(captureController, uiState.scenePreviewRect, simulation, renderer.renderer(), path); }));
@@ -60,10 +93,23 @@ namespace AppActions {
             renderer.syncScene(simulation);
             ToolsManager::resetInteractionState();
         }));
-        track(AppSignals::UI::ResizeBox.connect([&](const glm::vec3& newSize) { applyResizeBox(simulation, newSize); }));
+        track(AppSignals::UI::ResizeBox.connect([&](const glm::vec3& newSize) {
+            smoothResizeActive_ = false;
+            applyResizeBox(simulation, newSize);
+        }));
+        track(AppSignals::UI::SmoothResizeBox.connect([&](const glm::vec3& newSize, float maxSpeed) {
+            smoothResizeTarget_ = clampBoxSize(newSize);
+            smoothResizeMaxSpeed_ = std::max(maxSpeed, 0.0f);
+            smoothResizeActive_ = true;
+            if (smoothResizeMaxSpeed_ <= 0.0f) {
+                applyResizeBox(simulation, smoothResizeTarget_);
+                smoothResizeActive_ = false;
+            }
+        }));
         track(AppSignals::UI::ClearSimulation.connect([&]() {
             simulation.clear();
             ToolsManager::resetInteractionState();
+            smoothResizeActive_ = false;
         }));
         track(AppSignals::UI::CreateGas.connect([&](int atomCount, AtomData::Type atomType, bool is3D, float density) {
             simulation.clear();
@@ -95,11 +141,17 @@ namespace AppActions {
     }
 
     void Handler::trackKeyboard(Lattice::Simulation& simulation) {
-        track(AppSignals::Keyboard::StepPhysics.connect([&]() { simulation.update(); }));
+        track(AppSignals::Keyboard::StepPhysics.connect([&]() {
+            applySmoothResizeStep(simulation);
+            simulation.update();
+        }));
     }
 
     void Handler::trackSimControlPanel(Lattice::Simulation& simulation) {
-        track(AppSignals::UI::StepPhysics.connect([&]() { simulation.update(); }));
+        track(AppSignals::UI::StepPhysics.connect([&]() {
+            applySmoothResizeStep(simulation);
+            simulation.update();
+        }));
     }
 
     Handler::Handler(CaptureController& captureController, Lattice::Simulation& simulation, SceneViewport& renderer, UiState& uiState,
@@ -109,5 +161,9 @@ namespace AppActions {
         trackSettingsPanel(exitRequested);
         trackSimControlPanel(simulation);
         trackKeyboard(simulation);
+    }
+
+    void Handler::updateSimulationStep(Lattice::Simulation& simulation) {
+        applySmoothResizeStep(simulation);
     }
 }

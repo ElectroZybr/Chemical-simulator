@@ -1,5 +1,5 @@
 #pragma once
-
+typedef unsigned int uint;
 #include <algorithm>
 #include <array>
 #include <cstddef>

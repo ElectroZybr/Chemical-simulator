@@ -19,13 +19,19 @@ void SceneViewport::resetView() { renderer_->camera.resetView(); }
 
 void SceneViewport::syncScene(const Lattice::Simulation& simulation) { App::Viewport::syncRendererWithSimulation(*renderer_, simulation); }
 
-void SceneViewport::renderFrame(const Lattice::Simulation& simulation, Interface& appInterface, const DebugViews& debugViews) {
+void SceneViewport::renderFrame(Lattice::Simulation& simulation, Interface& appInterface, const DebugViews& debugViews) {
     PROFILE_SCOPE("SceneViewport::renderFrame");
 
     UiState& uiState = appInterface.state();
     uiState.simStep = simulation.world().getSimStep();
 
     appInterface.update();
+    if (renderer_->getRenderDataCount() > simulation.activeWorldId()) {
+        const RenderData& activeRenderData = renderer_->getRenderData(simulation.activeWorldId());
+        if (activeRenderData.drawVectorField || activeRenderData.drawFieldArrows) {
+            simulation.world().updateVectorField();
+        }
+    }
 
     if (ToolsManager::pickingSystem != nullptr) {
         App::Viewport::syncRendererWithSimulation(*renderer_, simulation, &ToolsManager::pickingSystem->getSelectedAtomIds());
@@ -78,6 +84,12 @@ void SceneViewport::copyRenderSettings(BaseRenderer& destination, const BaseRend
     const RenderData& current = source.getRenderData(0);
     target.drawAtoms = current.drawAtoms;
     target.drawGrid = current.drawGrid;
+    target.drawVectorField = current.drawVectorField;
+    target.drawFieldArrows = current.drawFieldArrows;
+    target.fieldAutoScale = current.fieldAutoScale;
+    target.fieldPotentialScale = current.fieldPotentialScale;
+    target.fieldCellSize = current.fieldCellSize;
+    target.fieldSmoothing = current.fieldSmoothing;
     target.drawBonds = current.drawBonds;
     target.drawBox = current.drawBox;
     target.drawMemoryOrder = current.drawMemoryOrder;

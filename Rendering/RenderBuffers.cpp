@@ -10,7 +10,9 @@ RendererWGPU::RendererWGPU() : surfaceFormat(WGPUContext::instance().surfaceForm
     initAtomQuadBuffer();
     initBoxBuffer();
     initBondBuffer();
+    initFieldArrowBuffer();
     initGridLineBuffer();
+    initPotentialFieldQuadBuffer();
     initMemoryOrderBuffer();
 }
 
@@ -40,6 +42,11 @@ void RendererWGPU::initBondBuffer() {
     bondVbCapacity_ = 128;
 }
 
+void RendererWGPU::initFieldArrowBuffer() {
+    fieldArrowVb = WGPUContext::instance().createBuffer(128, wgpu::BufferUsage::Vertex | wgpu::BufferUsage::CopyDst, "Field_Arrow_Vectors");
+    fieldArrowVbCapacity_ = 128;
+}
+
 void RendererWGPU::initGridLineBuffer() {
     const float lines[] = {
         0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 1, 0, 1, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1,
@@ -48,6 +55,16 @@ void RendererWGPU::initGridLineBuffer() {
     WGPUContext& ctx = WGPUContext::instance();
     gridLineVb = ctx.createBuffer(sizeof(lines), wgpu::BufferUsage::Vertex | wgpu::BufferUsage::CopyDst, "Grid_Cell_Unit_Lines");
     ctx.queue()->writeBuffer(*gridLineVb, 0, lines, sizeof(lines));
+}
+
+void RendererWGPU::initPotentialFieldQuadBuffer() {
+    static constexpr float quad[] = {
+        0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f,
+        0.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f,
+    };
+    WGPUContext& ctx = WGPUContext::instance();
+    potentialFieldQuadVb = ctx.createBuffer(sizeof(quad), wgpu::BufferUsage::Vertex | wgpu::BufferUsage::CopyDst, "Potential_Field_Quad");
+    ctx.queue()->writeBuffer(*potentialFieldQuadVb, 0, quad, sizeof(quad));
 }
 
 void RendererWGPU::initMemoryOrderBuffer() {

@@ -103,8 +103,13 @@ void RendererWGPU::drawGridImpl(const RenderGridView& grid) {
         return;
     }
 
-    float mc = buildContext.maxCount;
-    WGPUContext::instance().queue()->writeBuffer(*uniformBuffer, offsetof(SceneUniforms, maxCount), &mc, sizeof(float));
+    if (gridUniformSlotIndex_ >= kGridUniformSlotCount) {
+        gridUniformSlotIndex_ = kGridUniformSlotCount - 1;
+    }
+    const size_t uniformSlot = gridUniformSlotIndex_++;
+    SceneUniforms gridUniforms = currentSceneUniforms_;
+    gridUniforms.maxCount.x = buildContext.maxCount;
+    WGPUContext::instance().queue()->writeBuffer(*gridUniformBuffers[uniformSlot], 0, &gridUniforms, sizeof(gridUniforms));
 
     const uint64_t instBytes = gridData.size() * sizeof(GridInstance);
     if (!gridInstVb || instBytes > gridInstVbCapacity_) {
@@ -115,57 +120,107 @@ void RendererWGPU::drawGridImpl(const RenderGridView& grid) {
     WGPUContext::instance().queue()->writeBuffer(*gridInstVb, 0, gridData.data(), instBytes);
 
     currentPass->setPipeline(*gridPipeline);
-    currentPass->setBindGroup(0, *gridBindGroup, 0, nullptr);
+    currentPass->setBindGroup(0, *gridBindGroups[uniformSlot], 0, nullptr);
     currentPass->setVertexBuffer(0, *gridLineVb, 0, gridLineVb->getSize());
     currentPass->setVertexBuffer(1, *gridInstVb, 0, instBytes);
     currentPass->draw(24, gridData.size(), 0, 0);
 }
 
-void RendererWGPU::drawVectorFieldImpl(const RenderVectorFieldView& field) {
-    struct VectorFieldBuildContext {
-        RendererWGPU* renderer = nullptr;
-        float maxValue = 1.0f;
-
-        static void append(const RenderGridCell& cell, void* userData) {
-            auto& ctx = *static_cast<VectorFieldBuildContext*>(userData);
-            const float value = std::abs(cell.atomCount);
-            if (value <= 0.0f) {
-                return;
+void RendererWGPU::drawVectorFieldImpl(const RenderData& renderData) {
+    const RenderVectorFieldView& field = renderData.vectorField;
+    fieldData.clear();
+    fieldData.reserve(field.cellCount());
+    float maxValue = 1.0f;
+    for (int y = 0; y + 1 < field.gridSize.y; ++y) {
+        for (int x = 0; x + 1 < field.gridSize.x; ++x) {
+            const float x0 = std::min(static_cast<float>(x) * field.cellSize, static_cast<float>(field.coverageSize.x));
+            const float y0 = std::min(static_cast<float>(y) * field.cellSize, static_cast<float>(field.coverageSize.y));
+            const float x1 = std::min(static_cast<float>(x + 1) * field.cellSize, static_cast<float>(field.coverageSize.x));
+            const float y1 = std::min(static_cast<float>(y + 1) * field.cellSize, static_cast<float>(field.coverageSize.y));
+            if (x1 <= x0 || y1 <= y0) {
+                continue;
             }
 
-            ctx.renderer->gridData.push_back(GridInstance{
-                .origin = glm::vec4(cell.origin, 0.0f),
-                .cellSize = cell.cellSize,
-                .atomCount = value,
-            });
-            ctx.maxValue = std::max(ctx.maxValue, value);
-        }
-    };
+            const glm::vec4 potentials(
+                field.valueAt(x, y),
+                field.valueAt(x + 1, y),
+                field.valueAt(x, y + 1),
+                field.valueAt(x + 1, y + 1)
+            );
+            if (potentials.x == 0.0f && potentials.y == 0.0f && potentials.z == 0.0f && potentials.w == 0.0f) {
+                continue;
+            }
 
-    gridData.clear();
-    gridData.reserve(field.count);
-    VectorFieldBuildContext buildContext{.renderer = this};
-    field.forEach(VectorFieldBuildContext::append, &buildContext);
-    if (gridData.empty()) {
+            fieldData.push_back(FieldInstance{
+                .origin = glm::vec4(x0, y0, field.z, 0.0f),
+                .potentials = potentials,
+                .cellSize = glm::vec2(x1 - x0, y1 - y0),
+            });
+            maxValue = std::max(maxValue, std::abs(potentials.x));
+            maxValue = std::max(maxValue, std::abs(potentials.y));
+            maxValue = std::max(maxValue, std::abs(potentials.z));
+            maxValue = std::max(maxValue, std::abs(potentials.w));
+        }
+    }
+    if (fieldData.empty()) {
         return;
     }
 
-    float maxValue = buildContext.maxValue;
-    WGPUContext::instance().queue()->writeBuffer(*uniformBuffer, offsetof(SceneUniforms, maxCount), &maxValue, sizeof(float));
-
-    const uint64_t instBytes = gridData.size() * sizeof(GridInstance);
-    if (!gridInstVb || instBytes > gridInstVbCapacity_) {
-        gridInstVb =
-            WGPUContext::instance().createBuffer(instBytes * 2, wgpu::BufferUsage::Vertex | wgpu::BufferUsage::CopyDst, "Vector_Field_Grid_Instances");
-        gridInstVbCapacity_ = instBytes * 2;
+    if (gridUniformSlotIndex_ >= kGridUniformSlotCount) {
+        gridUniformSlotIndex_ = kGridUniformSlotCount - 1;
     }
-    WGPUContext::instance().queue()->writeBuffer(*gridInstVb, 0, gridData.data(), instBytes);
+    const size_t uniformSlot = gridUniformSlotIndex_++;
+    SceneUniforms fieldUniforms = currentSceneUniforms_;
+    fieldUniforms.maxCount.x = renderData.fieldAutoScale ? maxValue : std::max(renderData.fieldPotentialScale, 0.0001f);
+    fieldUniforms.maxCount.y = std::clamp(renderData.fieldSmoothing, 0.0f, 1.0f);
+    WGPUContext::instance().queue()->writeBuffer(*gridUniformBuffers[uniformSlot], 0, &fieldUniforms, sizeof(fieldUniforms));
 
-    currentPass->setPipeline(*gridPipeline);
-    currentPass->setBindGroup(0, *gridBindGroup, 0, nullptr);
-    currentPass->setVertexBuffer(0, *gridLineVb, 0, gridLineVb->getSize());
-    currentPass->setVertexBuffer(1, *gridInstVb, 0, instBytes);
-    currentPass->draw(24, gridData.size(), 0, 0);
+    const uint64_t instBytes = fieldData.size() * sizeof(FieldInstance);
+    if (!potentialFieldInstVb || instBytes > potentialFieldInstVbCapacity_) {
+        potentialFieldInstVb =
+            WGPUContext::instance().createBuffer(instBytes * 2, wgpu::BufferUsage::Vertex | wgpu::BufferUsage::CopyDst, "Vector_Field_Grid_Instances");
+        potentialFieldInstVbCapacity_ = instBytes * 2;
+    }
+    WGPUContext::instance().queue()->writeBuffer(*potentialFieldInstVb, 0, fieldData.data(), instBytes);
+
+    currentPass->setPipeline(*potentialFieldPipeline);
+    currentPass->setBindGroup(0, *gridBindGroups[uniformSlot], 0, nullptr);
+    currentPass->setVertexBuffer(0, *potentialFieldQuadVb, 0, potentialFieldQuadVb->getSize());
+    currentPass->setVertexBuffer(1, *potentialFieldInstVb, 0, instBytes);
+    currentPass->draw(6, fieldData.size(), 0, 0);
+}
+
+void RendererWGPU::drawFieldArrowsImpl(const RenderData& renderData) {
+    const RenderVectorFieldView& field = renderData.vectorField;
+    if (field.empty() || field.vectors == nullptr) {
+        return;
+    }
+
+    const size_t vectorCount = field.vectorCount();
+    if (vectorCount == 0) {
+        return;
+    }
+
+    const uint64_t bytes = vectorCount * sizeof(glm::vec2);
+    if (!fieldArrowVb || bytes > fieldArrowVbCapacity_) {
+        fieldArrowVb = WGPUContext::instance().createBuffer(bytes * 2, wgpu::BufferUsage::Vertex | wgpu::BufferUsage::CopyDst, "Field_Arrow_Vectors");
+        fieldArrowVbCapacity_ = bytes * 2;
+    }
+    WGPUContext::instance().queue()->writeBuffer(*fieldArrowVb, 0, field.vectors, bytes);
+
+    if (lineUniformSlotIndex_ >= kLineUniformSlotCount) {
+        lineUniformSlotIndex_ = kLineUniformSlotCount - 1;
+    }
+    const size_t uniformSlot = lineUniformSlotIndex_++;
+    SceneUniforms arrowUniforms = currentSceneUniforms_;
+    arrowUniforms.lineColor = glm::vec4(1.0f, 0.86f, 0.28f, 0.75f);
+    arrowUniforms.maxCount = glm::vec4(static_cast<float>(field.gridSize.x), static_cast<float>(field.gridSize.y), field.cellSize, field.z);
+    WGPUContext::instance().queue()->writeBuffer(*lineUniformBuffers[uniformSlot], 0, &arrowUniforms, sizeof(arrowUniforms));
+
+    currentPass->setPipeline(*fieldArrowPipeline);
+    currentPass->setBindGroup(0, *lineBindGroups[lineUniformSlotIndex_ - 1], 0, nullptr);
+    currentPass->setVertexBuffer(0, *fieldArrowVb, 0, bytes);
+    currentPass->draw(6, vectorCount, 0, 0);
 }
 
 void RendererWGPU::drawMemoryOrderImpl(const RenderAtomsView& atoms) {

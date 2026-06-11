@@ -1,5 +1,6 @@
 #include "CoulombForceField.h"
 
+#include <algorithm>
 #include <cmath>
 
 #include "Engine/NeighborSearch/BarnesHut/Octree.h"
@@ -104,27 +105,30 @@ void CoulombForceField::computeForce(const AtomStorage& atoms, size_t atomIndex,
     }
 }
 
-float CoulombForceField::PeAtPoint(const AtomStorage& atoms, const SpatialGrid& grid, float x, float y, float z) const {
-    float potentialEnergy = 0.0f;
-    grid.forEachNeighborCell(grid.worldToCellX(x), grid.worldToCellY(y), grid.worldToCellZ(z), [&](int cx, int cy, int cz) {
-        for (uint32_t atomIndex : grid.atomsInCell(cx, cy, cz)) {
-            if (atoms.charge(atomIndex) == 0.0f) {
-                continue;
-            }
+CoulombForceField::FieldSample CoulombForceField::fieldAtPoint(const AtomStorage& atoms, const SpatialGrid& grid, float x, float y, float z) const {
+    (void)grid;
 
-            const float dx = atoms.posX(atomIndex) - x;
-            const float dy = atoms.posY(atomIndex) - y;
-            const float dz = atoms.posZ(atomIndex) - z;
-            const float d2 = dx * dx + dy * dy + dz * dz;
-            if (d2 <= Consts::Epsilon) {
-                continue;
-            }
-
-            const float qqScale = kCoulombEvAngstrom * atoms.charge(atomIndex);
-            const float invR = 1.0f / std::sqrt(d2);
-
-            potentialEnergy += 0.5f * qqScale * invR;
+    FieldSample sample{};
+    for (size_t atomIndex = 0; atomIndex < atoms.size(); ++atomIndex) {
+        const float charge = atoms.charge(atomIndex);
+        if (charge == 0.0f) {
+            continue;
         }
-    });
-    return potentialEnergy;
+
+        const float dx = atoms.posX(atomIndex) - x;
+        const float dy = atoms.posY(atomIndex) - y;
+        const float dz = atoms.posZ(atomIndex) - z;
+        constexpr float kPotentialSofteningSqr = 0.25f;
+        const float d2 = std::max(dx * dx + dy * dy + dz * dz, kPotentialSofteningSqr);
+
+        const float qqScale = kCoulombEvAngstrom * charge;
+        const float invR = 1.0f / std::sqrt(d2);
+        const float fieldScale = qqScale * invR / d2;
+
+        sample.potential += qqScale * invR;
+        sample.field.x -= dx * fieldScale;
+        sample.field.y -= dy * fieldScale;
+        sample.field.z -= dz * fieldScale;
+    }
+    return sample;
 }

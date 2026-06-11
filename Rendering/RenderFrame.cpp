@@ -36,6 +36,7 @@ void RendererWGPU::drawWorldPass(wgpu::TextureView targetView, wgpu::TextureView
     }
     currentSceneUniforms_ = uniforms;
     lineUniformSlotIndex_ = 0;
+    gridUniformSlotIndex_ = 0;
 
     WGPUContext::instance().queue()->writeBuffer(*uniformBuffer, 0, &uniforms, sizeof(uniforms));
 
@@ -49,7 +50,10 @@ void RendererWGPU::drawWorldPass(wgpu::TextureView targetView, wgpu::TextureView
         drawGridImpl(renderData.grid);
     }
     if (renderData.drawVectorField && !renderData.vectorField.empty()) {
-        drawVectorFieldImpl(renderData.vectorField);
+        drawVectorFieldImpl(renderData);
+    }
+    if (renderData.drawFieldArrows && !renderData.vectorField.empty()) {
+        drawFieldArrowsImpl(renderData);
     }
     if (renderData.drawBox && renderData.hasBox) {
         setLineColor(applySelection ? glm::vec4(0.5f, 0.78f, 1.0f, 0.55f) : glm::vec4(0.35f, 0.52f, 0.9f, 0.3f));

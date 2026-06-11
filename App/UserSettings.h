@@ -27,12 +27,18 @@ struct UserSettings {
     bool rendererUse3D = true;
     bool rendererDrawAtoms = true;
     bool rendererDrawGrid = false;
+    bool rendererDrawVectorField = false;
+    bool rendererDrawFieldArrows = false;
+    bool rendererFieldAutoScale = true;
     bool rendererDrawBonds = false;
     bool rendererDrawBox = true;
     bool rendererDrawMemoryOrder = false;
     float interfaceScale = StyleManager::kDefaultUiScale;
     RenderData::SpeedColorMode rendererSpeedColorMode = RenderData::SpeedColorMode::AtomColor;
     float rendererSpeedGradientMax = 5.0f;
+    float rendererFieldPotentialScale = 50.0f;
+    float rendererFieldCellSize = 1.0f;
+    float rendererFieldSmoothing = 1.0f;
 
     Integrator::Scheme simulationIntegrator = Integrator::Scheme::Verlet;
     bool simulationBondFormationEnabled = true;

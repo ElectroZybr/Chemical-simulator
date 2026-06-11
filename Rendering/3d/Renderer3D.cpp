@@ -8,6 +8,8 @@
 #include "generated/shaders/grid.wgsl.h"
 #include "generated/shaders/line.wgsl.h"
 #include "generated/shaders/memory_order.wgsl.h"
+#include "generated/shaders/field.wgsl.h"
+#include "generated/shaders/field_arrows.wgsl.h"
 
 Renderer3D::Renderer3D() {
     initAtomPipeline(atom3dWGSL);
@@ -15,6 +17,8 @@ Renderer3D::Renderer3D() {
     initBondPipeline(lineWGSL);
     initMemoryOrderPipeline(memory_orderWGSL);
     initGridPipeline(gridWGSL);
+    initPotentialFieldPipeline(fieldWGSL);
+    initFieldArrowPipeline(field_arrowsWGSL);
 
     camera.setMode(Camera::Mode::Orbit);
     camera.resetView();

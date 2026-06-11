@@ -3,6 +3,7 @@
 
 #include <imgui.h>
 #include <glm/vec2.hpp>
+#include <glm/vec3.hpp>
 
 namespace Lattice {
     class Simulation;
@@ -26,6 +27,11 @@ public:
 private:
     bool visible = false;
     float animProgress = 0.f;
+    bool boxSizeEditing_ = false;
+    bool boxSizeTargetInitialized_ = false;
+    glm::vec3 pendingBoxSize_{1.0f};
+    bool smoothBoxResizeEnabled_ = false;
+    float boxResizeMaxSpeed_ = 60.0f;
     bool interfaceScaleEditing_ = false;
     float pendingInterfaceScale_ = 1.0f;
 };

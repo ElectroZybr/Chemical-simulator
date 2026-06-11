@@ -29,6 +29,7 @@ public:
         size = newSize;
         grid.resize(size);
         vectorField_.resize(glm::ivec3(size), 0);
+        invalidateVectorField();
     }
     const glm::vec3& getWorldSize() const noexcept { return size; }
 
@@ -69,12 +70,16 @@ public:
     void addBond(size_t aIndex, size_t bIndex);
     void removeAtom(size_t atomIndex);
     void remapAtomIndices(std::span<const uint32_t> oldToNew);
-    void clearAtoms() { atomStorage_.clear(); };
+    void clearAtoms() {
+        atomStorage_.clear();
+        invalidateVectorField();
+    };
     void clearBonds() { bonds_.clear(); }
     void reserveAtoms(size_t count) { atomStorage_.reserve(count); }
     void appendAtomFast(const glm::vec3& startCoords, const glm::vec3& startSpeed, AtomData::Type type, bool fixed = false) {
         atomStorage_.addAtom(startCoords, startSpeed, type, fixed);
         invalidateMetrics();
+        invalidateVectorField();
     }
     void finalizeAtomBatch();
 
@@ -116,8 +121,16 @@ public:
 
     VectorField& getVectorField() noexcept { return vectorField_; }
     const VectorField& getVectorField() const noexcept { return vectorField_; }
-    void setVectorFieldSlice(int zSlice) { vectorField_.setSliceZ(zSlice); }
-    void updateVectorField() { vectorField_.compute(state_.forceField_, atomStorage_, grid); }
+    void setVectorFieldSlice(int zSlice) {
+        vectorField_.setSliceZ(zSlice);
+        invalidateVectorField();
+    }
+    void setVectorFieldCellSize(float cellSize) {
+        vectorField_.setCellScale(cellSize);
+        invalidateVectorField();
+    }
+    void updateVectorField();
+    void invalidateVectorField() noexcept { vectorFieldDirty_ = true; }
     
     // Параметры связей между атомами
     void setBondFormationEnabled(bool enabled) noexcept { state_.bondFormationEnabled_ = enabled; }
@@ -151,6 +164,7 @@ private:
     SpatialGrid grid;
     NeighborList neighborList_;
     VectorField vectorField_;
+    bool vectorFieldDirty_ = true;
     Bond::List bonds_;
     std::string title_;
     std::string description_;
