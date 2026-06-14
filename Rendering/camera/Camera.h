@@ -99,6 +99,20 @@ private:
     // Перспектива
     static constexpr float FOV_ORBIT = 45.f;
     static constexpr float FOV_FREE = 60.f;
+#ifdef _WIN32
+#ifdef NEAR
+#undef NEAR
+#endif
+#ifdef FAR
+#undef FAR
+#endif
+#ifdef near
+#undef near
+#endif
+#ifdef far
+#undef far
+#endif
+#endif
     static constexpr float NEAR = 0.1f;
     static constexpr float FAR = 10000.f;
 
