@@ -22,6 +22,10 @@ namespace Generators {
     void massive(Lattice::Simulation& sim, int n, AtomData::Type type, bool is3d, CrystalPlane plane = CrystalPlane::XY,
                  double padding = 3.0, double margin = 15.0);
 
+    /// Создает кристаллическую структуру атомов с отдельным размером по осям
+    void massive(Lattice::Simulation& sim, glm::ivec3 count, AtomData::Type type, bool is3d, CrystalPlane plane = CrystalPlane::XY,
+                 double padding = 3.0, double margin = 15.0);
+
     /// Применяет угловую скорость всем мобильным атомам
     /// @param sim Симуляция
     /// @param angularVelocity Вектор угловой скорости

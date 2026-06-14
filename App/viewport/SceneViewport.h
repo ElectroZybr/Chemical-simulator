@@ -35,9 +35,19 @@ public:
     bool setRendererType(RendererType type, const Lattice::Simulation& simulation);
 
 private:
+    struct Cached2DCameraState {
+        bool valid = false;
+        glm::vec2 position{0.0f, 0.0f};
+        float zoom = 1.0f;
+        glm::vec3 direction{0.0f, 0.0f, 1.0f};
+        glm::vec3 up{0.0f, 1.0f, 0.0f};
+        glm::vec3 center{0.0f, 0.0f, 0.0f};
+    };
+
     static std::unique_ptr<BaseRenderer> createRenderer(RendererType type);
     static void copyRenderSettings(BaseRenderer& destination, const BaseRenderer& source);
 
     CaptureController* captureController_ = nullptr;
     std::unique_ptr<BaseRenderer> renderer_;
+    Cached2DCameraState cached2DCameraState_{};
 };

@@ -34,9 +34,6 @@ void AddAtomTool::onLeftPressed(glm::ivec2 mousePos) {
     const AtomData::Type atomType = static_cast<AtomData::Type>(PeriodicPanel::decodeAtom(ctx.uiState->selectedAtom));
     glm::vec3 spawnPos = screenToLocalWorld(mousePos);
     const bool is2D = ctx.activeRenderer() != nullptr && ctx.activeRenderer()->camera.getMode() == Camera::Mode::Mode2D;
-    if (is2D) {
-        spawnPos.z = box.getWorldSize().z * 0.5f;
-    }
 
     if (!(1 <= spawnPos.x && spawnPos.x <= box.getWorldSize().x - 1 && 1 <= spawnPos.y && spawnPos.y <= box.getWorldSize().y - 1 &&
           1 <= spawnPos.z && spawnPos.z <= box.getWorldSize().z - 1)) {
@@ -54,7 +51,8 @@ void AddAtomTool::onLeftPressed(glm::ivec2 mousePos) {
 
     glm::vec3 velocity = randomVelocity(5.0f);
     if (is2D) {
-        velocity.z = 0.0f;
+        const glm::vec3 planeNormal = -ctx.activeRenderer()->camera.getForwardVector();
+        velocity -= planeNormal * glm::dot(velocity, planeNormal);
     }
     ctx.simulation->createAtom(spawnPos, velocity, atomType, false);
 }

@@ -2,9 +2,11 @@
 
 #include <cstdint>
 #include <string_view>
+#include <vector>
 
 #include <glm/vec3.hpp>
 #include "Lattice/Engine/physics/Atom/AtomData.h"
+#include "Lattice/Generators/Gas.h"
 #include "GUI/interface/panels/tools/ToolsPanel.h"
 #include "Rendering/camera/Camera.h"
 #include "App/Signals.h"
@@ -16,7 +18,10 @@ namespace AppSignals {
 
         inline Signals::Signal<void()> ClearSimulation;
         inline Signals::Signal<void(int atomCount, AtomData::Type atomType, bool is3D, float density)> CreateGas;
-        inline Signals::Signal<void(int axisCount, AtomData::Type atomType, bool is3D)> CreateCrystal;
+        inline Signals::Signal<void(int atomCount, std::vector<Generators::AtomTypeSpec> atomSpecs, bool is3D, float density)> CreateMixedGas;
+        inline Signals::Signal<void(glm::ivec3 axisCounts, AtomData::Type atomType, bool is3D)> CreateMassive;
+        inline Signals::Signal<void(glm::ivec3 axisCounts, AtomData::Type atomType)> CreateHexLattice;
+        inline Signals::Signal<void(int axisCount, AtomData::Type atomType)> CreateTriangularBipyramidCrystal;
 
         inline Signals::Signal<void(RendererType type)> SetRender;
         inline Signals::Signal<void(Camera::Mode mode)> SetCameraMode;

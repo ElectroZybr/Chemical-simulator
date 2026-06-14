@@ -1,6 +1,35 @@
-#include "Render.h"
+#include "Renderer.h"
 
 #include "Rendering/backend/WGPUContext.h"
+#include "generated/shaders/arrows.wgsl.h"
+#include "generated/shaders/contour.wgsl.h"
+#include "generated/shaders/field.wgsl.h"
+#include "generated/shaders/grid.wgsl.h"
+#include "generated/shaders/line.wgsl.h"
+#include "generated/shaders/memline.wgsl.h"
+
+RendererWGPU::RendererWGPU() : surfaceFormat(WGPUContext::instance().surfaceFormat()) {
+    uniformBuffer = WGPUContext::instance().createBuffer(sizeof(SceneUniforms), wgpu::BufferUsage::Uniform | wgpu::BufferUsage::CopyDst, "RenderingUniforms");
+
+    initAtomColors();
+    initAtomQuadBuffer();
+    initBoxBuffer();
+    initBondBuffer();
+    initFieldArrowBuffer();
+    initGridLineBuffer();
+    initPotentialFieldQuadBuffer();
+    initMemoryOrderBuffer();
+}
+
+void RendererWGPU::initSharedPipelines() {
+    initBoxPipeline(lineWGSL);
+    initBondPipeline(lineWGSL);
+    initMemoryOrderPipeline(memlineWGSL);
+    initGridPipeline(gridWGSL);
+    initPotentialFieldPipeline(fieldWGSL);
+    initFieldArrowPipeline(arrowsWGSL);
+    initFieldContourPipeline(contourWGSL);
+}
 
 void RendererWGPU::drawShot(wgpu::TextureView targetView, wgpu::TextureView depthView) {
     if (getRenderDataCount() == 0) {
@@ -18,8 +47,7 @@ void RendererWGPU::drawShot(wgpu::TextureView targetView, wgpu::TextureView dept
     }
 }
 
-void RendererWGPU::drawWorldPass(wgpu::TextureView targetView, wgpu::TextureView depthView, const RenderData& renderData, wgpu::LoadOp targetLoadOp,
-                                 bool applySelection) {
+void RendererWGPU::drawWorldPass(wgpu::TextureView targetView, wgpu::TextureView depthView, const RenderData& renderData, wgpu::LoadOp targetLoadOp, bool applySelection) {
     updateMatrices();
 
     SceneUniforms uniforms{};
@@ -31,8 +59,8 @@ void RendererWGPU::drawWorldPass(wgpu::TextureView targetView, wgpu::TextureView
     uniforms.maxCount = glm::vec4(1.f, 0, 0, 0);
     uniforms.renderOffset = glm::vec4(renderData.renderOffset.x, renderData.renderOffset.y, renderData.renderOffset.z, 0.0f);
     uniforms.lineColor = glm::vec4(0.4f, 0.6f, 1.0f, 0.3f);
-    for (size_t i = 0; i < typeColorsData.size(); ++i) {
-        uniforms.typeColors[i] = typeColorsData[i];
+    for (size_t i = 0; i < atomLayer_.typeColorsData.size(); ++i) {
+        uniforms.typeColors[i] = atomLayer_.typeColorsData[i];
     }
     currentSceneUniforms_ = uniforms;
     lineUniformSlotIndex_ = 0;
@@ -42,6 +70,9 @@ void RendererWGPU::drawWorldPass(wgpu::TextureView targetView, wgpu::TextureView
 
     beginPass(targetView, depthView, targetLoadOp);
 
+    if (renderData.drawAtoms) {
+        drawAtomsImpl(renderData.atoms, renderData, applySelection);
+    }
     if (renderData.drawBonds && !renderData.bonds.empty()) {
         setLineColor(glm::vec4(0.4f, 0.6f, 1.0f, 0.3f));
         drawBondsImpl(renderData.atoms, renderData.bonds);
@@ -51,6 +82,9 @@ void RendererWGPU::drawWorldPass(wgpu::TextureView targetView, wgpu::TextureView
     }
     if (renderData.drawVectorField && !renderData.vectorField.empty()) {
         drawVectorFieldImpl(renderData);
+    }
+    if (renderData.drawFieldContours && !renderData.vectorField.empty()) {
+        drawFieldContoursImpl(renderData);
     }
     if (renderData.drawFieldArrows && !renderData.vectorField.empty()) {
         drawFieldArrowsImpl(renderData);
@@ -62,9 +96,6 @@ void RendererWGPU::drawWorldPass(wgpu::TextureView targetView, wgpu::TextureView
     if (renderData.drawMemoryOrder) {
         setLineColor(glm::vec4(0.35f, 0.52f, 0.9f, 0.3f));
         drawMemoryOrderImpl(renderData.atoms);
-    }
-    if (renderData.drawAtoms) {
-        drawAtomsImpl(renderData.atoms, renderData, applySelection);
     }
 }
 

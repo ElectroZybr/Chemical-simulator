@@ -8,6 +8,13 @@
 
 namespace Generators {
     namespace detail {
+        constexpr float kGasDensity3DMin = 0.001f;
+        constexpr float kGasDensity3DMax = 0.010f;
+        constexpr float kGasDensity2DMin = 0.005f;
+        constexpr float kGasDensity2DMax = 0.060f;
+        constexpr float kGasMinDistance = 4.0f;
+        constexpr float kGasFlatBoxDepth = 6.0f;
+
         inline float randomUnit() { return static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX); }
 
         inline glm::vec3 randomVelocity(float scale) {
@@ -51,6 +58,24 @@ namespace Generators {
         }
 
         uint32_t resolveSeed(uint32_t seed) { return seed == 0 ? std::random_device{}() : seed; }
+
+        float clampGasDensity(float density, bool is3d) {
+            return std::clamp(density, is3d ? kGasDensity3DMin : kGasDensity2DMin, is3d ? kGasDensity3DMax : kGasDensity2DMax);
+        }
+
+        double minimumGasSpan(int atomCount, bool is3d, double margin) {
+            const int sideCount = is3d ? std::max(1, static_cast<int>(std::ceil(std::cbrt(static_cast<double>(atomCount)))))
+                                       : std::max(1, static_cast<int>(std::ceil(std::sqrt(static_cast<double>(atomCount)))));
+            return static_cast<double>(sideCount) * static_cast<double>(kGasMinDistance) + 2.0 * margin;
+        }
+
+        double densityDrivenGasSpan(int atomCount, bool is3d, float density) {
+            const double safeDensity = std::max(static_cast<double>(density), 1e-9);
+            if (is3d) {
+                return std::cbrt(static_cast<double>(atomCount) / safeDensity);
+            }
+            return std::sqrt(static_cast<double>(atomCount) / safeDensity);
+        }
     }
 
     int randomGasInCurrentBox(Lattice::Simulation& sim, int atomCount, AtomData::Type type, bool is3d, float minDistance, float speedScale,
@@ -140,22 +165,20 @@ namespace Generators {
 
     void randomGas(Lattice::Simulation& sim, int atomCount, AtomData::Type type, bool is3d, double spacing, double margin, float density,
                    float speedScale, uint32_t seed) {
+        (void)spacing;
         atomCount = std::max(0, atomCount);
-        const float clampedDensity = std::clamp(density, 0.25f, 3.0f);
-        const double effectiveSpacing = spacing / static_cast<double>(clampedDensity);
+        const float clampedDensity = detail::clampGasDensity(density, is3d);
+        const double targetSpan = detail::densityDrivenGasSpan(atomCount, is3d, clampedDensity);
+        const double span = std::max(targetSpan, detail::minimumGasSpan(atomCount, is3d, margin));
 
-        const int sideCount = is3d ? std::max(1, static_cast<int>(std::ceil(std::cbrt(static_cast<double>(atomCount)))))
-                                   : std::max(1, static_cast<int>(std::ceil(std::sqrt(static_cast<double>(atomCount)))));
+        sim.setSizeBox(glm::vec3(span, span, is3d ? span : detail::kGasFlatBoxDepth));
 
-        const double span = sideCount * effectiveSpacing + 2.0 * margin;
-
-        sim.setSizeBox(glm::vec3(span, span, is3d ? span : 6.0));
-
-        randomGasInCurrentBox(sim, atomCount, type, is3d, 4.0f, speedScale, 20, seed);
+        randomGasInCurrentBox(sim, atomCount, type, is3d, detail::kGasMinDistance, speedScale, 20, seed);
     }
 
     void randomGasMixed(Lattice::Simulation& sim, int totalAtomCount, const std::vector<AtomTypeSpec>& atomSpecs, bool is3d, double spacing,
                         double margin, float density, float speedScale, uint32_t seed) {
+        (void)spacing;
         if (atomSpecs.empty() || totalAtomCount <= 0) {
             return;
         }
@@ -215,14 +238,10 @@ namespace Generators {
         }
 
         // Вычисляем размер симуляционного ящика на основе totalAtomCount
-        const float clampedDensity = std::clamp(density, 0.25f, 3.0f);
-        const double effectiveSpacing = spacing / static_cast<double>(clampedDensity);
-
-        const int sideCount = is3d ? std::max(1, static_cast<int>(std::ceil(std::cbrt(static_cast<double>(totalAtomCount)))))
-                                   : std::max(1, static_cast<int>(std::ceil(std::sqrt(static_cast<double>(totalAtomCount)))));
-
-        const double span = sideCount * effectiveSpacing + 2.0 * margin;
-        sim.setSizeBox(glm::vec3(span, span, is3d ? span : 6.0));
+        const float clampedDensity = detail::clampGasDensity(density, is3d);
+        const double targetSpan = detail::densityDrivenGasSpan(totalAtomCount, is3d, clampedDensity);
+        const double span = std::max(targetSpan, detail::minimumGasSpan(totalAtomCount, is3d, margin));
+        sim.setSizeBox(glm::vec3(span, span, is3d ? span : detail::kGasFlatBoxDepth));
 
         // Создаем газ для каждого типа атома
         uint32_t currentSeed = detail::resolveSeed(seed);

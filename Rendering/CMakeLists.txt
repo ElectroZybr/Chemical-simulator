@@ -29,6 +29,10 @@ target_compile_options(latticelab_rendering PRIVATE
     $<$<AND:$<BOOL:${OPTIMIZE_FOR_NATIVE}>,$<NOT:$<CONFIG:Debug>>,$<CXX_COMPILER_ID:GNU,Clang,AppleClang>>:-march=native>
 )
 
+set_source_files_properties(backend/WebGPUImpl.cpp PROPERTIES
+    COMPILE_OPTIONS "$<$<AND:$<BOOL:${OPTIMIZE_FOR_NATIVE}>,$<NOT:$<CONFIG:Debug>>,$<PLATFORM_ID:Windows>,$<CXX_COMPILER_ID:GNU,Clang>>:-mno-avx>"
+)
+
 target_compile_definitions(latticelab_rendering PUBLIC
     $<$<PLATFORM_ID:Windows>:NOMINMAX>
     $<$<PLATFORM_ID:Windows>:WIN32_LEAN_AND_MEAN>

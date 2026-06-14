@@ -116,10 +116,25 @@ namespace AppActions {
             ToolsManager::resetInteractionState();
             Generators::randomGas(simulation, atomCount, atomType, is3D, 6.0f, 6.0f, density);
         }));
-        track(AppSignals::UI::CreateCrystal.connect([&](int axisCount, AtomData::Type atomType, bool is3D) {
+        track(AppSignals::UI::CreateMixedGas.connect([&](int atomCount, std::vector<Generators::AtomTypeSpec> atomSpecs, bool is3D, float density) {
             simulation.clear();
             ToolsManager::resetInteractionState();
-            Generators::massive(simulation, axisCount, atomType, is3D);
+            Generators::randomGasMixed(simulation, atomCount, atomSpecs, is3D, 6.0f, 6.0f, density);
+        }));
+        track(AppSignals::UI::CreateMassive.connect([&](glm::ivec3 axisCounts, AtomData::Type atomType, bool is3D) {
+            simulation.clear();
+            ToolsManager::resetInteractionState();
+            Generators::massive(simulation, axisCounts, atomType, is3D);
+        }));
+        track(AppSignals::UI::CreateHexLattice.connect([&](glm::ivec3 axisCounts, AtomData::Type atomType) {
+            simulation.clear();
+            ToolsManager::resetInteractionState();
+            Generators::hexLattice(simulation, axisCounts, atomType);
+        }));
+        track(AppSignals::UI::CreateTriangularBipyramidCrystal.connect([&](int axisCount, AtomData::Type atomType) {
+            simulation.clear();
+            ToolsManager::resetInteractionState();
+            Generators::triangularBipyramidCrystal(simulation, axisCount, atomType);
         }));
         track(AppSignals::Capture::ToggleXYZRecording.connect([&]() { toggleXYZRecording(captureController, simulation); }));
     }

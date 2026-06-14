@@ -124,6 +124,7 @@ public:
     bool drawGrid = false;
     bool drawVectorField = false;
     bool drawFieldArrows = false;
+    bool drawFieldContours = false;
     bool drawBonds = false;
     bool drawBox = true;
     bool drawMemoryOrder = false;
@@ -133,5 +134,6 @@ public:
     float fieldPotentialScale = 50.0f;
     float fieldCellSize = 1.0f;
     float fieldSmoothing = 1.0f;
+    float fieldContourStep = 0.2f;
     float alpha = 0.05f;
 };

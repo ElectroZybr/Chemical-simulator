@@ -51,6 +51,18 @@ namespace Generators {
             }
         }
 
+        int getAxis(const glm::ivec3& vector, Axis axis) {
+            switch (axis) {
+            case Axis::X:
+                return vector.x;
+            case Axis::Y:
+                return vector.y;
+            case Axis::Z:
+                return vector.z;
+            }
+            return vector.x;
+        }
+
         glm::vec3 makeLayoutVector(CrystalLayout layout, double first, double second, double depth) {
             glm::vec3 vector(0.0f);
             setAxis(vector, layout.first, first);
@@ -64,25 +76,38 @@ namespace Generators {
             return makeLayoutVector(layout, side, side, is3d ? side : flatSide);
         }
 
+        double makeCrystalSpan(int count, double padding, double margin) {
+            return static_cast<double>(count) * padding + padding + 2.0 * margin;
+        }
+
         glm::vec3 makeCrystalMargin(bool is3d, CrystalLayout layout, double margin) {
             return makeLayoutVector(layout, margin, margin, is3d ? margin : 0.0);
         }
     }
 
     void massive(Lattice::Simulation& sim, int n, AtomData::Type type, bool is3d, CrystalPlane plane, double padding, double margin) {
-        const double side = n * padding + padding + 2.0 * margin;
-        const detail::CrystalLayout layout = detail::layoutFor(plane);
+        massive(sim, glm::ivec3(n, n, n), type, is3d, plane, padding, margin);
+    }
 
-        sim.setSizeBox(detail::makeCrystalBoxSize(side, is3d, layout));
+    void massive(Lattice::Simulation& sim, glm::ivec3 count, AtomData::Type type, bool is3d, CrystalPlane plane, double padding, double margin) {
+        const detail::CrystalLayout layout = detail::layoutFor(plane);
+        count = glm::max(count, glm::ivec3(1));
+
+        const int firstCount = detail::getAxis(count, layout.first);
+        const int secondCount = detail::getAxis(count, layout.second);
+        const int depthCount = is3d ? detail::getAxis(count, layout.depth) : 1;
+
+        sim.setSizeBox(detail::makeLayoutVector(layout, detail::makeCrystalSpan(firstCount, padding, margin),
+                                                detail::makeCrystalSpan(secondCount, padding, margin),
+                                                is3d ? detail::makeCrystalSpan(depthCount, padding, margin) : 6.0));
 
         const glm::vec3 vecMargin = detail::makeCrystalMargin(is3d, layout, margin);
-        const int depthMax = is3d ? n : 1;
-        const size_t atomTotal = static_cast<size_t>(n) * static_cast<size_t>(n) * static_cast<size_t>(depthMax);
+        const size_t atomTotal = static_cast<size_t>(firstCount) * static_cast<size_t>(secondCount) * static_cast<size_t>(depthCount);
         sim.reserveAtoms(sim.atoms().size() + atomTotal);
 
-        for (int first = 1; first <= n; ++first) {
-            for (int second = 1; second <= n; ++second) {
-                for (int depth = 1; depth <= depthMax; ++depth) {
+        for (int first = 1; first <= firstCount; ++first) {
+            for (int second = 1; second <= secondCount; ++second) {
+                for (int depth = 1; depth <= depthCount; ++depth) {
                     const glm::vec3 latticeCoords = detail::makeLayoutVector(layout, first, second, depth);
                     sim.appendAtomFast(latticeCoords * static_cast<float>(padding) + vecMargin, detail::randomVelocity(0.5f), type);
                 }

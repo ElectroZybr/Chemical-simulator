@@ -87,10 +87,12 @@ int Application::run() {
     renderer.renderer().getRenderData(0).drawGrid = userSettings.rendererDrawGrid;
     renderer.renderer().getRenderData(0).drawVectorField = userSettings.rendererDrawVectorField;
     renderer.renderer().getRenderData(0).drawFieldArrows = userSettings.rendererDrawFieldArrows;
+    renderer.renderer().getRenderData(0).drawFieldContours = userSettings.rendererDrawFieldContours;
     renderer.renderer().getRenderData(0).fieldAutoScale = userSettings.rendererFieldAutoScale;
     renderer.renderer().getRenderData(0).fieldPotentialScale = userSettings.rendererFieldPotentialScale;
     renderer.renderer().getRenderData(0).fieldCellSize = userSettings.rendererFieldCellSize;
     renderer.renderer().getRenderData(0).fieldSmoothing = userSettings.rendererFieldSmoothing;
+    renderer.renderer().getRenderData(0).fieldContourStep = userSettings.rendererFieldContourStep;
     simulation.world().setVectorFieldCellSize(userSettings.rendererFieldCellSize);
     renderer.renderer().getRenderData(0).drawBonds = userSettings.rendererDrawBonds;
     renderer.renderer().getRenderData(0).drawBox = userSettings.rendererDrawBox;
@@ -207,6 +209,7 @@ int Application::run() {
         .rendererDrawGrid = renderer.renderer().getRenderData(0).drawGrid,
         .rendererDrawVectorField = renderer.renderer().getRenderData(0).drawVectorField,
         .rendererDrawFieldArrows = renderer.renderer().getRenderData(0).drawFieldArrows,
+        .rendererDrawFieldContours = renderer.renderer().getRenderData(0).drawFieldContours,
         .rendererFieldAutoScale = renderer.renderer().getRenderData(0).fieldAutoScale,
         .rendererDrawBonds = renderer.renderer().getRenderData(0).drawBonds,
         .rendererDrawBox = renderer.renderer().getRenderData(0).drawBox,
@@ -217,6 +220,7 @@ int Application::run() {
         .rendererFieldPotentialScale = renderer.renderer().getRenderData(0).fieldPotentialScale,
         .rendererFieldCellSize = renderer.renderer().getRenderData(0).fieldCellSize,
         .rendererFieldSmoothing = renderer.renderer().getRenderData(0).fieldSmoothing,
+        .rendererFieldContourStep = renderer.renderer().getRenderData(0).fieldContourStep,
         .simulationIntegrator = simulation.world().getIntegrator().getScheme(),
         .simulationBondFormationEnabled = simulation.world().isBondFormationEnabled(),
         .simulationLJEnabled = simulation.isLJEnabled(),

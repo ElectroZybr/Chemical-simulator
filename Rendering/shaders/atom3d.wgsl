@@ -21,6 +21,8 @@ struct VertOut {
     @location(0)       uv     : vec2<f32>,
     @location(1)       color  : vec3<f32>,
     @location(2)       sel    : f32,
+    @location(3)       centerView : vec3<f32>,
+    @location(4)       radius : f32,
 }
 
 fn turboColor(t: f32) -> vec3<f32> {
@@ -55,6 +57,7 @@ fn vs_main(
     let worldPos = pos
                  + right * quadPos.x * r
                  + up    * quadPos.y * r;
+    let centerView = (uScene.view * vec4<f32>(pos, 1.0)).xyz;
 
     let mode = u32(uScene.colorMode.x);
     var color: vec3<f32>;
@@ -80,11 +83,18 @@ fn vs_main(
     out.uv     = quadPos; 
     out.color  = color;
     out.sel    = sSel[iid];
+    out.centerView = centerView;
+    out.radius = r;
     return out;
 }
 
+struct FragOut {
+    @builtin(frag_depth) depth : f32,
+    @location(0) color : vec4<f32>,
+}
+
 @fragment
-fn fs_main(in: VertOut) -> @location(0) vec4<f32> {
+fn fs_main(in: VertOut) -> FragOut {
     let d2 = dot(in.uv, in.uv);
     if (d2 > 1.0) { discard; }
 
@@ -97,10 +107,18 @@ fn fs_main(in: VertOut) -> @location(0) vec4<f32> {
     let diff  = max(dot(n, light), 0.0);
     color = vec3<f32>(color.rgb * (0.3 + 0.7 * diff));
 
+    // Write sphere surface depth instead of billboard quad depth.
+    let viewPos = in.centerView + vec3<f32>(in.uv * in.radius, z * in.radius);
+    let clipPos = uScene.projection * vec4<f32>(viewPos, 1.0);
+    let ndcDepth = clipPos.z / clipPos.w;
+
     // выделение
     if (in.sel > 0.5) {
         color = mix(color, vec3<f32>(1.0, 0.85, 0.0), 0.5);
     }
 
-    return vec4<f32>(color, 1.0);
+    var out : FragOut;
+    out.depth = ndcDepth;
+    out.color = vec4<f32>(color, 1.0);
+    return out;
 }

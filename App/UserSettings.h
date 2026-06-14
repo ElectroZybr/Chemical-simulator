@@ -29,6 +29,7 @@ struct UserSettings {
     bool rendererDrawGrid = false;
     bool rendererDrawVectorField = false;
     bool rendererDrawFieldArrows = false;
+    bool rendererDrawFieldContours = false;
     bool rendererFieldAutoScale = true;
     bool rendererDrawBonds = false;
     bool rendererDrawBox = true;
@@ -39,6 +40,7 @@ struct UserSettings {
     float rendererFieldPotentialScale = 50.0f;
     float rendererFieldCellSize = 1.0f;
     float rendererFieldSmoothing = 1.0f;
+    float rendererFieldContourStep = 0.2f;
 
     Integrator::Scheme simulationIntegrator = Integrator::Scheme::Verlet;
     bool simulationBondFormationEnabled = true;

@@ -46,11 +46,14 @@ fn vs_main(
     @location(0)             quadPos : vec2<f32>,
     @builtin(instance_index) iid     : u32,
 ) -> VertOut {
-    let pos    = sPos[iid].xy + uScene.renderOffset.xy;
+    let pos    = sPos[iid].xyz + uScene.renderOffset.xyz;
     let vel    = sVel[iid].xyz;
     let radius = sRadius[iid];
     let aType  = u32(sType[iid]);
     let sel    = sSel[iid];
+
+    let right = vec3<f32>(uScene.view[0][0], uScene.view[1][0], uScene.view[2][0]);
+    let up    = vec3<f32>(uScene.view[0][1], uScene.view[1][1], uScene.view[2][1]);
 
     let mode = u32(uScene.colorMode.x);
     var color: vec3<f32>;
@@ -68,7 +71,7 @@ fn vs_main(
         }
     }
 
-    let worldPos = vec4<f32>(pos + quadPos * radius, 0.0, 1.0);
+    let worldPos = vec4<f32>(pos + right * quadPos.x * radius + up * quadPos.y * radius, 1.0);
 
     var out: VertOut;
     out.pos   = uScene.projection * uScene.view * worldPos;

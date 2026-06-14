@@ -43,7 +43,7 @@ void Mouse::onMouseButton(GLFWwindow*, int button, int action, int mods) {
             if (!ToolsManager::onRightPressed(mouse_pos)) {
                 rend->camera.isDragging = true;
                 rend->camera.dragStartPixelPos = {mouse_pos.x, mouse_pos.y};
-                rend->camera.dragStartCameraPos = rend->camera.position;
+                rend->camera.dragStartCameraPos = rend->camera.getPosition();
             }
         }
     }
@@ -81,7 +81,8 @@ void Mouse::onMouseMove(GLFWwindow*, double xpos, double ypos) {
     }
     else {
         const glm::vec3 deltaWorld = ToolsManager::screenToWorld(rend->camera.dragStartPixelPos) - ToolsManager::screenToWorld(currentPixelPos);
-        rend->camera.position = rend->camera.dragStartCameraPos + glm::vec2(deltaWorld.x, deltaWorld.y);
+        const glm::vec2 planarDelta(glm::dot(deltaWorld, rend->camera.getPlanarRightAxis()), glm::dot(deltaWorld, rend->camera.getPlanarUpAxis()));
+        rend->camera.setPosition(rend->camera.dragStartCameraPos + planarDelta);
     }
 }
 

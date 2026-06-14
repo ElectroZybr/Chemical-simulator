@@ -180,6 +180,9 @@ UserSettings UserSettingsIO::load(const std::filesystem::path& path) {
         else if (tag == "renderer_draw_field_arrows" || tag == "renderer_draw_charge_lines") {
             file >> settings.rendererDrawFieldArrows;
         }
+        else if (tag == "renderer_draw_field_contours") {
+            file >> settings.rendererDrawFieldContours;
+        }
         else if (tag == "renderer_field_auto_scale") {
             file >> settings.rendererFieldAutoScale;
         }
@@ -191,6 +194,9 @@ UserSettings UserSettingsIO::load(const std::filesystem::path& path) {
         }
         else if (tag == "renderer_field_smoothing") {
             file >> settings.rendererFieldSmoothing;
+        }
+        else if (tag == "renderer_field_contour_step") {
+            file >> settings.rendererFieldContourStep;
         }
         else if (tag == "renderer_draw_atoms") {
             file >> settings.rendererDrawAtoms;
@@ -253,6 +259,7 @@ UserSettings UserSettingsIO::load(const std::filesystem::path& path) {
     settings.rendererFieldPotentialScale = std::max(0.1f, settings.rendererFieldPotentialScale);
     settings.rendererFieldCellSize = std::clamp(settings.rendererFieldCellSize, 0.25f, 8.0f);
     settings.rendererFieldSmoothing = std::clamp(settings.rendererFieldSmoothing, 0.0f, 1.0f);
+    settings.rendererFieldContourStep = std::clamp(settings.rendererFieldContourStep, 0.01f, 1.0f);
     settings.windowState.monitorIndex = std::max(0, settings.windowState.monitorIndex);
     settings.windowState.width = std::max(320, settings.windowState.width);
     settings.windowState.height = std::max(240, settings.windowState.height);
@@ -284,10 +291,12 @@ void UserSettingsIO::save(const UserSettings& settings, const std::filesystem::p
     file << "renderer_draw_grid " << static_cast<int>(settings.rendererDrawGrid) << "\n";
     file << "renderer_draw_vector_field " << static_cast<int>(settings.rendererDrawVectorField) << "\n";
     file << "renderer_draw_field_arrows " << static_cast<int>(settings.rendererDrawFieldArrows) << "\n";
+    file << "renderer_draw_field_contours " << static_cast<int>(settings.rendererDrawFieldContours) << "\n";
     file << "renderer_field_auto_scale " << static_cast<int>(settings.rendererFieldAutoScale) << "\n";
     file << "renderer_field_potential_scale " << settings.rendererFieldPotentialScale << "\n";
     file << "renderer_field_cell_size " << settings.rendererFieldCellSize << "\n";
     file << "renderer_field_smoothing " << settings.rendererFieldSmoothing << "\n";
+    file << "renderer_field_contour_step " << settings.rendererFieldContourStep << "\n";
     file << "renderer_draw_bonds " << static_cast<int>(settings.rendererDrawBonds) << "\n";
     file << "renderer_draw_box " << static_cast<int>(settings.rendererDrawBox) << "\n";
     file << "renderer_draw_memory_order " << static_cast<int>(settings.rendererDrawMemoryOrder) << "\n";

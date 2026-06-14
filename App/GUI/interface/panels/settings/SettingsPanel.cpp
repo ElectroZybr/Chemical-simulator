@@ -330,16 +330,18 @@ void SettingsPanel::draw(float uiScale, glm::ivec2 windowSize, Lattice::Simulati
     ImGui::Checkbox("imgui_grid"_tr.data(), &activeRenderData.drawGrid);
     ImGui::Checkbox("Potential gradient", &activeRenderData.drawVectorField);
     ImGui::Checkbox("Field arrows", &activeRenderData.drawFieldArrows);
-    ImGui::BeginDisabled(!activeRenderData.drawVectorField || activeRenderData.fieldAutoScale);
+    ImGui::Checkbox("Field isolines", &activeRenderData.drawFieldContours);
+    const bool hasFieldVisualization = activeRenderData.drawVectorField || activeRenderData.drawFieldArrows || activeRenderData.drawFieldContours;
+    ImGui::BeginDisabled(!hasFieldVisualization || activeRenderData.fieldAutoScale);
     ImGui::PushItemWidth(180.0f * uiScale);
     ImGui::SliderFloat("Field scale", &activeRenderData.fieldPotentialScale, 0.1f, 500.0f, "%.1f", ImGuiSliderFlags_Logarithmic);
     ImGui::PopItemWidth();
     ImGui::EndDisabled();
     ImGui::SameLine();
-    ImGui::BeginDisabled(!activeRenderData.drawVectorField);
+    ImGui::BeginDisabled(!hasFieldVisualization);
     ImGui::Checkbox("Auto field", &activeRenderData.fieldAutoScale);
     ImGui::EndDisabled();
-    ImGui::BeginDisabled(!activeRenderData.drawVectorField);
+    ImGui::BeginDisabled(!hasFieldVisualization);
     ImGui::PushItemWidth(180.0f * uiScale);
     if (ImGui::SliderFloat("Field cell", &activeRenderData.fieldCellSize, 0.25f, 8.0f, "%.2f", ImGuiSliderFlags_AlwaysClamp)) {
         simulation.world().setVectorFieldCellSize(activeRenderData.fieldCellSize);
@@ -347,6 +349,8 @@ void SettingsPanel::draw(float uiScale, glm::ivec2 windowSize, Lattice::Simulati
     activeRenderData.fieldCellSize = std::max(activeRenderData.fieldCellSize, 0.25f);
     ImGui::SliderFloat("Field smooth", &activeRenderData.fieldSmoothing, 0.0f, 1.0f, "%.2f", ImGuiSliderFlags_AlwaysClamp);
     activeRenderData.fieldSmoothing = std::clamp(activeRenderData.fieldSmoothing, 0.0f, 1.0f);
+    ImGui::SliderFloat("Isoline step", &activeRenderData.fieldContourStep, 0.01f, 1.0f, "%.2f", ImGuiSliderFlags_AlwaysClamp);
+    activeRenderData.fieldContourStep = std::clamp(activeRenderData.fieldContourStep, 0.01f, 1.0f);
     ImGui::PopItemWidth();
     ImGui::EndDisabled();
     ImGui::Checkbox("imgui_connections"_tr.data(), &activeRenderData.drawBonds);
