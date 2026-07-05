@@ -22,17 +22,7 @@ set_target_properties(Lattice PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}"
 )
 
-set(LATTICE_PLUGIN_TARGETS)
-file(GLOB plugin_dirs RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}/Plugins" "${CMAKE_CURRENT_SOURCE_DIR}/Plugins/*")
-foreach(plugin_dir IN LISTS plugin_dirs)
-    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/Plugins/${plugin_dir}/CMakeLists.txt")
-        add_subdirectory("Plugins/${plugin_dir}")
-    endif()
-endforeach()
-
-if(LATTICE_PLUGIN_TARGETS)
-    add_custom_target(Lattice-plugins DEPENDS ${LATTICE_PLUGIN_TARGETS})
-endif()
+add_subdirectory(Plugins)
 
 add_library(LatticeLab::Lattice ALIAS Lattice)
 

@@ -57,6 +57,7 @@ target_link_libraries(benchmarks PRIVATE
     benchmark::benchmark
     latticelab_lib
     LatticeClassicMD
+    LatticeClassicMDMT
 )
 
 target_link_libraries(bench PRIVATE

@@ -1,7 +1,7 @@
 #include "KDK.h"
 
 #include "Lattice/Engine/metrics/Profiler.h"
-#include "Lattice/Plugins/ClassicMD/Integrators/StepOps.h"
+#include "Integrators/StepOps.h"
 
 void KDK::pipeline(StepContext& stepContext) const {
     PROFILE_SCOPE("KDK::pipeline");

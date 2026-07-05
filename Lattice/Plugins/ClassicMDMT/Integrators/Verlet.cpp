@@ -3,6 +3,8 @@
 #include "Lattice/Engine/metrics/Profiler.h"
 #include "Integrators/StepOps.h"
 
+#include <tbb/parallel_for.h>
+
 void Verlet::pipeline(StepContext& stepContext) const {
     PROFILE_SCOPE("Verlet::pipeline");
     // Расчет новых позиций
@@ -32,18 +34,20 @@ void Verlet::predict(AtomStorage& atomStorage, float dt) {
 
     const float* RESTRICT invMass = atomStorage.invMass().data();
 
-    #pragma GCC ivdep
-    for (size_t i = 0; i < n; ++i) {
-        x[i] += (vx[i] + fx[i] * invMass[i] * 0.5f * dt) * dt;
-    }
-    #pragma GCC ivdep
-    for (size_t i = 0; i < n; ++i) {
-        y[i] += (vy[i] + fy[i] * invMass[i] * 0.5f * dt) * dt;
-    }
-    #pragma GCC ivdep
-    for (size_t i = 0; i < n; ++i) {
-        z[i] += (vz[i] + fz[i] * invMass[i] * 0.5f * dt) * dt;
-    }
+    tbb::parallel_for(tbb::blocked_range<size_t>(0, n, 1024), [&](const tbb::blocked_range<size_t>& r) {
+        #pragma GCC ivdep
+        for (size_t i = 0; i < n; ++i) {
+            x[i] += (vx[i] + fx[i] * invMass[i] * 0.5f * dt) * dt;
+        }
+        #pragma GCC ivdep
+        for (size_t i = 0; i < n; ++i) {
+            y[i] += (vy[i] + fy[i] * invMass[i] * 0.5f * dt) * dt;
+        }
+        #pragma GCC ivdep
+        for (size_t i = 0; i < n; ++i) {
+            z[i] += (vz[i] + fz[i] * invMass[i] * 0.5f * dt) * dt;
+        }
+    });
 }
 
 void Verlet::correct(AtomStorage& atomStorage, float dt) {
@@ -64,19 +68,21 @@ void Verlet::correct(AtomStorage& atomStorage, float dt) {
 
     const float* RESTRICT invMass = atomStorage.invMass().data();
 
-    #pragma GCC ivdep
-    for (size_t i = 0; i < n; ++i) {
-        const float halfDtInvMass = 0.5f * dt * invMass[i];
-        vx[i] += (pfx[i] + fx[i]) * halfDtInvMass;
-    }
-    #pragma GCC ivdep
-    for (size_t i = 0; i < n; ++i) {
-        const float halfDtInvMass = 0.5f * dt * invMass[i];
-        vy[i] += (pfy[i] + fy[i]) * halfDtInvMass;
-    }
-    #pragma GCC ivdep
-    for (size_t i = 0; i < n; ++i) {
-        const float halfDtInvMass = 0.5f * dt * invMass[i];
-        vz[i] += (pfz[i] + fz[i]) * halfDtInvMass;
-    }
+    tbb::parallel_for(tbb::blocked_range<size_t>(0, n, 1024), [&](const tbb::blocked_range<size_t>& r) {
+        #pragma GCC ivdep
+        for (size_t i = r.begin(); i < r.end(); ++i) {
+            const float halfDtInvMass = 0.5f * dt * invMass[i];
+            vx[i] += (pfx[i] + fx[i]) * halfDtInvMass;
+        }
+        #pragma GCC ivdep
+        for (size_t i = r.begin(); i < r.end(); ++i) {
+            const float halfDtInvMass = 0.5f * dt * invMass[i];
+            vy[i] += (pfy[i] + fy[i]) * halfDtInvMass;
+        }
+        #pragma GCC ivdep
+        for (size_t i = r.begin(); i < r.end(); ++i) {
+            const float halfDtInvMass = 0.5f * dt * invMass[i];
+            vz[i] += (pfz[i] + fz[i]) * halfDtInvMass;
+        }
+    });
 }

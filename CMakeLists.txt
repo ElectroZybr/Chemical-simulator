@@ -123,6 +123,10 @@ add_dependencies(latticelab_lib
     embedded_translate
 )
 
+find_package(TBB REQUIRED)
+target_link_libraries(latticelab_lib PUBLIC TBB::tbb)
+target_compile_definitions(latticelab_lib PUBLIC ENABLE_TBB)
+
 target_compile_options(latticelab_lib PRIVATE
     $<$<AND:$<BOOL:${OPTIMIZE_FOR_NATIVE}>,$<NOT:$<CONFIG:Debug>>,$<CXX_COMPILER_ID:GNU,Clang,AppleClang>>:-march=native>
     $<$<CXX_COMPILER_ID:GNU>:-Wno-stringop-overflow>

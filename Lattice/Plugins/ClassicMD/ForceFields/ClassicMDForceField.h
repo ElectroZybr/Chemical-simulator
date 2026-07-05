@@ -1,10 +1,10 @@
 #pragma once
 
 #include "Lattice/Engine/physics/IForceField.h"
-#include "Lattice/Plugins/ClassicMD/ForceFields/BondForceField.h"
-#include "Lattice/Plugins/ClassicMD/ForceFields/CoulombForceField.h"
-#include "Lattice/Plugins/ClassicMD/ForceFields/LJForceField.h"
-#include "Lattice/Plugins/ClassicMD/ForceFields/WallForceField.h"
+#include "ForceFields/BondForceField.h"
+#include "ForceFields/CoulombForceField.h"
+#include "ForceFields/LJForceField.h"
+#include "ForceFields/WallForceField.h"
 
 class ClassicMDForceField final : public IForceField {
 public:

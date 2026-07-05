@@ -1,12 +1,12 @@
 #include "PluginInit.h"
 
-#include "Lattice/Plugins/ClassicMD/ForceFields/ClassicMDForceField.h"
-#include "Lattice/Plugins/ClassicMD/Integrators/KDK.h"
-#include "Lattice/Plugins/ClassicMD/Integrators/RK4.h"
-#include "Lattice/Plugins/ClassicMD/Integrators/Verlet.h"
-#include "Lattice/Plugins/ClassicMD/Thermostats/AccelDamp.hpp"
-#include "Lattice/Plugins/ClassicMD/Thermostats/Andersen.h"
-#include "Lattice/Plugins/ClassicMD/Thermostats/Barendsen.hpp"
+#include "ForceFields/ClassicMDForceField.h"
+#include "Integrators/KDK.h"
+#include "Integrators/RK4.h"
+#include "Integrators/Verlet.h"
+#include "Thermostats/AccelDamp.hpp"
+#include "Thermostats/Andersen.h"
+#include "Thermostats/Barendsen.hpp"
 
 extern "C" bool plugin_init(PluginHost& host, PluginInfo& info) {
     info.id = "classic_md";
