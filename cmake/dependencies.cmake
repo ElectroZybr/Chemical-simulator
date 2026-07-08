@@ -1,46 +1,57 @@
-include(FetchContent)
+if(DEFINED ENV{CPM_SOURCE_CACHE})
+    set(_cpm_source_cache "$ENV{CPM_SOURCE_CACHE}")
+else()
+    set(_cpm_source_cache "${CMAKE_SOURCE_DIR}/.cache/cpm")
+    set(CPM_SOURCE_CACHE "${_cpm_source_cache}" CACHE PATH "CPM source cache")
+endif()
 
-unset(IMGUI_INCLUDE_DIR CACHE)
-unset(imgui_SOURCE_DIR CACHE)
-unset(imgui_BINARY_DIR CACHE)
+set(CPM_DOWNLOAD_VERSION 0.43.1)
+set(CPM_DOWNLOAD_LOCATION "${_cpm_source_cache}/cmake/CPM_${CPM_DOWNLOAD_VERSION}.cmake")
+
+if(NOT EXISTS ${CPM_DOWNLOAD_LOCATION})
+    message(STATUS "Downloading CPM.cmake v${CPM_DOWNLOAD_VERSION}")
+    file(DOWNLOAD
+        https://github.com/cpm-cmake/CPM.cmake/releases/download/v${CPM_DOWNLOAD_VERSION}/CPM.cmake
+        ${CPM_DOWNLOAD_LOCATION}
+        STATUS download_status
+    )
+    list(GET download_status 0 status_code)
+    if(NOT status_code EQUAL 0)
+        list(GET download_status 1 status_message)
+        file(REMOVE ${CPM_DOWNLOAD_LOCATION})
+        message(FATAL_ERROR "Failed to download CPM.cmake: ${status_message}")
+    endif()
+endif()
+include(${CPM_DOWNLOAD_LOCATION})
 
 # --- Настройка GLFW ---
-FetchContent_Declare(
-    glfw
-    GIT_REPOSITORY https://github.com/glfw/glfw.git
-    GIT_TAG        3.4
-    GIT_SHALLOW    ON
-)
-set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-set(GLFW_BUILD_TESTS    OFF CACHE BOOL "" FORCE)
-set(GLFW_BUILD_DOCS     OFF CACHE BOOL "" FORCE)
-set(GLFW_INSTALL        OFF CACHE BOOL "" FORCE)
-set(GLFW_BUILD_WAYLAND  OFF CACHE BOOL "" FORCE)
-set(GLFW_EXPOSE_NATIVE_WAYLAND  OFF CACHE BOOL "" FORCE)
-
-# Keep GLFW linked into the app binary instead of shipping a separate runtime.
 set(_saved_build_shared_libs "${BUILD_SHARED_LIBS}")
 set(BUILD_SHARED_LIBS OFF)
-FetchContent_MakeAvailable(glfw)
+CPMAddPackage(
+    NAME glfw
+    URL  https://github.com/glfw/glfw/archive/refs/tags/3.4.zip
+    OPTIONS
+        "GLFW_BUILD_EXAMPLES OFF"
+        "GLFW_BUILD_TESTS OFF"
+        "GLFW_BUILD_DOCS OFF"
+        "GLFW_INSTALL OFF"
+        "GLFW_BUILD_WAYLAND OFF"
+        "GLFW_EXPOSE_NATIVE_WAYLAND OFF"
+)
 set(BUILD_SHARED_LIBS "${_saved_build_shared_libs}")
 unset(_saved_build_shared_libs)
 
 # --- Настройка Lua ---
-FetchContent_Declare(
-    lua
+CPMAddPackage(
+    NAME lua
     URL https://www.lua.org/ftp/lua-5.4.6.tar.gz
-    DOWNLOAD_EXTRACT_TIMESTAMP TRUE
 )
-FetchContent_MakeAvailable(lua)
 
 # --- Настройка sol2 ---
-FetchContent_Declare(
-    sol2
-    GIT_REPOSITORY https://github.com/ThePhD/sol2.git
-    GIT_TAG        v3.3.1
-    GIT_SHALLOW    ON
+CPMAddPackage(
+    NAME sol2
+    URL https://github.com/ThePhD/sol2/archive/refs/tags/v3.3.1.zip
 )
-FetchContent_MakeAvailable(sol2)
 
 set(_sol2_optional_impl "${sol2_SOURCE_DIR}/include/sol/optional_implementation.hpp")
 if(EXISTS "${_sol2_optional_impl}")
@@ -102,32 +113,19 @@ if(UNIX AND NOT APPLE)
 endif()
 
 # --- Настройка WebGPU ---
-FetchContent_Declare(
-    webgpu_distribution
-    GIT_REPOSITORY https://github.com/eliemichel/WebGPU-distribution.git
-    GIT_TAG        wgpu-v24.0.0.2
-    GIT_SHALLOW    ON
-)
 set(WEBGPU_BACKEND "WGPU" CACHE STRING "WebGPU backend" FORCE)
 set(WGPU_LINK_TYPE "STATIC" CACHE STRING "Link wgpu-native statically" FORCE)
-FetchContent_MakeAvailable(webgpu_distribution)
-
-FetchContent_Declare(
-    webgpu_cpp
-    GIT_REPOSITORY https://github.com/eliemichel/WebGPU-Cpp.git
-    GIT_TAG        wgpu-v24.0.3.1
-    GIT_SHALLOW    ON
+CPMAddPackage(
+    NAME webgpu_distribution
+    URL https://github.com/eliemichel/WebGPU-distribution/archive/refs/tags/wgpu-v24.0.0.2.zip
 )
-FetchContent_MakeAvailable(webgpu_cpp)
 
 # --- Настройка ImGui ---
-FetchContent_Declare(
-    imgui
-    GIT_REPOSITORY https://github.com/ocornut/imgui.git
-    GIT_TAG        v1.92.3
-    GIT_SHALLOW    ON
+CPMAddPackage(
+    NAME imgui
+    URL https://github.com/ocornut/imgui/archive/refs/tags/v1.92.3.zip
+    DOWNLOAD_ONLY YES
 )
-FetchContent_MakeAvailable(imgui)
 add_library(imgui STATIC
     ${imgui_SOURCE_DIR}/imgui.cpp
     ${imgui_SOURCE_DIR}/imgui_draw.cpp
@@ -149,28 +147,17 @@ target_compile_definitions(imgui PUBLIC IMGUI_IMPL_WEBGPU_BACKEND_WGPU)
 set(GLFW_EXPOSE_NATIVE_WAYLAND 0)
 
 # --- Настройка ImGuiFileDialog ---
-FetchContent_Declare(
-    ImGuiFileDialog
-    GIT_REPOSITORY https://github.com/aiekick/ImGuiFileDialog.git
-    GIT_TAG        v0.6.8
-    GIT_SHALLOW    ON
+CPMAddPackage(
+    NAME ImGuiFileDialog
+    URL https://github.com/aiekick/ImGuiFileDialog/archive/refs/tags/v0.6.8.zip
+    DOWNLOAD_ONLY YES
 )
-FetchContent_MakeAvailable(ImGuiFileDialog)
-
-if(TARGET ImGuiFileDialog)
-    target_include_directories(ImGuiFileDialog PUBLIC
-        ${imguifiledialog_SOURCE_DIR}
-        ${imgui_SOURCE_DIR}
-        ${imgui_SOURCE_DIR}/backends
-    )
-    target_link_libraries(ImGuiFileDialog PUBLIC imgui)
-endif()
 
 add_library(ImGuiFileDialog_lib STATIC
-    ${imguifiledialog_SOURCE_DIR}/ImGuiFileDialog.cpp
+    ${ImGuiFileDialog_SOURCE_DIR}/ImGuiFileDialog.cpp
 )
 target_include_directories(ImGuiFileDialog_lib PUBLIC
-    ${imguifiledialog_SOURCE_DIR}
+    ${ImGuiFileDialog_SOURCE_DIR}
     ${imgui_SOURCE_DIR}
 )
 target_link_libraries(ImGuiFileDialog_lib PUBLIC imgui)
@@ -179,50 +166,42 @@ target_compile_options(ImGuiFileDialog_lib PRIVATE
 )
 
 # --- Настройка GLM ---
-FetchContent_Declare(
-    glm
-    GIT_REPOSITORY https://github.com/g-truc/glm.git
-    GIT_TAG        1.0.1
-    GIT_SHALLOW    ON
+CPMAddPackage(
+    NAME glm
+    URL https://github.com/g-truc/glm/archive/refs/tags/1.0.1.zip
 )
-FetchContent_MakeAvailable(glm)
 
 # --- Настройка zpp_bits ---
-FetchContent_Declare(
-    zpp_bits
-    GIT_REPOSITORY https://github.com/eyalz800/zpp_bits.git
-    GIT_TAG        v4.7
-    GIT_SHALLOW    ON
-
+CPMAddPackage(
+    NAME zpp_bits
+    URL https://github.com/eyalz800/zpp_bits/archive/refs/tags/v4.7.zip
+    DOWNLOAD_ONLY YES
 )
-FetchContent_MakeAvailable(zpp_bits)
 if(NOT TARGET zpp_bits)
     add_library(zpp_bits INTERFACE)
     target_include_directories(zpp_bits INTERFACE "${zpp_bits_SOURCE_DIR}")
 endif()
 
 # --- Настройка zstd ---
-FetchContent_Declare(
-    zstd
-    GIT_REPOSITORY https://github.com/facebook/zstd.git
-    GIT_TAG        v1.5.6
-    SOURCE_SUBDIR  build/cmake
-)
-set(ZSTD_BUILD_SHARED OFF CACHE BOOL "Build zstd shared library" FORCE)
-set(ZSTD_BUILD_STATIC ON CACHE BOOL "Build zstd static library" FORCE)
-set(ZSTD_BUILD_PROGRAMS OFF CACHE BOOL "Build zstd programs")
-set(ZSTD_BUILD_TESTS OFF CACHE BOOL "Build zstd tests")
-set(ZSTD_BUILD_CONTRIB OFF CACHE BOOL "Build zstd contrib")
-set(ZSTD_BUILD_CONTRIB_TESTS OFF CACHE BOOL "Build zstd contrib tests")
-set(ZSTD_BUILD_CONTRIB_EXAMPLES OFF CACHE BOOL "Build zstd contrib examples")
-set(ZSTD_BUILD_CONTRIB_LIBS OFF CACHE BOOL "Build zstd contrib libs")
-set(ZSTD_INSTALL OFF CACHE BOOL "Build zstd install")
-
 # zstd is linked as a static dependency in this project, so keep its local
 # BUILD_SHARED_LIBS consistent to avoid upstream configuration warnings.
 set(_saved_build_shared_libs "${BUILD_SHARED_LIBS}")
 set(BUILD_SHARED_LIBS OFF)
-FetchContent_MakeAvailable(zstd)
+CPMAddPackage(
+    NAME zstd
+    URL https://github.com/facebook/zstd/archive/refs/tags/v1.5.6.zip
+    SOURCE_SUBDIR  build/cmake
+    OPTIONS
+        "ZSTD_BUILD_SHARED OFF"
+        "ZSTD_BUILD_STATIC ON"
+        "ZSTD_BUILD_PROGRAMS OFF"
+        "ZSTD_BUILD_TESTS OFF"
+        "ZSTD_BUILD_CONTRIB OFF"
+        "ZSTD_BUILD_CONTRIB_TESTS OFF"
+        "ZSTD_BUILD_CONTRIB_EXAMPLES OFF"
+        "ZSTD_BUILD_CONTRIB_LIBS OFF"
+        "ZSTD_INSTALL OFF"
+)
 set(BUILD_SHARED_LIBS "${_saved_build_shared_libs}")
 unset(_saved_build_shared_libs)
 

@@ -1,5 +1,6 @@
 # Directories
 /build/
+/.cache/
 /build-*/
 /Debug/
 /Release/
