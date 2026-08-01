@@ -5,19 +5,19 @@
 
 #include <tbb/parallel_for.h>
 
-void Verlet::pipeline(StepContext& stepContext) const {
-    PROFILE_SCOPE("Verlet::pipeline");
+void VerletMT::pipeline(StepContext& stepContext) const {
+    PROFILE_SCOPE("VerletMT::pipeline");
     // Расчет новых позиций
-    StepOps::predictAndSync(stepContext, &Verlet::predict);
+    StepOps::predictAndSync(stepContext, &VerletMT::predict);
     // Расчет сил
     StepOps::computeForces(stepContext);
     // Корректировка скоростей
-    Verlet::correct(stepContext.world.getAtomStorage(), stepContext.dt);
+    VerletMT::correct(stepContext.world.getAtomStorage(), stepContext.dt);
     StepOps::applyThermostat(stepContext);
     StepOps::postProcessVelocities(stepContext);
 }
 
-void Verlet::predict(AtomStorage& atomStorage, float dt) {
+void VerletMT::predict(AtomStorage& atomStorage, float dt) {
     const size_t n = atomStorage.mobileCount();
 
     float* RESTRICT x = atomStorage.x().data();
@@ -39,10 +39,14 @@ void Verlet::predict(AtomStorage& atomStorage, float dt) {
         for (size_t i = 0; i < n; ++i) {
             x[i] += (vx[i] + fx[i] * invMass[i] * 0.5f * dt) * dt;
         }
+    });
+    tbb::parallel_for(tbb::blocked_range<size_t>(0, n, 1024), [&](const tbb::blocked_range<size_t>& r) {
         #pragma GCC ivdep
         for (size_t i = 0; i < n; ++i) {
             y[i] += (vy[i] + fy[i] * invMass[i] * 0.5f * dt) * dt;
         }
+    });
+    tbb::parallel_for(tbb::blocked_range<size_t>(0, n, 1024), [&](const tbb::blocked_range<size_t>& r) {
         #pragma GCC ivdep
         for (size_t i = 0; i < n; ++i) {
             z[i] += (vz[i] + fz[i] * invMass[i] * 0.5f * dt) * dt;
@@ -50,8 +54,8 @@ void Verlet::predict(AtomStorage& atomStorage, float dt) {
     });
 }
 
-void Verlet::correct(AtomStorage& atomStorage, float dt) {
-    PROFILE_SCOPE("Verlet::correct");
+void VerletMT::correct(AtomStorage& atomStorage, float dt) {
+    PROFILE_SCOPE("VerletMT::correct");
     const size_t n = atomStorage.mobileCount();
 
     const float* RESTRICT fx = atomStorage.fx().data();
@@ -74,11 +78,15 @@ void Verlet::correct(AtomStorage& atomStorage, float dt) {
             const float halfDtInvMass = 0.5f * dt * invMass[i];
             vx[i] += (pfx[i] + fx[i]) * halfDtInvMass;
         }
+    });
+    tbb::parallel_for(tbb::blocked_range<size_t>(0, n, 1024), [&](const tbb::blocked_range<size_t>& r) {
         #pragma GCC ivdep
         for (size_t i = r.begin(); i < r.end(); ++i) {
             const float halfDtInvMass = 0.5f * dt * invMass[i];
             vy[i] += (pfy[i] + fy[i]) * halfDtInvMass;
         }
+    });
+    tbb::parallel_for(tbb::blocked_range<size_t>(0, n, 1024), [&](const tbb::blocked_range<size_t>& r) {
         #pragma GCC ivdep
         for (size_t i = r.begin(); i < r.end(); ++i) {
             const float halfDtInvMass = 0.5f * dt * invMass[i];

@@ -2,7 +2,7 @@
 
 #include "Lattice/Engine/physics/IIntegrator.h"
 
-class Verlet final : public IIntegrator {
+class VerletMT final : public IIntegrator {
 public:
     static constexpr std::string_view id = "verlet_mt";
     static constexpr std::string_view description = "integrator_velocity_verlet_mt";

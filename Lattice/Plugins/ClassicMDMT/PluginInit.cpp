@@ -7,5 +7,5 @@ extern "C" bool plugin_init(PluginHost& host, PluginInfo& info) {
     info.name = "Classic Molecular Dynamics MT";
     info.version = "0.1.0";
 
-    return host.integrators.add(makeModuleMeta<IIntegrator, Verlet>());
+    return host.integrators.add(makeModuleMeta<IIntegrator, VerletMT>());
 }
