@@ -4,6 +4,22 @@ unset(IMGUI_INCLUDE_DIR CACHE)
 unset(imgui_SOURCE_DIR CACHE)
 unset(imgui_BINARY_DIR CACHE)
 
+# --- Настройка TBB ---
+find_package(TBB QUIET)
+if(NOT TARGET TBB::tbb)
+    FetchContent_Declare(
+        oneTBB
+        GIT_REPOSITORY https://github.com/oneapi-src/oneTBB.git
+        GIT_TAG        v2021.13.0
+        GIT_SHALLOW    ON
+    )
+    set(TBB_TEST OFF CACHE BOOL "Build TBB tests" FORCE)
+    set(TBB_EXAMPLES OFF CACHE BOOL "Build TBB examples" FORCE)
+    set(TBB_STRICT OFF CACHE BOOL "Treat compiler warnings as errors" FORCE)
+    set(TBB_INSTALL OFF CACHE BOOL "Enable TBB install targets" FORCE)
+    FetchContent_MakeAvailable(oneTBB)
+endif()
+
 # --- Настройка GLFW ---
 FetchContent_Declare(
     glfw

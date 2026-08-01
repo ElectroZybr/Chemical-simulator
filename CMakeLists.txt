@@ -123,7 +123,6 @@ add_dependencies(latticelab_lib
     embedded_translate
 )
 
-find_package(TBB REQUIRED)
 target_link_libraries(latticelab_lib PUBLIC TBB::tbb)
 target_compile_definitions(latticelab_lib PUBLIC ENABLE_TBB)
 
