@@ -3,6 +3,7 @@
 #include <filesystem>
 #include <utility>
 #include <vector>
+#include <string_view>
 
 #include "Lattice/Engine/DynamicLibrary.hpp"
 #include "Lattice/Engine/PluginHost.hpp"
@@ -57,6 +58,18 @@ public:
             if (!init(host_, library.info)) {
                 Log::error("PluginLoader", "plugin_init failed for '{}'", libraryPath.string());
                 continue;
+            }
+
+            Log::info(
+                "PluginLoader",
+                "Registry state after {}: forceFields={} integrators={} thermostats={}",
+                library.info.id != nullptr && library.info.id[0] != '\0' ? library.info.id : libraryPath.filename().string(),
+                host_.forceFields.items().size(),
+                host_.integrators.items().size(),
+                host_.thermostats.items().size());
+
+            if (library.info.id != nullptr && std::string_view(library.info.id) == "classic_md" && host_.forceFields.find("classic_md") == nullptr) {
+                Log::warning("PluginLoader", "Plugin classic_md loaded, but force field 'classic_md' is not registered");
             }
 
             Log::info(

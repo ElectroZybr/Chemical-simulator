@@ -3,11 +3,20 @@
 #include "Lattice/Engine/metrics/EnergyMetrics.h"
 #include "Lattice/Engine/physics/BondOps.h"
 #include "Lattice/Engine/physics/IIntegrator.h"
+#include "Lattice/Log.hpp"
 
 World::World(glm::vec3 size, glm::vec3 renderOffset) : size(size), renderOffset(renderOffset), grid(size), vectorField_(glm::ivec3(size), 0) {
     atomStorage_.reserve(250000);
     neighborList_.setParams(5.f, 1.f);
-    state_.forceField_.setForceField("classic_md");
+    if (!state_.forceField_.setForceField("classic_md")) {
+        Log::error("World", "Failed to select default force field 'classic_md'");
+    }
+    else if (state_.forceField_.activeForceField() == nullptr) {
+        Log::warning("World", "Default force field 'classic_md' is selected but not available");
+    }
+    else {
+        Log::ok("World", "Default force field selected: {}", state_.forceField_.getForceField());
+    }
     state_.thermostat.setParam(100.0f);
     state_.thermostat.setThermostat("barendsen");
 }
@@ -188,6 +197,15 @@ void World::updateVectorField() {
         return;
     }
 
-    vectorField_.compute(state_.forceField_.activeForceField(), atomStorage_, grid);
+    const IForceField* forceField = state_.forceField_.activeForceField();
+    if (forceField == nullptr) {
+        Log::warning("World", "Vector field update skipped: no active force field");
+        vectorField_.compute(nullptr, atomStorage_, grid);
+        vectorFieldDirty_ = false;
+        return;
+    }
+
+    vectorField_.compute(forceField, atomStorage_, grid);
     vectorFieldDirty_ = false;
+    Log::info("World", "Vector field updated for force field {}", state_.forceField_.getForceField());
 }
