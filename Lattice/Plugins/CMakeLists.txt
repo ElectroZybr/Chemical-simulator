@@ -53,6 +53,11 @@ function(lattice_add_plugin plugin_name)
         glm::glm
     )
 
+    if(TARGET TBB::tbb)
+        target_link_libraries(${target_name} PRIVATE TBB::tbb)
+        target_compile_definitions(${target_name} PRIVATE ENABLE_TBB)
+    endif()
+
     set_property(GLOBAL APPEND PROPERTY LATTICE_PLUGIN_TARGETS ${target_name})
 endfunction()
 
