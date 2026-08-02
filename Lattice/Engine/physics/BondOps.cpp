@@ -3,7 +3,6 @@
 #include <algorithm>
 
 namespace BondOps {
-namespace {
 BondTable bondDefaultProps{};
 
 void ensureInitialized() {
@@ -12,17 +11,16 @@ void ensureInitialized() {
         return true;
     }();
     (void)initialized;
-}
 } // namespace
 
-const BondParams* paramsFor(const AtomStorage& atomStorage, size_t aIndex, size_t bIndex) {
+const BondParams* paramsFor(const AtomStorage& atomStorage, size_t aIndex, size_t bIndex, uint8_t order) {
     ensureInitialized();
 
     if (aIndex >= atomStorage.size() || bIndex >= atomStorage.size()) {
         return nullptr;
     }
 
-    const BondParams& params = bondDefaultProps.get(atomStorage.type()[aIndex], atomStorage.type()[bIndex]);
+    const BondParams& params = bondDefaultProps.get(atomStorage.type()[aIndex], atomStorage.type()[bIndex], order);
     if (params.r0 <= 0.0f || params.a <= 0.0f || params.De <= 0.0f) {
         return nullptr;
     }
@@ -30,7 +28,7 @@ const BondParams* paramsFor(const AtomStorage& atomStorage, size_t aIndex, size_
     return &params;
 }
 
-Bond* create(Bond::List& bonds, size_t aIndex, size_t bIndex, AtomStorage& atomStorage) {
+Bond* create(Bond::List& bonds, size_t aIndex, size_t bIndex, uint8_t order, AtomStorage& atomStorage) {
     ensureInitialized();
 
     if (aIndex >= atomStorage.size() || bIndex >= atomStorage.size() || aIndex == bIndex) {
@@ -47,12 +45,12 @@ Bond* create(Bond::List& bonds, size_t aIndex, size_t bIndex, AtomStorage& atomS
         return nullptr;
     }
 
-    const BondParams* bondParams = paramsFor(atomStorage, aIndex, bIndex);
+    const BondParams* bondParams = paramsFor(atomStorage, aIndex, bIndex, order);
     if (bondParams == nullptr) {
         return nullptr;
     }
 
-    bonds.emplace_back(aIndex, bIndex, *bondParams);
+    bonds.emplace_back(aIndex, bIndex, order, *bondParams);
     --atomStorage.valence()[aIndex];
     --atomStorage.valence()[bIndex];
     return &bonds.back();

@@ -9,6 +9,7 @@
 
 namespace {
 constexpr double kBondBreakDistance = 3.0;
+constexpr uint8_t kSingleBondOrder = 0;
 }
 
 void BondForceField::breakBond(Bond::List& bonds, Bond* bond, AtomStorage& atomStorage) {
@@ -80,7 +81,7 @@ bool BondForceField::tryCreateBond(AtomStorage& atoms, Bond::List& bonds, uint32
         return false;
     }
 
-    const BondParams* bondParams = BondOps::paramsFor(atoms, aIndex, bIndex);
+    const BondParams* bondParams = BondOps::paramsFor(atoms, aIndex, bIndex, kSingleBondOrder);
     if (bondParams == nullptr) {
         return false;
     }
@@ -95,7 +96,7 @@ bool BondForceField::tryCreateBond(AtomStorage& atoms, Bond::List& bonds, uint32
         return false;
     }
 
-    return BondOps::create(bonds, aIndex, bIndex, atoms) != nullptr;
+    return BondOps::create(bonds, aIndex, bIndex, kSingleBondOrder, atoms) != nullptr;
 }
 
 bool BondForceField::shouldBreak(const Bond& bond, const AtomStorage& atoms) {

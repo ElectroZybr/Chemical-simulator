@@ -5,7 +5,7 @@
 
 namespace BondOps {
 
-const BondParams* paramsFor(const AtomStorage& atomStorage, size_t aIndex, size_t bIndex);
-Bond* create(Bond::List& bonds, size_t aIndex, size_t bIndex, AtomStorage& atomStorage);
+const BondParams* paramsFor(const AtomStorage& atomStorage, size_t aIndex, size_t bIndex, uint8_t order);
+Bond* create(Bond::List& bonds, size_t aIndex, size_t bIndex, uint8_t order, AtomStorage& atomStorage);
 
 }

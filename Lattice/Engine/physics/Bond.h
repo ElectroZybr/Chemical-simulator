@@ -8,9 +8,10 @@
 struct Bond {
     using List = std::list<Bond>;
 
-    Bond(size_t aIndexIn, size_t bIndexIn, const BondParams& paramsIn) : aIndex(aIndexIn), bIndex(bIndexIn), params(paramsIn) {}
+    Bond(size_t aIndexIn, size_t bIndexIn, uint8_t orderIn, const BondParams& paramsIn) : aIndex(aIndexIn), bIndex(bIndexIn), order(orderIn), params(paramsIn) {}
 
     size_t aIndex;
     size_t bIndex;
+    uint8_t order;
     BondParams params;
 };

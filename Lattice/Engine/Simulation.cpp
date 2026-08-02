@@ -12,7 +12,7 @@
 
 #include "Lattice/Engine/Consts.h"
 #include "Lattice/Engine/io/SimulationStateIO.h"
-#include "Lattice/Engine/io/MoleculePdb.h"
+#include "Lattice/Engine/io/MoleculePdb.hpp"
 #include "Lattice/Engine/metrics/Profiler.h"
 
 namespace Lattice {

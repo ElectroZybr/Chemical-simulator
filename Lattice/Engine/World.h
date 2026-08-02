@@ -68,7 +68,7 @@ public:
     const NeighborList& getNeighborList() const noexcept { return neighborList_; }
 
     void addAtom(const glm::vec3& start_coords, const glm::vec3& start_speed, AtomData::Type type, bool fixed);
-    void addBond(size_t aIndex, size_t bIndex);
+    void addBond(size_t aIndex, size_t bIndex, uint8_t order = 0);
     void removeAtom(size_t atomIndex);
     void removeAtoms(std::vector<size_t> atomIndices);
     void setAtomsFixed(std::span<const AtomStorage::AtomId> atomIds, bool fixed);

@@ -10,17 +10,17 @@ struct BondParams {
 
 struct BondTable {
     // Матрица параметров "тип1 -> тип2"
-    BondParams table[(int)AtomData::Type::COUNT][(int)AtomData::Type::COUNT];
+    BondParams table[(int)AtomData::Type::COUNT][(int)AtomData::Type::COUNT][3];
 
     void init();
     // инициализация параметров для пары
-    void set(AtomData::Type a, AtomData::Type b, const BondParams& p) {
-        table[(int)a][(int)b] = p;
-        table[(int)b][(int)a] = p; // симметрия
+    void set(AtomData::Type a, AtomData::Type b, uint8_t order, const BondParams& p) {
+        table[(int)a][(int)b][order] = p;
+        table[(int)b][(int)a][order] = p; // симметрия
     }
 
     // получить параметры
-    const BondParams& get(AtomData::Type a, AtomData::Type b) const { return table[(int)a][(int)b]; }
+    const BondParams& get(AtomData::Type a, AtomData::Type b, uint8_t order) const { return table[(int)a][(int)b][order]; }
 };
 
 struct AngleTable {

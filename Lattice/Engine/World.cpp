@@ -49,7 +49,7 @@ void World::addAtom(const glm::vec3& start_coords, const glm::vec3& start_speed,
     invalidateVectorField();
 }
 
-void World::addBond(size_t aIndex, size_t bIndex) { BondOps::create(bonds_, aIndex, bIndex, atomStorage_); }
+void World::addBond(size_t aIndex, size_t bIndex, uint8_t order) { BondOps::create(bonds_, aIndex, bIndex, order, atomStorage_); }
 
 void World::remapAtomIndices(std::span<const uint32_t> oldToNew) {
     if (oldToNew.empty()) {
