@@ -66,7 +66,7 @@ public:
     void removeAtom(size_t atomIndex);
     void removeAtoms(std::vector<size_t> atomIndices);
     void addBond(size_t aIndex, size_t bIndex);
-    bool loadMoleculeTemplate(std::string name, const std::filesystem::path& pdbPath);
+    bool loadMoleculeTemplate(std::string name, const std::filesystem::path& moleculePath);
     bool hasMoleculeTemplate(std::string_view name) const;
     [[nodiscard]] const MoleculeTemplate* findMoleculeTemplate(std::string_view name) const;
     [[nodiscard]] const std::unordered_map<std::string, MoleculeTemplate>& moleculeTemplates() const noexcept { return moleculeTemplates_; }

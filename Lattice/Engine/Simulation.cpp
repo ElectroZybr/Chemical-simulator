@@ -12,7 +12,7 @@
 
 #include "Lattice/Engine/Consts.h"
 #include "Lattice/Engine/io/SimulationStateIO.h"
-#include "Lattice/Engine/io/MoleculePdb.hpp"
+#include "Lattice/Engine/io/MoleculeMol.hpp"
 #include "Lattice/Engine/metrics/Profiler.h"
 
 namespace Lattice {
@@ -193,12 +193,12 @@ void Simulation::removeAtoms(std::vector<size_t> atomIndices) {
 
 void Simulation::addBond(size_t aIndex, size_t bIndex) { world().addBond(aIndex, bIndex); }
 
-bool Simulation::loadMoleculeTemplate(std::string name, const std::filesystem::path& pdbPath) {
+bool Simulation::loadMoleculeTemplate(std::string name, const std::filesystem::path& moleculePath) {
     if (name.empty()) {
         return false;
     }
 
-    moleculeTemplates_[std::move(name)] = MoleculePdb::loadTemplate(pdbPath);
+    moleculeTemplates_[std::move(name)] = MoleculeMol::loadTemplate(moleculePath);
     return true;
 }
 

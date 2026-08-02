@@ -15,7 +15,7 @@ namespace {
         Lattice::Simulation simulation;
         simulation.createWorld(glm::vec3(20.0f, 20.0f, 20.0f));
 
-        const std::filesystem::path waterPath = std::filesystem::path("Mods") / "Base" / "Molecules" / "h2o.pdb";
+        const std::filesystem::path waterPath = std::filesystem::path("Mods") / "Base" / "Molecules" / "h2o.mol";
         expect(simulation.loadMoleculeTemplate("h2o", waterPath), "Water template should load");
         expect(simulation.spawnMolecule("h2o", glm::vec3(10.0f, 10.0f, 10.0f), glm::mat3(1.0f), false), "Direct water spawn should succeed");
         expect(std::ranges::distance(simulation.bonds()) == 2, "Direct water spawn should create two bonds");
@@ -29,7 +29,7 @@ namespace {
         Lattice::Simulation simulation;
         simulation.createWorld(glm::vec3(20.0f, 20.0f, 20.0f));
 
-        const std::filesystem::path nitrogenPath = std::filesystem::path("Mods") / "Base" / "Molecules" / "n2.pdb";
+        const std::filesystem::path nitrogenPath = std::filesystem::path("Mods") / "Base" / "Molecules" / "n2.mol";
         expect(simulation.loadMoleculeTemplate("n2", nitrogenPath), "Nitrogen template should load");
         expect(simulation.spawnMolecule("n2", glm::vec3(10.0f, 10.0f, 10.0f), glm::mat3(1.0f), false), "Direct nitrogen spawn should succeed");
         expect(std::ranges::distance(simulation.bonds()) == 1, "Direct nitrogen spawn should create one bond");
@@ -46,7 +46,7 @@ namespace {
             Lattice::Simulation simulation;
             simulation.createWorld(glm::vec3(20.0f, 20.0f, 20.0f));
 
-            const std::filesystem::path moleculePath = std::filesystem::path("Mods") / "Base" / "Molecules" / (std::string(moleculeName) + ".pdb");
+            const std::filesystem::path moleculePath = std::filesystem::path("Mods") / "Base" / "Molecules" / (std::string(moleculeName) + ".mol");
             expect(simulation.loadMoleculeTemplate(std::string(moleculeName), moleculePath), "Molecule template should load");
             expect(simulation.spawnMolecule(std::string(moleculeName), glm::vec3(10.0f, 10.0f, 10.0f), glm::mat3(1.0f), false),
                    "Direct diatomic spawn should succeed");
@@ -62,7 +62,7 @@ namespace {
         Lattice::Simulation simulation;
         simulation.createWorld(glm::vec3(20.0f, 20.0f, 20.0f));
 
-        const std::filesystem::path waterPath = std::filesystem::path("Mods") / "Base" / "Molecules" / "h2o.pdb";
+        const std::filesystem::path waterPath = std::filesystem::path("Mods") / "Base" / "Molecules" / "h2o.mol";
         expect(simulation.loadMoleculeTemplate("h2o", waterPath), "Water template should load");
 
         simulation.createAtom(glm::vec3(10.0f, 10.0f, 10.0f), glm::vec3(0.0f), AtomData::Type::O, false);

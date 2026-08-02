@@ -1,0 +1,12 @@
+NH3
+LatticeLab ammonia molecule
+Generated from PDB by LatticeLab
+  4   3
+    0.0000     0.0000     0.1000 N 
+    0.9400     0.0000    -0.2800 H 
+   -0.4700     0.8140    -0.2800 H 
+   -0.4700    -0.8140    -0.2800 H 
+  1   2   0
+  1   3   0
+  1   4   0
+M  END

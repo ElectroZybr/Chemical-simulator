@@ -108,7 +108,7 @@ namespace {
         }
 
         for (const std::filesystem::directory_entry& entry : std::filesystem::directory_iterator(kBaseMoleculesDirectory)) {
-            if (!entry.is_regular_file() || entry.path().extension() != ".pdb") {
+            if (!entry.is_regular_file() || entry.path().extension() != ".mol") {
                 continue;
             }
 

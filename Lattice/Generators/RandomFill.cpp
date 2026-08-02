@@ -50,19 +50,19 @@ void loadBaseMoleculesOnce(Lattice::Simulation& sim) {
         return;
     }
 
-    std::vector<std::filesystem::path> pdbFiles;
+    std::vector<std::filesystem::path> molFiles;
     for (const std::filesystem::directory_entry& entry : std::filesystem::directory_iterator(moleculesPath)) {
-        if (!entry.is_regular_file() || entry.path().extension() != ".pdb") {
+        if (!entry.is_regular_file() || entry.path().extension() != ".mol") {
             continue;
         }
-        pdbFiles.push_back(entry.path());
+        molFiles.push_back(entry.path());
     }
 
-    std::sort(pdbFiles.begin(), pdbFiles.end());
-    for (const std::filesystem::path& pdbPath : pdbFiles) {
-        const std::string moleculeName = pdbPath.stem().string();
+    std::sort(molFiles.begin(), molFiles.end());
+    for (const std::filesystem::path& molPath : molFiles) {
+        const std::string moleculeName = molPath.stem().string();
         if (!moleculeName.empty()) {
-            sim.loadMoleculeTemplate(moleculeName, pdbPath);
+            sim.loadMoleculeTemplate(moleculeName, molPath);
         }
     }
 

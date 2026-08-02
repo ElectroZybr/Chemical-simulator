@@ -1,0 +1,14 @@
+CH4
+LatticeLab methane molecule
+Generated from PDB by LatticeLab
+  5   4
+    0.0000     0.0000     0.0000 C 
+    0.6290     0.6290     0.6290 H 
+   -0.6290    -0.6290     0.6290 H 
+   -0.6290     0.6290    -0.6290 H 
+    0.6290    -0.6290    -0.6290 H 
+  1   2   0
+  1   3   0
+  1   4   0
+  1   5   0
+M  END

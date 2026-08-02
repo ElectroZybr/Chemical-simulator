@@ -13,7 +13,7 @@ void loadFromDirectory(Lattice::Simulation& simulation, const std::filesystem::p
     }
 
     for (const std::filesystem::directory_entry& entry : std::filesystem::directory_iterator(directory)) {
-        if (!entry.is_regular_file() || entry.path().extension() != ".pdb") {
+        if (!entry.is_regular_file() || entry.path().extension() != ".mol") {
             continue;
         }
 

@@ -277,37 +277,37 @@ std::vector<std::string> ScriptAPI::loadMoleculesFrom(const std::filesystem::pat
         throw std::runtime_error("molecule path does not exist: '" + path.string() + "'");
     }
 
-    std::vector<std::filesystem::path> pdbFiles;
+    std::vector<std::filesystem::path> molFiles;
     if (std::filesystem::is_regular_file(path)) {
-        if (lowercase(path.extension().string()) != ".pdb") {
-            throw std::runtime_error("molecule file must have .pdb extension: '" + path.string() + "'");
+        if (lowercase(path.extension().string()) != ".mol") {
+            throw std::runtime_error("molecule file must have .mol extension: '" + path.string() + "'");
         }
-        pdbFiles.push_back(path);
+        molFiles.push_back(path);
     } else if (std::filesystem::is_directory(path)) {
         for (const std::filesystem::directory_entry& entry : std::filesystem::directory_iterator(path)) {
             if (!entry.is_regular_file()) {
                 continue;
             }
-            if (lowercase(entry.path().extension().string()) != ".pdb") {
+            if (lowercase(entry.path().extension().string()) != ".mol") {
                 continue;
             }
-            pdbFiles.push_back(entry.path());
+            molFiles.push_back(entry.path());
         }
     } else {
-        throw std::runtime_error("molecule path must be a .pdb file or directory: '" + path.string() + "'");
+        throw std::runtime_error("molecule path must be a .mol file or directory: '" + path.string() + "'");
     }
 
-    std::sort(pdbFiles.begin(), pdbFiles.end());
+    std::sort(molFiles.begin(), molFiles.end());
 
     std::vector<std::string> loadedNames;
-    loadedNames.reserve(pdbFiles.size());
-    for (const std::filesystem::path& pdbPath : pdbFiles) {
-        const std::string moleculeName = pdbPath.stem().string();
+    loadedNames.reserve(molFiles.size());
+    for (const std::filesystem::path& molPath : molFiles) {
+        const std::string moleculeName = molPath.stem().string();
         if (moleculeName.empty()) {
             continue;
         }
 
-        simulation_.loadMoleculeTemplate(moleculeName, pdbPath);
+        simulation_.loadMoleculeTemplate(moleculeName, molPath);
         loadedNames.push_back(moleculeName);
     }
 

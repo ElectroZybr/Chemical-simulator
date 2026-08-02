@@ -161,7 +161,7 @@ namespace {
         Lattice::Simulation simulation;
         simulation.createWorld(glm::vec3(40.0f, 40.0f, 40.0f));
 
-        const std::filesystem::path waterPath = std::filesystem::path("Mods") / "Base" / "Molecules" / "h2o.pdb";
+        const std::filesystem::path waterPath = std::filesystem::path("Mods") / "Base" / "Molecules" / "h2o.mol";
         expect(simulation.loadMoleculeTemplate("h2o", waterPath), "Water template should load");
 
         Lattice::SpawnOptions options;
