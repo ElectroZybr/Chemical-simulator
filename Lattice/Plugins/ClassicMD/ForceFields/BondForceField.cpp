@@ -88,7 +88,7 @@ bool BondForceField::tryCreateBond(AtomStorage& atoms, Bond::List& bonds, uint32
 
     uint8_t bondOrder = 0;
     const BondParams* bondParams = nullptr;
-    const uint8_t maxBondOrder = static_cast<uint8_t>(std::min<int>(availableValence, kBondOrderCount) - 1);
+    const uint8_t maxBondOrder = static_cast<uint8_t>(std::min<int>(availableValence, kBondOrderCount));
     for (int order = maxBondOrder; order >= 0; --order) {
         bondParams = BondOps::paramsFor(atoms, aIndex, bIndex, static_cast<uint8_t>(order));
         if (bondParams != nullptr) {
@@ -127,7 +127,7 @@ bool BondForceField::shouldBreak(const Bond& bond, const AtomStorage& atoms) {
 }
 
 void BondForceField::detachBond(const Bond& bond, AtomStorage& atomStorage) {
-    const uint8_t valenceCost = static_cast<uint8_t>(bond.order + 1);
+    const uint8_t valenceCost = static_cast<uint8_t>(bond.order);
     if (bond.aIndex < atomStorage.size()) {
         atomStorage.valence()[bond.aIndex] += valenceCost;
     }

@@ -35,7 +35,7 @@ Bond* create(Bond::List& bonds, size_t aIndex, size_t bIndex, uint8_t order, Ato
         return nullptr;
     }
 
-    const uint8_t valenceCost = static_cast<uint8_t>(order + 1);
+    const uint8_t valenceCost = static_cast<uint8_t>(order);
     if (atomStorage.valence()[aIndex] < valenceCost || atomStorage.valence()[bIndex] < valenceCost) {
         return nullptr;
     }

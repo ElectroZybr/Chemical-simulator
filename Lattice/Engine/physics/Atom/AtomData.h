@@ -69,6 +69,14 @@ public:
         Rg, Cn, Nh, Fl, Mc, Lv, Ts, Og,
         COUNT
     };
+
+    enum class Order : uint8_t {
+        None, 
+        Single,
+        Double,
+        Triple,
+        Quadruple
+    };
     // clang-format on
 
 private:

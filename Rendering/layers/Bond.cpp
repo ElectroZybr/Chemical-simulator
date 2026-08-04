@@ -45,14 +45,14 @@ void RendererWGPU::drawBondsImpl(const View::RenderAtomsView& atoms, const View:
 
             static constexpr float offset = 0.08f;
             switch (bond.order) {
-                case 0:
+                case 1:
                     appendLine(*ctx.verts, a, b);
                     break;
-                case 1:
+                case 2:
                     appendLine(*ctx.verts, a + normal * offset, b + normal * offset);
                     appendLine(*ctx.verts, a - normal * offset, b - normal * offset);
                     break;
-                case 2:
+                case 3:
                     appendLine(*ctx.verts, a, b);
                     appendLine(*ctx.verts,a + normal * offset, b + normal * offset);
                     appendLine(*ctx.verts,a - normal * offset, b - normal * offset);
