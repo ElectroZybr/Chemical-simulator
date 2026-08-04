@@ -1,7 +1,0 @@
-H2O
-LatticeLab water molecule
-HETATM    1  O   H2O     1       0.0000   0.0000   0.0000  1.00  0.00           O
-HETATM    2  H1  H2O     1       0.5860   0.7570   0.0000  1.00  0.00           H
-HETATM    3  H2  H2O     1       0.5860  -0.7570   0.0000  1.00  0.00           H
-CONECT    1    2    3
-END

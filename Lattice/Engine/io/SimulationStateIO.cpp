@@ -565,7 +565,7 @@ namespace {
             simulation.atoms().charge()[i] = atoms[i].charge;
         }
         for (const auto& [aIndex, bIndex] : bonds) {
-            simulation.addBond(aIndex, bIndex);
+            simulation.addBond(aIndex, bIndex, 0);
         }
 
         simulation.restoreRuntimeState(loadedStep, loadedTimeNs);

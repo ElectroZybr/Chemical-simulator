@@ -1,6 +1,0 @@
-F2
-LatticeLab fluorine molecule
-HETATM    1  F1  F2      1      -0.7100   0.0000   0.0000  1.00  0.00           F
-HETATM    2  F2  F2      1       0.7100   0.0000   0.0000  1.00  0.00           F
-CONECT    1    2
-END

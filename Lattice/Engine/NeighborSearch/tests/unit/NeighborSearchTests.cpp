@@ -189,10 +189,27 @@ namespace {
             expect(bondDistance(simulation, bond) < 2.0f, "Water bond should stay short after atom sorting/remap");
         }
     }
+
+    void testNeighborListRebuildsWhenOnlyFixedAtomsAreAdded() {
+        Lattice::Simulation simulation;
+        simulation.createWorld(glm::vec3(20.0f, 20.0f, 20.0f));
+
+        (void)simulation.appendAtomFast(glm::vec3(5.0f, 5.0f, 5.0f), glm::vec3(0.0f), AtomData::Type::H, false);
+        (void)simulation.appendAtomFast(glm::vec3(8.0f, 5.0f, 5.0f), glm::vec3(0.0f), AtomData::Type::H, false);
+        simulation.finishAtomBatch();
+        simulation.neighborList().rebuildPipeline(simulation.atoms(), simulation.world(), 0);
+
+        expect(!simulation.neighborList().needsRebuild(simulation.atoms()), "Freshly rebuilt neighbor list should be valid");
+
+        (void)simulation.appendAtomFast(glm::vec3(6.0f, 5.0f, 5.0f), glm::vec3(0.0f), AtomData::Type::H, true);
+
+        expect(simulation.neighborList().needsRebuild(simulation.atoms()), "Adding fixed atoms should invalidate neighbor list by atom count");
+    }
 }
 
 void runNeighborSearchTests() {
     testOctreeBuildChargeAndChildren();
     testCoulombFarFieldApproximation();
     testWaterMoleculeBondsStayLocalAfterNeighborSort();
+    testNeighborListRebuildsWhenOnlyFixedAtomsAreAdded();
 }

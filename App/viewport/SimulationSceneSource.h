@@ -15,7 +15,7 @@ namespace App::Viewport {
     inline void forEachWorldBond(const void* context, View::RenderBondVisitor visitor, void* userData) {
         const auto& bonds = *static_cast<const Bond::List*>(context);
         for (const Bond& bond : bonds) {
-            visitor(bond.aIndex, bond.bIndex, userData);
+            visitor({bond.aIndex, bond.bIndex, bond.order}, userData);
         }
     }
 

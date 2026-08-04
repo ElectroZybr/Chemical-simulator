@@ -36,6 +36,8 @@ namespace {
             DebugValue("Масса", DebugDrawers::Float<3>),
             DebugValue("Радиус", DebugDrawers::Float<3>),
             DebugValue("Тип", DebugDrawers::Int),
+            DebugValue("Валентность", DebugDrawers::Int),
+            DebugValue("К-во связей", DebugDrawers::Int),
         }));
     }
 

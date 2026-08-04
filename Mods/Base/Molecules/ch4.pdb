@@ -1,9 +1,0 @@
-CH4
-LatticeLab methane molecule
-HETATM    1  C   CH4     1       0.0000   0.0000   0.0000  1.00  0.00           C
-HETATM    2  H1  CH4     1       0.6290   0.6290   0.6290  1.00  0.00           H
-HETATM    3  H2  CH4     1      -0.6290  -0.6290   0.6290  1.00  0.00           H
-HETATM    4  H3  CH4     1      -0.6290   0.6290  -0.6290  1.00  0.00           H
-HETATM    5  H4  CH4     1       0.6290  -0.6290  -0.6290  1.00  0.00           H
-CONECT    1    2    3    4    5
-END

@@ -191,7 +191,7 @@ void Simulation::removeAtoms(std::vector<size_t> atomIndices) {
     world().removeAtoms(std::move(atomIndices));
 }
 
-void Simulation::addBond(size_t aIndex, size_t bIndex) { world().addBond(aIndex, bIndex); }
+void Simulation::addBond(size_t aIndex, size_t bIndex, uint8_t order) { world().addBond(aIndex, bIndex, order); }
 
 bool Simulation::loadMoleculeTemplate(std::string name, const std::filesystem::path& moleculePath) {
     if (name.empty()) {
@@ -331,7 +331,7 @@ bool Simulation::spawnMolecule(std::string_view speciesName, glm::vec3 start_coo
 
         for (const MoleculeBond& bond : molecule->bonds) {
             if (bond.atomA < createdIndices.size() && bond.atomB < createdIndices.size()) {
-                addBond(createdIndices[bond.atomA], createdIndices[bond.atomB]);
+                addBond(createdIndices[bond.atomA], createdIndices[bond.atomB], bond.order);
             }
         }
 
@@ -482,7 +482,7 @@ bool Simulation::randomSpawn(std::string_view speciesName, const SpawnOptions& o
 
                 for (const MoleculeBond& bond : molecule->bonds) {
                     if (bond.atomA < createdIndices.size() && bond.atomB < createdIndices.size()) {
-                        addBond(createdIndices[bond.atomA], createdIndices[bond.atomB]);
+                        addBond(createdIndices[bond.atomA], createdIndices[bond.atomB], bond.order);
                     }
                 }
 

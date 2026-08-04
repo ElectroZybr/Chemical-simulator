@@ -1,6 +1,0 @@
-HCl
-LatticeLab hydrogen chloride molecule
-HETATM    1  H   HCL     1      -0.6375   0.0000   0.0000  1.00  0.00           H
-HETATM    2 CL   HCL     1       0.6375   0.0000   0.0000  1.00  0.00          Cl
-CONECT    1    2
-END

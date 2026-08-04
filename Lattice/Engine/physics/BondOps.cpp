@@ -16,7 +16,7 @@ void ensureInitialized() {
 const BondParams* paramsFor(const AtomStorage& atomStorage, size_t aIndex, size_t bIndex, uint8_t order) {
     ensureInitialized();
 
-    if (aIndex >= atomStorage.size() || bIndex >= atomStorage.size()) {
+    if (aIndex >= atomStorage.size() || bIndex >= atomStorage.size() || order >= kBondOrderCount) {
         return nullptr;
     }
 
@@ -35,7 +35,8 @@ Bond* create(Bond::List& bonds, size_t aIndex, size_t bIndex, uint8_t order, Ato
         return nullptr;
     }
 
-    if (atomStorage.valence()[aIndex] <= 0 || atomStorage.valence()[bIndex] <= 0) {
+    const uint8_t valenceCost = static_cast<uint8_t>(order + 1);
+    if (atomStorage.valence()[aIndex] < valenceCost || atomStorage.valence()[bIndex] < valenceCost) {
         return nullptr;
     }
 
@@ -51,8 +52,8 @@ Bond* create(Bond::List& bonds, size_t aIndex, size_t bIndex, uint8_t order, Ato
     }
 
     bonds.emplace_back(aIndex, bIndex, order, *bondParams);
-    --atomStorage.valence()[aIndex];
-    --atomStorage.valence()[bIndex];
+    atomStorage.valence()[aIndex] -= valenceCost;
+    atomStorage.valence()[bIndex] -= valenceCost;
     return &bonds.back();
 }
 

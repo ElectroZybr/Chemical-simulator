@@ -79,7 +79,7 @@ void RendererWGPU::drawWorldPass(wgpu::TextureView targetView, wgpu::TextureView
     }
     if (renderData.drawBonds && !renderData.bonds.empty()) {
         setLineColor(glm::vec4(0.4f, 0.6f, 1.0f, 0.3f));
-        drawBondsImpl(renderData.atoms, renderData.bonds);
+        drawBondsImpl(renderData.atoms, renderData.bonds, view);
     }
     if (renderData.drawGrid && !renderData.grid.empty()) {
         drawGridImpl(renderData.grid);

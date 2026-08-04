@@ -1,6 +1,0 @@
-N2
-LatticeLab nitrogen molecule
-HETATM    1  N1  N2      1      -0.5500   0.0000   0.0000  1.00  0.00           N
-HETATM    2  N2  N2      1       0.5500   0.0000   0.0000  1.00  0.00           N
-CONECT    1    2
-END

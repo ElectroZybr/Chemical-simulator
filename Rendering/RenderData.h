@@ -36,8 +36,9 @@ struct RenderAtomsView {
 };
 
 struct RenderBond {
-    size_t aIndex = 0;
-    size_t bIndex = 0;
+    size_t aIndex;
+    size_t bIndex;
+    uint8_t order;
 };
 
 struct RenderGridCell {
@@ -46,7 +47,7 @@ struct RenderGridCell {
     float atomCount = 0.0f;
 };
 
-using RenderBondVisitor = void (*)(size_t aIndex, size_t bIndex, void* userData);
+using RenderBondVisitor = void (*)(const RenderBond&, void* userData);
 using RenderGridCellVisitor = void (*)(const RenderGridCell& cell, void* userData);
 
 struct RenderBondsView {

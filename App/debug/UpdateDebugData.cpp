@@ -44,6 +44,7 @@ void updateAtomSelectionDebug(const DebugViews& debugViews, const Lattice::Simul
             debugViews.atomSingle->add_data("Масса", AtomData::getProps(atomType).mass);
             debugViews.atomSingle->add_data("Радиус", AtomData::getProps(atomType).radius);
             debugViews.atomSingle->add_data("Тип", static_cast<int>(atomType));
+            debugViews.atomSingle->add_data("Валентность", atoms.valence()[selectedIndex]);
         }
     }
     else {

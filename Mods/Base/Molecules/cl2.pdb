@@ -1,6 +1,0 @@
-Cl2
-LatticeLab chlorine molecule
-HETATM    1 CL1  CL2     1      -0.9950   0.0000   0.0000  1.00  0.00          Cl
-HETATM    2 CL2  CL2     1       0.9950   0.0000   0.0000  1.00  0.00          Cl
-CONECT    1    2
-END

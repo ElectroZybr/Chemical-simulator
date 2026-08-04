@@ -88,11 +88,12 @@ void World::removeAtoms(std::vector<size_t> atomIndices) {
 
         for (auto it = bonds_.begin(); it != bonds_.end();) {
             if (it->aIndex == atomIndex || it->bIndex == atomIndex) {
+                const uint8_t valenceCost = static_cast<uint8_t>(it->order + 1);
                 if (it->aIndex == atomIndex && it->bIndex != atomIndex && it->bIndex < atomStorage_.size()) {
-                    ++atomStorage_.valence()[it->bIndex];
+                    atomStorage_.valence()[it->bIndex] += valenceCost;
                 }
                 if (it->bIndex == atomIndex && it->aIndex != atomIndex && it->aIndex < atomStorage_.size()) {
-                    ++atomStorage_.valence()[it->aIndex];
+                    atomStorage_.valence()[it->aIndex] += valenceCost;
                 }
                 it = bonds_.erase(it);
                 continue;

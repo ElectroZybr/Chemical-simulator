@@ -8,13 +8,18 @@ struct BondParams {
     float a = 0;
 };
 
+inline constexpr uint8_t kBondOrderCount = 3;
+
 struct BondTable {
     // Матрица параметров "тип1 -> тип2"
-    BondParams table[(int)AtomData::Type::COUNT][(int)AtomData::Type::COUNT][3];
+    BondParams table[(int)AtomData::Type::COUNT][(int)AtomData::Type::COUNT][kBondOrderCount];
 
     void init();
     // инициализация параметров для пары
     void set(AtomData::Type a, AtomData::Type b, uint8_t order, const BondParams& p) {
+        if (order >= kBondOrderCount) {
+            return;
+        }
         table[(int)a][(int)b][order] = p;
         table[(int)b][(int)a][order] = p; // симметрия
     }

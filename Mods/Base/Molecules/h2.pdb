@@ -1,6 +1,0 @@
-H2
-LatticeLab hydrogen molecule
-HETATM    1  H1  H2      1      -0.3707   0.0000   0.0000  1.00  0.00           H
-HETATM    2  H2  H2      1       0.3707   0.0000   0.0000  1.00  0.00           H
-CONECT    1    2
-END

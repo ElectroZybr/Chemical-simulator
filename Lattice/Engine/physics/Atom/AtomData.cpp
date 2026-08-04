@@ -54,7 +54,7 @@ const std::array<StaticAtomicData, static_cast<size_t>(AtomData::Type::COUNT)> A
     {9.0122f, 0.5f, 2, 0.0f, atomColor(194, 255, 0, 255), 3.20f, 0.10f, AtomData::Category::AlkalineEarthMetal},   // Be - Beryllium
     {10.810f, 0.5f, 3, 0.0f, atomColor(255, 181, 181, 255), 3.00f, 0.10f, AtomData::Category::Metalloid},          // B  - Boron
     {12.011f, 0.5f, 4, 0.0f, atomColor(144, 144, 144, 255), 3.40f, 0.12f, AtomData::Category::ReactiveNonmetal},   // C  - Carbon
-    {14.007f, 0.5f, 5, 0.0f, atomColor(48, 80, 248, 255), 3.20f, 0.11f, AtomData::Category::ReactiveNonmetal},     // N  - Nitrogen
+    {14.007f, 0.5f, 3, 0.0f, atomColor(48, 80, 248, 255), 3.20f, 0.11f, AtomData::Category::ReactiveNonmetal},     // N  - Nitrogen
     {15.999f, 0.5f, 2, -0.84f, atomColor(255, 13, 13, 255), 3.00f, 0.10f, AtomData::Category::ReactiveNonmetal},   // O  - Oxygen
     {18.998f, 0.5f, 1, 0.0f, atomColor(144, 224, 80, 255), 3.00f, 0.08f, AtomData::Category::Halogen},             // F  - Fluorine
     {20.180f, 0.5f, 0, 0.0f, atomColor(179, 227, 245, 255), 2.80f, 0.03f, AtomData::Category::NobleGas},          // Ne - Neon
@@ -65,7 +65,7 @@ const std::array<StaticAtomicData, static_cast<size_t>(AtomData::Type::COUNT)> A
     {28.085f, 0.5f, 4, 0.0f, atomColor(240, 200, 160, 255), 3.30f, 0.15f, AtomData::Category::Metalloid},          // Si - Silicon
     {30.974f, 0.5f, 5, 0.0f, atomColor(255, 128, 0, 255), 3.20f, 0.16f, AtomData::Category::ReactiveNonmetal},     // P  - Phosphorus
     {32.060f, 0.5f, 6, 0.0f, atomColor(255, 255, 48, 255), 3.20f, 0.18f, AtomData::Category::ReactiveNonmetal},    // S  - Sulfur
-    {35.450f, 0.5f, 7, -1.0f, atomColor(31, 240, 31, 255), 3.10f, 0.15f, AtomData::Category::Halogen},             // Cl - Chlorine
+    {35.450f, 0.5f, 1, -1.0f, atomColor(31, 240, 31, 255), 3.10f, 0.15f, AtomData::Category::Halogen},             // Cl - Chlorine
     {39.948f, 0.5f, 0, 0.0f, atomColor(128, 209, 227, 255), 3.00f, 0.07f, AtomData::Category::NobleGas},          // Ar - Argon
 
     {39.098f, 0.5f, 1, 0.0f, atomColor(143, 64, 212, 255), 4.80f, 0.18f, AtomData::Category::AlkaliMetal},         // K  - Potassium
@@ -84,7 +84,7 @@ const std::array<StaticAtomicData, static_cast<size_t>(AtomData::Type::COUNT)> A
     {72.630f, 0.5f, 4, 0.0f, atomColor(102, 143, 143, 255), 3.10f, 0.17f, AtomData::Category::Metalloid},          // Ge - Germanium
     {74.922f, 0.5f, 5, 0.0f, atomColor(189, 128, 227, 255), 3.00f, 0.16f, AtomData::Category::Metalloid},          // As - Arsenic
     {78.971f, 0.5f, 6, 0.0f, atomColor(255, 161, 0, 255), 3.00f, 0.16f, AtomData::Category::ReactiveNonmetal},    // Se - Selenium
-    {79.904f, 0.5f, 7, 0.0f, atomColor(166, 41, 41, 255), 3.00f, 0.15f, AtomData::Category::Halogen},             // Br - Bromine
+    {79.904f, 0.5f, 1, 0.0f, atomColor(166, 41, 41, 255), 3.00f, 0.15f, AtomData::Category::Halogen},             // Br - Bromine
     {83.798f, 0.5f, 0, 0.0f, atomColor(92, 184, 209, 255), 2.90f, 0.08f, AtomData::Category::NobleGas},           // Kr - Krypton
 
     {85.468f, 0.5f, 1, 0.0f, atomColor(143, 64, 212, 255), 4.90f, 0.20f, AtomData::Category::AlkaliMetal},         // Rb - Rubidium
@@ -103,7 +103,7 @@ const std::array<StaticAtomicData, static_cast<size_t>(AtomData::Type::COUNT)> A
     {118.71f, 0.5f, 4, 0.0f, atomColor(194, 143, 143, 255), 3.20f, 0.18f, AtomData::Category::PostTransitionMetal}, // Sn - Tin
     {121.76f, 0.5f, 5, 0.0f, atomColor(189, 128, 227, 255), 3.10f, 0.17f, AtomData::Category::Metalloid},          // Sb - Antimony
     {127.60f, 0.5f, 6, 0.0f, atomColor(255, 161, 0, 255), 3.10f, 0.17f, AtomData::Category::Metalloid},           // Te - Tellurium
-    {126.90f, 0.5f, 7, 0.0f, atomColor(166, 41, 41, 255), 3.00f, 0.16f, AtomData::Category::Halogen},             // I  - Iodine
+    {126.90f, 0.5f, 1, 0.0f, atomColor(166, 41, 41, 255), 3.00f, 0.16f, AtomData::Category::Halogen},             // I  - Iodine
     {131.29f, 0.5f, 0, 0.0f, atomColor(92, 184, 209, 255), 3.00f, 0.09f, AtomData::Category::NobleGas},           // Xe - Xenon
 
     {132.91f, 0.5f, 1, 0.0f, atomColor(143, 64, 212, 255), 5.20f, 0.22f, AtomData::Category::AlkaliMetal},         // Cs - Cesium

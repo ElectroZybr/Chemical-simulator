@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <array>
 #include <filesystem>
 
@@ -36,6 +37,42 @@ namespace {
 
         for (const Bond& bond : simulation.bonds()) {
             expect(bondDistance(simulation, bond) < 1.5f, "Directly spawned nitrogen bond should stay short");
+        }
+    }
+
+    void testMoleculeBondOrdersConsumeValence() {
+        {
+            Lattice::Simulation simulation;
+            simulation.createWorld(glm::vec3(20.0f, 20.0f, 20.0f));
+
+            const std::filesystem::path hydrogenPath = std::filesystem::path("Mods") / "Base" / "Molecules" / "h2.mol";
+            expect(simulation.loadMoleculeTemplate("h2", hydrogenPath), "Hydrogen template should load");
+            expect(simulation.spawnMolecule("h2", glm::vec3(10.0f, 10.0f, 10.0f), glm::mat3(1.0f), false), "Hydrogen spawn should succeed");
+            expect(simulation.bonds().front().order == 0, "Hydrogen should create a single bond");
+            expect(simulation.atoms().valence()[0] == 0 && simulation.atoms().valence()[1] == 0, "Single bond should consume one valence");
+        }
+
+        {
+            Lattice::Simulation simulation;
+            simulation.createWorld(glm::vec3(20.0f, 20.0f, 20.0f));
+
+            const std::filesystem::path carbonDioxidePath = std::filesystem::path("Mods") / "Base" / "Molecules" / "co2.mol";
+            expect(simulation.loadMoleculeTemplate("co2", carbonDioxidePath), "Carbon dioxide template should load");
+            expect(simulation.spawnMolecule("co2", glm::vec3(10.0f, 10.0f, 10.0f), glm::mat3(1.0f), false), "Carbon dioxide spawn should succeed");
+            expect(std::ranges::all_of(simulation.bonds(), [](const Bond& bond) { return bond.order == 1; }), "CO2 should create double bonds");
+            expect(simulation.atoms().valence()[0] == 0 && simulation.atoms().valence()[1] == 0 && simulation.atoms().valence()[2] == 0,
+                   "Double bonds should consume two valence slots each");
+        }
+
+        {
+            Lattice::Simulation simulation;
+            simulation.createWorld(glm::vec3(20.0f, 20.0f, 20.0f));
+
+            const std::filesystem::path nitrogenPath = std::filesystem::path("Mods") / "Base" / "Molecules" / "n2.mol";
+            expect(simulation.loadMoleculeTemplate("n2", nitrogenPath), "Nitrogen template should load");
+            expect(simulation.spawnMolecule("n2", glm::vec3(10.0f, 10.0f, 10.0f), glm::mat3(1.0f), false), "Nitrogen spawn should succeed");
+            expect(simulation.bonds().front().order == 2, "Nitrogen should create a triple bond");
+            expect(simulation.atoms().valence()[0] == 0 && simulation.atoms().valence()[1] == 0, "Triple bond should consume three valence slots");
         }
     }
 
@@ -105,6 +142,7 @@ namespace {
 void runPhysicsTests() {
     testSpawnWaterMoleculeCreatesLocalAtoms();
     testSpawnNitrogenMoleculeCreatesStableBond();
+    testMoleculeBondOrdersConsumeValence();
     testSpawnAdditionalDiatomicMoleculesCreateStableBond();
     testCheckedMoleculeSpawnRejectsBlockedPoint();
     testFixedAtomsParticipateInPairPhysics();

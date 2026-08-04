@@ -1,6 +1,0 @@
-CO
-LatticeLab carbon monoxide molecule
-HETATM    1  C   CO      1      -0.5640   0.0000   0.0000  1.00  0.00           C
-HETATM    2  O   CO      1       0.5640   0.0000   0.0000  1.00  0.00           O
-CONECT    1    2
-END

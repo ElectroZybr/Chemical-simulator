@@ -504,7 +504,7 @@ void AppStateIO::loadBinary(Lattice::Simulation& simulation, BaseRenderer& rende
     simulation.finishAtomBatch();
 
     for (const auto& [aIndex, bIndex] : simState.bonds) {
-        simulation.addBond(aIndex, bIndex);
+        simulation.addBond(aIndex, bIndex, 0);
     }
     simulation.restoreRuntimeState(simState.step, simState.time_ns);
     simulation.setWorldTitle(header.title);

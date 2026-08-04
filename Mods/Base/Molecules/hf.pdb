@@ -1,6 +1,0 @@
-HF
-LatticeLab hydrogen fluoride molecule
-HETATM    1  H   HF      1      -0.4585   0.0000   0.0000  1.00  0.00           H
-HETATM    2  F   HF      1       0.4585   0.0000   0.0000  1.00  0.00           F
-CONECT    1    2
-END

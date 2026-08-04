@@ -3,6 +3,14 @@
 #include <vector>
 
 #include "Rendering/backend/WGPUContext.h"
+#include "Renderer.h"
+
+namespace {
+void appendLine(std::vector<glm::vec3>& verts, glm::vec3 a, glm::vec3 b) {
+    verts.push_back(a);
+    verts.push_back(b);
+}
+}
 
 void RendererWGPU::initBondBuffer() {
     lineLayer_.bondVb = WGPUContext::instance().createBuffer(128, wgpu::BufferUsage::Vertex | wgpu::BufferUsage::CopyDst, "Bond_Geometry");
@@ -11,7 +19,7 @@ void RendererWGPU::initBondBuffer() {
     lineLayer_.phantomVbCapacity = 128;
 }
 
-void RendererWGPU::drawBondsImpl(const View::RenderAtomsView& atoms, const View::RenderBondsView& bonds) {
+void RendererWGPU::drawBondsImpl(const View::RenderAtomsView& atoms, const View::RenderBondsView& bonds, const glm::mat4& viewMatrix) {
     if (bonds.empty()) {
         return;
     }
@@ -19,23 +27,45 @@ void RendererWGPU::drawBondsImpl(const View::RenderAtomsView& atoms, const View:
     struct BondVertexBuildContext {
         const View::RenderAtomsView* atoms = nullptr;
         std::vector<glm::vec3>* verts = nullptr;
+        glm::vec3 view{};
 
-        static void append(size_t aIndex, size_t bIndex, void* userData) {
+        static void append(const View::RenderBond& bond, void* userData) {
             auto& ctx = *static_cast<BondVertexBuildContext*>(userData);
             const View::RenderAtomsView& atoms = *ctx.atoms;
-            if (aIndex >= atoms.count || bIndex >= atoms.count || !atoms.hasPositions()) {
+            if (bond.aIndex >= atoms.count || bond.bIndex >= atoms.count || !atoms.hasPositions()) {
                 return;
             }
 
-            ctx.verts->emplace_back(atoms.x[aIndex], atoms.y[aIndex], atoms.z[aIndex]);
-            ctx.verts->emplace_back(atoms.x[bIndex], atoms.y[bIndex], atoms.z[bIndex]);
+            glm::vec3 a(atoms.x[bond.aIndex], atoms.y[bond.aIndex], atoms.z[bond.aIndex]);
+            glm::vec3 b(atoms.x[bond.bIndex], atoms.y[bond.bIndex], atoms.z[bond.bIndex]);
+
+            // нормаль (связи всегда напрвлены к камере)
+            glm::vec3 dir = glm::normalize(b - a);
+            glm::vec3 normal = glm::normalize(glm::cross(dir, ctx.view));
+
+            static constexpr float offset = 0.08f;
+            switch (bond.order) {
+                case 0:
+                    appendLine(*ctx.verts, a, b);
+                    break;
+                case 1:
+                    appendLine(*ctx.verts, a + normal * offset, b + normal * offset);
+                    appendLine(*ctx.verts, a - normal * offset, b - normal * offset);
+                    break;
+                case 2:
+                    appendLine(*ctx.verts, a, b);
+                    appendLine(*ctx.verts,a + normal * offset, b + normal * offset);
+                    appendLine(*ctx.verts,a - normal * offset, b - normal * offset);
+                    break;
+            }
         }
     };
 
     std::vector<glm::vec3> verts;
     verts.reserve(bonds.count * 2);
-    BondVertexBuildContext buildContext{.atoms = &atoms, .verts = &verts};
+    BondVertexBuildContext buildContext{.atoms = &atoms, .verts = &verts, .view = -glm::vec3(viewMatrix[2])};
     bonds.forEach(BondVertexBuildContext::append, &buildContext);
+
     if (verts.empty()) {
         return;
     }

@@ -1,6 +1,0 @@
-Br2
-LatticeLab bromine molecule
-HETATM    1 BR1  BR2     1      -1.1400   0.0000   0.0000  1.00  0.00          Br
-HETATM    2 BR2  BR2     1       1.1400   0.0000   0.0000  1.00  0.00          Br
-CONECT    1    2
-END

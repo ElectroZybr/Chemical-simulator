@@ -38,6 +38,8 @@ struct SpawnOptions {
 
 class Simulation {
 public:
+    /* верхнеуровневый api взаимодействия с симуляцией
+       любое внешнее взаимодействие лучше делать через него */
     using WorldId = size_t;
 
     Simulation();
@@ -65,7 +67,7 @@ public:
     void createAtom(glm::vec3 start_coords, glm::vec3 start_speed, AtomData::Type type, bool fixed = false);
     void removeAtom(size_t atomIndex);
     void removeAtoms(std::vector<size_t> atomIndices);
-    void addBond(size_t aIndex, size_t bIndex);
+    void addBond(size_t aIndex, size_t bIndex, uint8_t order);
     bool loadMoleculeTemplate(std::string name, const std::filesystem::path& moleculePath);
     bool hasMoleculeTemplate(std::string_view name) const;
     [[nodiscard]] const MoleculeTemplate* findMoleculeTemplate(std::string_view name) const;

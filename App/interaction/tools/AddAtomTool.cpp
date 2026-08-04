@@ -34,6 +34,7 @@ void AddAtomTool::onLeftPressed(glm::ivec2 mousePos) {
 
     launchOrigin_ = spawnPos;
     launchedAtomId_ = ctx.simulation->appendAtomFast(launchOrigin_, glm::vec3(0.0f), atomType, false);
+    ctx.simulation->finishAtomBatch();
 }
 
 void AddAtomTool::onLeftReleased(glm::ivec2 mousePos) {

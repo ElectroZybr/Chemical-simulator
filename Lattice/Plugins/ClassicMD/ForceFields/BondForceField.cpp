@@ -6,10 +6,10 @@
 #include "Lattice/Engine/NeighborSearch/NeighborList.h"
 #include "Lattice/Engine/metrics/Profiler.h"
 #include "Lattice/Engine/physics/BondOps.h"
+#include <iostream>
 
 namespace {
 constexpr double kBondBreakDistance = 3.0;
-constexpr uint8_t kSingleBondOrder = 0;
 }
 
 void BondForceField::breakBond(Bond::List& bonds, Bond* bond, AtomStorage& atomStorage) {
@@ -81,7 +81,21 @@ bool BondForceField::tryCreateBond(AtomStorage& atoms, Bond::List& bonds, uint32
         return false;
     }
 
-    const BondParams* bondParams = BondOps::paramsFor(atoms, aIndex, bIndex, kSingleBondOrder);
+    const uint8_t availableValence = std::min(atoms.valence()[aIndex], atoms.valence()[bIndex]);
+    if (availableValence == 0) {
+        return false;
+    }
+
+    uint8_t bondOrder = 0;
+    const BondParams* bondParams = nullptr;
+    const uint8_t maxBondOrder = static_cast<uint8_t>(std::min<int>(availableValence, kBondOrderCount) - 1);
+    for (int order = maxBondOrder; order >= 0; --order) {
+        bondParams = BondOps::paramsFor(atoms, aIndex, bIndex, static_cast<uint8_t>(order));
+        if (bondParams != nullptr) {
+            bondOrder = static_cast<uint8_t>(order);
+            break;
+        }
+    }
     if (bondParams == nullptr) {
         return false;
     }
@@ -91,12 +105,13 @@ bool BondForceField::tryCreateBond(AtomStorage& atoms, Bond::List& bonds, uint32
     const float dz = atoms.z()[bIndex] - atoms.z()[aIndex];
     const float distanceSqr = dx * dx + dy * dy + dz * dz;
 
-    const float formationDistance = std::max(2.5f, bondParams->r0 * 1.35f);
+    // Расстояние образования связи
+    const float formationDistance = bondParams->r0 * 3.f;
     if (distanceSqr > formationDistance * formationDistance) {
         return false;
     }
 
-    return BondOps::create(bonds, aIndex, bIndex, kSingleBondOrder, atoms) != nullptr;
+    return BondOps::create(bonds, aIndex, bIndex, bondOrder, atoms) != nullptr;
 }
 
 bool BondForceField::shouldBreak(const Bond& bond, const AtomStorage& atoms) {
@@ -112,11 +127,12 @@ bool BondForceField::shouldBreak(const Bond& bond, const AtomStorage& atoms) {
 }
 
 void BondForceField::detachBond(const Bond& bond, AtomStorage& atomStorage) {
+    const uint8_t valenceCost = static_cast<uint8_t>(bond.order + 1);
     if (bond.aIndex < atomStorage.size()) {
-        ++atomStorage.valence()[bond.aIndex];
+        atomStorage.valence()[bond.aIndex] += valenceCost;
     }
     if (bond.bIndex < atomStorage.size()) {
-        ++atomStorage.valence()[bond.bIndex];
+        atomStorage.valence()[bond.bIndex] += valenceCost;
     }
 }
 

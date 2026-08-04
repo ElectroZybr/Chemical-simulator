@@ -94,7 +94,7 @@ private:
 
     void drawWorldPass(wgpu::TextureView targetView, wgpu::TextureView depthView, const RenderData& renderData, wgpu::LoadOp targetLoadOp, bool applySelection);
     void drawAtomsImpl(const View::RenderAtomsView& atoms, const RenderData& renderData, bool applySelection);
-    void drawBondsImpl(const View::RenderAtomsView& atoms, const View::RenderBondsView& bonds);
+    void drawBondsImpl(const View::RenderAtomsView& atoms, const View::RenderBondsView& bonds, const glm::mat4& viewMatrix);
     void drawBoxImpl(const glm::vec3& worldSize);
     void drawPhantomImpl(const std::vector<glm::vec3>& lines, bool dashed);
     void drawGridImpl(const View::RenderRectGridView& grid);
