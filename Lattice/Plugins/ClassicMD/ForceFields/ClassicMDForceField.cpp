@@ -116,7 +116,7 @@ void computePairInteractionsImpl(AtomStorage& atoms, const NeighborList& neighbo
 }
 } // namespace
 
-bool ClassicMDForceField::compute(World& world, bool allowBondFormation, float dt) const {
+bool ClassicMDForceField::compute(World& world, const ChemistryData& chemistryData, bool allowBondFormation, float dt) const {
     PROFILE_SCOPE("ForceField::compute");
 
     AtomStorage& atoms = world.getAtomStorage();
@@ -129,7 +129,7 @@ bool ClassicMDForceField::compute(World& world, bool allowBondFormation, float d
         coulombForceField_.computeLongRange(atoms, world.getGrid());
     }
 
-    return bondForceField_.compute(atoms, bonds, world.getNeighborList(), allowBondFormation, dt);
+    return bondForceField_.compute(atoms, bonds, world.getNeighborList(), chemistryData, allowBondFormation, dt);
 }
 
 IForceField::FieldSample ClassicMDForceField::fieldAtPoint(const AtomStorage& atoms, const SpatialGrid& grid, float x, float y, float z) const {

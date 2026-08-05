@@ -14,6 +14,7 @@
 #include "Lattice/Engine/io/SimulationStateIO.h"
 #include "Lattice/Engine/io/MoleculeMol.hpp"
 #include "Lattice/Engine/metrics/Profiler.h"
+#include "Lattice/Engine/physics/BondOps.h"
 
 namespace Lattice {
 namespace {
@@ -65,7 +66,9 @@ std::string normalizeAtomSymbol(std::string value) {
 
 } // namespace
 
-Simulation::Simulation() = default;
+Simulation::Simulation() {
+    chemistryData.init();
+};
 
 glm::mat3 Simulation::randomRotationMatrix() {
     static thread_local std::mt19937 rng(std::random_device{}());
@@ -96,6 +99,7 @@ Simulation::WorldId Simulation::createWorld(glm::vec3 size, glm::vec3 renderOffs
     if (worlds_.size() == 1) {
         activeWorldIndex_ = worldId;
     }
+    worlds_.back().setChemistryData(chemistryData);
     return worldId;
 }
 
@@ -191,7 +195,7 @@ void Simulation::removeAtoms(std::vector<size_t> atomIndices) {
     world().removeAtoms(std::move(atomIndices));
 }
 
-void Simulation::addBond(size_t aIndex, size_t bIndex, uint8_t order) { world().addBond(aIndex, bIndex, order); }
+void Simulation::addBond(size_t aIndex, size_t bIndex, uint8_t order) { world().addBond(aIndex, bIndex, order, chemistryData); }
 
 bool Simulation::loadMoleculeTemplate(std::string name, const std::filesystem::path& moleculePath) {
     if (name.empty()) {

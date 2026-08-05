@@ -49,7 +49,7 @@ void World::addAtom(const glm::vec3& start_coords, const glm::vec3& start_speed,
     invalidateVectorField();
 }
 
-void World::addBond(size_t aIndex, size_t bIndex, uint8_t order) { BondOps::create(bonds_, aIndex, bIndex, order, atomStorage_); }
+void World::addBond(size_t aIndex, size_t bIndex, uint8_t order, const ChemistryData& chemistryData) { BondOps::create(bonds_, aIndex, bIndex, order, atomStorage_, chemistryData); }
 
 void World::remapAtomIndices(std::span<const uint32_t> oldToNew) {
     if (oldToNew.empty()) {
@@ -178,6 +178,7 @@ void World::update() {
         .forceField = state_.forceField_,
         .neighborList = neighborList_,
         .thermostat = state_.thermostat.activeThermostat(),
+        .chemistryData = state_.chemistryData,
         .allowBondFormation = state_.bondFormationEnabled_,
         .bondsChanged = false,
         .dt = state_.Dt,

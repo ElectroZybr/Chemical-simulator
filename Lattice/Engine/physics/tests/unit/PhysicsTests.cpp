@@ -129,7 +129,7 @@ namespace {
         std::fill(simulation.atoms().fz().begin(), simulation.atoms().fz().end(), 0.0f);
         std::fill(simulation.atoms().energy().begin(), simulation.atoms().energy().end(), 0.0f);
 
-        (void)simulation.forceField().compute(world, false, simulation.getDt());
+        (void)simulation.forceField().compute(world, world.getState().chemistryData, false, simulation.getDt());
         expect(std::fabs(simulation.atoms().fx()[1]) > 1e-4f, "Fixed atom should receive non-zero pair force");
         expect(isClose(simulation.atoms().fx()[0], -simulation.atoms().fx()[1], 1e-4f), "Pair force should satisfy Newton's third law");
 

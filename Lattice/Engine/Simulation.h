@@ -14,6 +14,7 @@
 #include "Lattice/Engine/World.h"
 #include "Lattice/Engine/io/MoleculeTemplate.h"
 #include "Lattice/Engine/io/XYZRecordingSession.h"
+#include "Lattice/Engine/ChemistryData/ChemistryData.hpp"
 
 namespace Lattice {
 
@@ -167,5 +168,7 @@ private:
     XYZRecordingSession xyzRecording_;
     bool atomBatchActive_ = false;
     bool atomBatchDirty_ = false;
+    // ToDo перенести владение chemistryData в ForceField
+    ChemistryData chemistryData;
 };
 }

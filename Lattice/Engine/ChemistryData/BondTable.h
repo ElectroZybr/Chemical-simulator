@@ -23,20 +23,5 @@ struct BondTable {
         table[(uint8_t)a][(uint8_t)b][(uint8_t)order - 1] = p;
         table[(uint8_t)b][(uint8_t)a][(uint8_t)order - 1] = p; // симметрия
     }
-    const BondParams& get(AtomData::Type a, AtomData::Type b, uint8_t order) const { return table[(uint8_t)a][(uint8_t)b][order - 1]; }
-};
-
-struct AngleTable {
-    // Матрица параметров "тип1 -> тип2"
-    BondParams table[(uint8_t)AtomData::Type::COUNT][(uint8_t)AtomData::Type::COUNT];
-
-    void init();
-    // инициализация параметров для пары
-    void set(AtomData::Type a, AtomData::Type b, const BondParams& p) {
-        table[(uint8_t)a][(uint8_t)b] = p;
-        table[(uint8_t)b][(uint8_t)a] = p; // симметрия
-    }
-
-    // получить параметры
-    const BondParams& get(AtomData::Type a, AtomData::Type b) const { return table[(uint8_t)a][(uint8_t)b]; }
+    const BondParams* get(AtomData::Type a, AtomData::Type b, uint8_t order) const { return &table[(uint8_t)a][(uint8_t)b][order - 1]; }
 };

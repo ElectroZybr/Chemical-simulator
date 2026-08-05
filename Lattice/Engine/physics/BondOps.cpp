@@ -1,36 +1,11 @@
-#include "BondOps.h"
-
 #include <algorithm>
 
+#include "BondOps.h"
+#include "Lattice/Engine/ChemistryData/BondTable.h"
+
 namespace BondOps {
-BondTable bondDefaultProps{};
 
-void ensureInitialized() {
-    static const bool initialized = [] {
-        bondDefaultProps.init();
-        return true;
-    }();
-    (void)initialized;
-} // namespace
-
-const BondParams* paramsFor(const AtomStorage& atomStorage, size_t aIndex, size_t bIndex, uint8_t order) {
-    ensureInitialized();
-
-    if (aIndex >= atomStorage.size() || bIndex >= atomStorage.size() || order >= kBondOrderCount) {
-        return nullptr;
-    }
-
-    const BondParams& params = bondDefaultProps.get(atomStorage.type()[aIndex], atomStorage.type()[bIndex], order);
-    if (params.r0 <= 0.0f || params.a <= 0.0f || params.De <= 0.0f) {
-        return nullptr;
-    }
-
-    return &params;
-}
-
-Bond* create(Bond::List& bonds, size_t aIndex, size_t bIndex, uint8_t order, AtomStorage& atomStorage) {
-    ensureInitialized();
-
+Bond* create(Bond::List& bonds, size_t aIndex, size_t bIndex, uint8_t order, AtomStorage& atomStorage, const ChemistryData& chemistryData) {
     if (aIndex >= atomStorage.size() || bIndex >= atomStorage.size() || aIndex == bIndex) {
         return nullptr;
     }
@@ -46,7 +21,8 @@ Bond* create(Bond::List& bonds, size_t aIndex, size_t bIndex, uint8_t order, Ato
         return nullptr;
     }
 
-    const BondParams* bondParams = paramsFor(atomStorage, aIndex, bIndex, order);
+    const BondParams* bondParams = chemistryData.bondTable.get(atomStorage.type()[aIndex], atomStorage.type()[bIndex], order);
+    
     if (bondParams == nullptr) {
         return nullptr;
     }

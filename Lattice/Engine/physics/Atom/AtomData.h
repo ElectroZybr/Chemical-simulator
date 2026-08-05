@@ -77,6 +77,17 @@ public:
         Triple,
         Quadruple
     };
+
+    enum class Hybridization : uint8_t {
+        None,
+        S,
+        SP,
+        SP2,
+        SP3,
+        SP3D,
+        SP3D2,
+        SP3D3
+    };
     // clang-format on
 
 private:

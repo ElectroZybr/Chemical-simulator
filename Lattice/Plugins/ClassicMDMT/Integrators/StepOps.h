@@ -82,7 +82,7 @@ namespace StepOps {
 
     inline void computeForces(StepContext& stepContext) {
         PROFILE_SCOPE("StepOps::computeForces");
-        stepContext.bondsChanged = stepContext.forceField.compute(stepContext.world, stepContext.allowBondFormation, stepContext.dt) || stepContext.bondsChanged;
+        stepContext.bondsChanged = stepContext.forceField.compute(stepContext.world, stepContext.chemistryData, stepContext.allowBondFormation, stepContext.dt) || stepContext.bondsChanged;
     }
 
     inline void applyThermostat(StepContext& stepContext) {

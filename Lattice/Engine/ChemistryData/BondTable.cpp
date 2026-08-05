@@ -1,8 +1,10 @@
 #include "BondTable.h"
+#include "Lattice/Log.hpp"
 
 void BondTable::init() {
     using T = AtomData::Type;
     using O = AtomData::Order;
+    
     // H                order                 r0     De    alpha
     set(T::H,  T::H,  O::Single, BondParams{0.741f, 4.52f, 1.94f}); // H-H
     set(T::H,  T::F,  O::Single, BondParams{0.917f, 5.87f, 2.15f}); // H-F
@@ -39,4 +41,6 @@ void BondTable::init() {
     set(T::F,  T::F,  O::Single, BondParams{1.420f, 1.60f, 1.50f}); // F-F
     set(T::Cl, T::Cl, O::Single, BondParams{1.990f, 2.50f, 1.40f}); // Cl-Cl
     set(T::Br, T::Br, O::Single, BondParams{2.280f, 1.90f, 1.30f}); // Br-Br
+
+    Log::info("BondTable", "bond table has been initialized");
 }

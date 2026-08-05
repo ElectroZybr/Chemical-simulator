@@ -16,6 +16,7 @@
 #include "Lattice/Engine/physics/IIntegrator.h"
 #include "Lattice/Engine/physics/IThermostat.h"
 #include "Lattice/Engine/physics/VectorField.h"
+#include "Lattice/Engine/ChemistryData/ChemistryData.hpp"
 
 class World {
 public:
@@ -47,6 +48,7 @@ public:
     void setNeighborListSkin(float skin) { neighborList_.setSkin(skin); }
     float getNeighborListSkin() const noexcept { return neighborList_.skin(); }
     float getNeighborListRadius() const noexcept { return neighborList_.listRadius(); }
+    void setChemistryData(const ChemistryData& chemistryData) {state_.chemistryData = chemistryData; }
 
     bool isLJEnabled() const { return ljEnabled; }
     void setLJEnabled(bool v) { ljEnabled = v; }
@@ -68,7 +70,7 @@ public:
     const NeighborList& getNeighborList() const noexcept { return neighborList_; }
 
     void addAtom(const glm::vec3& start_coords, const glm::vec3& start_speed, AtomData::Type type, bool fixed);
-    void addBond(size_t aIndex, size_t bIndex, uint8_t order = 0);
+    void addBond(size_t aIndex, size_t bIndex, uint8_t order, const ChemistryData& chemistryData);
     void removeAtom(size_t atomIndex);
     void removeAtoms(std::vector<size_t> atomIndices);
     void setAtomsFixed(std::span<const AtomStorage::AtomId> atomIds, bool fixed);
@@ -101,6 +103,7 @@ public:
         Integrator integrator;
         Thermostat thermostat;
         ForceField forceField_;
+        ChemistryData chemistryData;
         float Dt = 0.01f;
         size_t sim_step = 0;
         float sim_time_ns = 0.0f;

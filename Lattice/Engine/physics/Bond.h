@@ -3,7 +3,7 @@
 #include <cstddef>
 #include <list>
 
-#include "Lattice/Engine/physics/BondTable.h"
+#include "Lattice/Engine/ChemistryData/BondTable.h"
 
 struct Bond {
     using List = std::list<Bond>;

@@ -24,7 +24,7 @@ void BondForceField::breakBond(Bond::List& bonds, Bond* bond, AtomStorage& atomS
     }
 }
 
-bool BondForceField::compute(AtomStorage& atoms, Bond::List& bonds, const NeighborList& neighborList, bool allowBondFormation, float dt) const {
+bool BondForceField::compute(AtomStorage& atoms, Bond::List& bonds, const NeighborList& neighborList, const ChemistryData& chemistryData, bool allowBondFormation, float dt) const {
     PROFILE_SCOPE("ForceField::Bonded");
     if (bonds.empty() && !allowBondFormation) {
         return false;
@@ -42,18 +42,18 @@ bool BondForceField::compute(AtomStorage& atoms, Bond::List& bonds, const Neighb
     });
 
     if (allowBondFormation) {
-        changed = formBonds(atoms, bonds, neighborList) || changed;
+        changed = formBonds(atoms, bonds, neighborList, chemistryData) || changed;
     }
 
     for (Bond& bond : bonds) {
         applyBondForce(bond, atoms, dt);
     }
 
-    applyAngleForces(atoms, bonds);
+    applyAngleForces(atoms, bonds, chemistryData);
     return changed;
 }
 
-bool BondForceField::formBonds(AtomStorage& atoms, Bond::List& bonds, const NeighborList& neighborList) const {
+bool BondForceField::formBonds(AtomStorage& atoms, Bond::List& bonds, const NeighborList& neighborList, const ChemistryData& chemistryData) const {
     PROFILE_SCOPE("ForceField::FormBonds(NL)");
     const uint32_t atomCount = static_cast<uint32_t>(atoms.size());
     if (atomCount < 2) {
@@ -70,13 +70,13 @@ bool BondForceField::formBonds(AtomStorage& atoms, Bond::List& bonds, const Neig
         const uint32_t begin = offsets[atomIndex];
         const uint32_t end = offsets[atomIndex + 1];
         for (uint32_t p = begin; p < end; ++p) {
-            changed = tryCreateBond(atoms, bonds, atomIndex, neighbours[p]) || changed;
+            changed = tryCreateBond(atoms, bonds, atomIndex, neighbours[p], chemistryData) || changed;
         }
     }
     return changed;
 }
 
-bool BondForceField::tryCreateBond(AtomStorage& atoms, Bond::List& bonds, uint32_t aIndex, uint32_t bIndex) const {
+bool BondForceField::tryCreateBond(AtomStorage& atoms, Bond::List& bonds, uint32_t aIndex, uint32_t bIndex, const ChemistryData& chemistryData) const {
     if (aIndex >= atoms.size() || bIndex >= atoms.size() || aIndex == bIndex) {
         return false;
     }
@@ -90,7 +90,7 @@ bool BondForceField::tryCreateBond(AtomStorage& atoms, Bond::List& bonds, uint32
     const BondParams* bondParams = nullptr;
     const uint8_t maxBondOrder = static_cast<uint8_t>(std::min<int>(availableValence, kBondOrderCount));
     for (int order = maxBondOrder; order >= 0; --order) {
-        bondParams = BondOps::paramsFor(atoms, aIndex, bIndex, static_cast<uint8_t>(order));
+        bondParams = chemistryData.bondTable.get(atoms.type()[aIndex], atoms.type()[bIndex], order);
         if (bondParams != nullptr) {
             bondOrder = static_cast<uint8_t>(order);
             break;
@@ -111,7 +111,7 @@ bool BondForceField::tryCreateBond(AtomStorage& atoms, Bond::List& bonds, uint32
         return false;
     }
 
-    return BondOps::create(bonds, aIndex, bIndex, bondOrder, atoms) != nullptr;
+    return BondOps::create(bonds, aIndex, bIndex, bondOrder, atoms, chemistryData) != nullptr;
 }
 
 bool BondForceField::shouldBreak(const Bond& bond, const AtomStorage& atoms) {
@@ -171,7 +171,7 @@ void BondForceField::applyBondForce(const Bond& bond, AtomStorage& atomStorage, 
     atomStorage.fz()[bond.bIndex] -= static_cast<float>(forceZ);
 }
 
-void BondForceField::applyAngleForce(AtomStorage& atomStorage, size_t aIndex, size_t bIndex, size_t cIndex) {
+void BondForceField::applyAngleForce(AtomStorage& atomStorage, size_t aIndex, size_t bIndex, size_t cIndex, const ChemistryData& chemistryData) {
     const double ox = atomStorage.x()[aIndex];
     const double oy = atomStorage.y()[aIndex];
     const double oz = atomStorage.z()[aIndex];
@@ -210,6 +210,7 @@ void BondForceField::applyAngleForce(AtomStorage& atomStorage, size_t aIndex, si
     }
 
     double angle_theta = std::acos(cos_theta);
+    // {atomStorage.type()[aIndex], atomStorage.type()[bIndex], atomStorage.type()[cIndex],}
     constexpr double theta_0 = 104.5 / 180.0 * std::numbers::pi;
     double angle_loss = angle_theta - theta_0;
 
@@ -240,7 +241,7 @@ void BondForceField::applyAngleForce(AtomStorage& atomStorage, size_t aIndex, si
     atomStorage.fz()[aIndex] += static_cast<float>(force_o_z);
 }
 
-void BondForceField::applyAngleForces(AtomStorage& atoms, const Bond::List& bonds) {
+void BondForceField::applyAngleForces(AtomStorage& atoms, const Bond::List& bonds, const ChemistryData& chemistryData) {
     if (bonds.size() < 2) {
         return;
     }
@@ -275,7 +276,7 @@ void BondForceField::applyAngleForces(AtomStorage& atoms, const Bond::List& bond
 
         for (size_t i = 0; i + 1 < neighbours.size(); ++i) {
             for (size_t j = i + 1; j < neighbours.size(); ++j) {
-                applyAngleForce(atoms, atomIndex, neighbours[i], neighbours[j]);
+                applyAngleForce(atoms, atomIndex, neighbours[i], neighbours[j], chemistryData);
             }
         }
     }
