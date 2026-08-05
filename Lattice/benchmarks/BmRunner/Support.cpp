@@ -22,7 +22,7 @@ namespace Benchmarks::BmRunner {
         };
 
         bool isBenchmarksDir(const fs::path& dir) {
-            return fs::exists(dir / "CMakeLists.txt") && fs::exists(dir / "BmRunner" / "BenchmarkMain.cpp") && fs::exists(dir / "BmRunner")
+            return fs::exists(dir / "CMakeLists.txt") && fs::exists(dir / "BmRunner" / "Main.cpp") && fs::exists(dir / "BmRunner")
                 && fs::exists(dir / "SceneBuilder.cpp");
         }
     }

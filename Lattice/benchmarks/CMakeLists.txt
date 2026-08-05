@@ -11,7 +11,7 @@ file(GLOB_RECURSE BENCHMARK_SOURCES CONFIGURE_DEPENDS
     "rendering/*.cpp"
     "BmRunner/Support.cpp"
     "SceneBuilder.cpp"
-    "BmRunner/BenchmarkMain.cpp"
+    "BmRunner/Main.cpp"
 )
 
 list(APPEND BENCHMARK_SOURCES ${RENDERING_BENCHMARK_SOURCES})

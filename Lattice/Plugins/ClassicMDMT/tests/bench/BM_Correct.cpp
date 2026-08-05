@@ -1,10 +1,13 @@
 #include <benchmark/benchmark.h>
 
+#include "Fixture.h"
 #include "Lattice/Plugins/ClassicMDMT/Integrators/StepOps.h"
 #include "Lattice/Plugins/ClassicMDMT/Integrators/Verlet.h"
 
+using Fixture = Benchmarks::Fixture;
+
 // @bench_meta {"id":"Fixture/CorrectMT","label":"Correct MT","group":"Simulation/Integrator"}
-BENCHMARK_DEFINE_F(FixtureMT, CorrectMT)(benchmark::State& state) {
+BENCHMARK_DEFINE_F(Fixture, CorrectMT)(benchmark::State& state) {
     prepareForCorrect();
 
     for (auto _ : state) {
@@ -15,7 +18,7 @@ BENCHMARK_DEFINE_F(FixtureMT, CorrectMT)(benchmark::State& state) {
     setCounters(state);
 }
 
-BENCHMARK_REGISTER_F(FixtureMT, CorrectMT)
+BENCHMARK_REGISTER_F(Fixture, CorrectMT)
     ->Arg(5)
     ->Arg(10)
     ->Arg(22)

@@ -185,9 +185,9 @@ namespace Benchmarks::BmRunner {
                                      const std::unordered_map<std::string, BenchmarkMeta>& metadata,
                                      std::string_view sceneKey,
                                      std::string_view degradationKey) {
-            if (degradationKey != "size") {
-                return;
-            }
+            // Previously complexity estimate was shown only for `--degradation size`.
+            // Show complexity estimate for all degradation modes when there are
+            // numeric size arguments to fit against.
 
             std::unordered_map<std::string, std::vector<std::pair<std::int64_t, double>>> grouped;
 
@@ -322,8 +322,9 @@ namespace Benchmarks::BmRunner {
         }
 
         const fs::path baselinePath = resultsPath / "baseline.json";
-        const bool allowBaseline = degradationKey == "size";
-        const auto baselineData = allowBaseline ? loadBenchmarkDataIfExists(baselinePath) : std::optional<BenchmarkData>{};
+        // Always allow baseline comparison (previously only for degradation == "size").
+        const bool allowBaseline = true;
+        const auto baselineData = loadBenchmarkDataIfExists(baselinePath);
         const auto baselineRows = baselineData ? buildRows(*baselineData) : std::unordered_map<std::string, RowMetrics>{};
         const bool hasBaseline = baselineData.has_value();
 

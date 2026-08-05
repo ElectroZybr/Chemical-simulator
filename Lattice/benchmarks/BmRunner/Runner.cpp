@@ -207,6 +207,15 @@ namespace Benchmarks::BmRunner {
                 std::error_code ec;
                 fs::remove(stderrPath, ec);
             }
+            // Echo captured output for interactive runs so the user sees test output
+            if (::isatty(STDOUT_FILENO)) {
+                if (!output.stdoutText.empty()) {
+                    std::cout << output.stdoutText;
+                }
+                if (!output.stderrText.empty()) {
+                    std::cerr << output.stderrText;
+                }
+            }
             return output;
         }
 
@@ -833,8 +842,7 @@ int main(int argc, char** argv) {
     const auto data = Benchmarks::BmRunner::runBenchmarks(config, repoRoot, benchmarksRoot);
     Benchmarks::BmRunner::printResultsTable(
         data, metadata, Benchmarks::BmRunner::resultsDir(benchmarksRoot), config.scene, config.degradation);
-    if (config.degradation == "size") {
-        Benchmarks::BmRunner::maybeUpdateBaseline(data, Benchmarks::BmRunner::resultsDir(benchmarksRoot));
-    }
+    // Prompt to update baseline after showing results (interactive only).
+    Benchmarks::BmRunner::maybeUpdateBaseline(data, Benchmarks::BmRunner::resultsDir(benchmarksRoot));
     return 0;
 }
