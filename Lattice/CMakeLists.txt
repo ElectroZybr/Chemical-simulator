@@ -81,7 +81,18 @@ target_compile_definitions(Lattice-cli PRIVATE
     LL_CLI_COMPILER="${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}"
 )
 
-add_subdirectory(tests)
+if(LATTICE_BUILD_TESTS)
+    add_subdirectory(tests)
+endif()
+
+if(LATTICE_BUILD_TESTS)
+    add_custom_command(
+        TARGET LatticeTests
+        POST_BUILD
+        COMMAND ${CMAKE_CTEST_COMMAND}
+        --output-on-failure
+    )
+endif()
 
 if(BUILD_BENCHMARKS)
     CPMAddPackage(

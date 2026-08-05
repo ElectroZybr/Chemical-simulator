@@ -13,7 +13,8 @@
       "binaryDir": "${sourceDir}/build/${presetName}",
       "cacheVariables": {
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
-        "OPTIMIZE_FOR_NATIVE": "ON"
+        "OPTIMIZE_FOR_NATIVE": "ON",
+        "LATTICE_BUILD_TESTS": "ON"
       }
     },
     {

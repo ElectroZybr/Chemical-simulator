@@ -226,3 +226,19 @@ if(TARGET libzstd_static)
         $<$<C_COMPILER_ID:GNU>:-Wno-maybe-uninitialized>
     )
 endif()
+
+# --- Настройка тестов ---
+option(LATTICE_BUILD_TESTS "Build tests" OFF)
+
+if(LATTICE_BUILD_TESTS)
+    enable_testing()
+
+    # --- Настройка Catch2 ---
+    CPMAddPackage(
+        NAME Catch2
+        URL https://github.com/catchorg/Catch2/archive/refs/tags/v3.8.1.zip
+        OPTIONS
+            "CATCH_BUILD_TESTING OFF"
+    )
+    list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/extras)
+endif()
