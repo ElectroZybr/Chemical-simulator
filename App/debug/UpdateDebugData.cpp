@@ -45,6 +45,35 @@ void updateAtomSelectionDebug(const DebugViews& debugViews, const Lattice::Simul
             debugViews.atomSingle->add_data("Радиус", AtomData::getProps(atomType).radius);
             debugViews.atomSingle->add_data("Тип", static_cast<int>(atomType));
             debugViews.atomSingle->add_data("Валентность", atoms.valence()[selectedIndex]);
+            std::string hybrid_name;
+            uint8_t hybridization = atoms.hybridization()[selectedIndex];
+            switch (hybridization) {
+            case 1:
+                hybrid_name = "S";
+                break;
+            case 2:
+                hybrid_name = "SP";
+                break;
+            case 3:
+                hybrid_name = "SP2";
+                break;
+            case 4:
+                hybrid_name = "SP3";
+                break;
+            case 5:
+                hybrid_name = "SP3D";
+                break;
+            case 6:
+                hybrid_name = "SP3D2";
+                break;
+            case 7:
+                hybrid_name = "SP3D3";
+                break;
+            default:
+                hybrid_name = "None";
+                break;
+            }
+            debugViews.atomSingle->add_data("Гибридизация", hybrid_name);
         }
     }
     else {

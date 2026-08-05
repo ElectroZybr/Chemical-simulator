@@ -139,8 +139,8 @@ public:
 
     // Быстрое создание большого количества атомов
     void reserveAtoms(size_t count) { world().reserveAtoms(count); }
-    [[nodiscard]] AtomStorage::AtomId appendAtomFast(glm::vec3 startCoords, glm::vec3 startSpeed, AtomData::Type type, bool fixed = false) {
-        return world().appendAtomFast(startCoords, startSpeed, type, fixed);
+    [[nodiscard]] AtomStorage::AtomId appendAtomFast(glm::vec3 startCoords, glm::vec3 startSpeed, AtomData::Type type, bool fixed = false, AtomData::Hybridization hybridization = AtomData::Hybridization::None) {
+        return world().appendAtomFast(startCoords, startSpeed, type, fixed, hybridization);
     }
     void beginAtomBatch() {
         atomBatchActive_ = true;

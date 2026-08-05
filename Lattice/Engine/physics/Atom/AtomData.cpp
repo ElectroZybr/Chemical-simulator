@@ -44,6 +44,72 @@ constexpr std::array<std::string_view, static_cast<size_t>(AtomData::Type::COUNT
     "Roentgenium", "Copernicium", "Nihonium", "Flerovium", "Moscovium", "Livermorium", "Tennessine", "Oganesson",
 }};
 
+// valence electrons, lone pairs
+constexpr std::array<StaticAtomState, static_cast<size_t>(AtomData::Type::COUNT)> kAtomState = {{
+    {0, 0}, // Ze
+
+    {1, 0}, // H
+    {2, 1}, // He
+
+    {1, 0}, // Li
+    {2, 0}, // Be
+    {3, 0}, // B
+    {4, 0}, // C
+    {5, 1}, // N
+    {6, 2}, // O
+    {7, 3}, // F
+    {8, 4}, // Ne
+
+    {1, 0}, // Na
+    {2, 0}, // Mg
+    {3, 0}, // Al
+    {4, 0}, // Si
+    {5, 1}, // P
+    {6, 2}, // S
+    {7, 3}, // Cl
+    {8, 4}, // Ar
+
+    {1, 0}, // K
+    {2, 0}, // Ca
+    {1, 0}, // Sc
+    {2, 0}, // Ti
+    {2, 0}, // V
+    {1, 0}, // Cr
+    {2, 0}, // Mn
+    {2, 0}, // Fe
+    {2, 0}, // Co
+    {2, 0}, // Ni
+    {1, 0}, // Cu
+    {2, 0}, // Zn
+
+    {3, 0}, // Ga
+    {4, 0}, // Ge
+    {5, 1}, // As
+    {6, 2}, // Se
+    {7, 3}, // Br
+    {8, 4}, // Kr
+
+    {1, 0}, // Rb
+    {2, 0}, // Sr
+    {3, 0}, // Y
+    {4, 0}, // Zr
+    {5, 0}, // Nb
+    {6, 0}, // Mo
+    {7, 0}, // Tc
+    {8, 0}, // Ru
+    {9, 0}, // Rh
+    {10,0}, // Pd
+    {1, 0}, // Ag
+    {2, 0}, // Cd
+
+    {3, 0}, // In
+    {4, 0}, // Sn
+    {5, 1}, // Sb
+    {6, 2}, // Te
+    {7, 3}, // I
+    {8, 4}, // Xe
+}};
+
 const std::array<StaticAtomicData, static_cast<size_t>(AtomData::Type::COUNT)> AtomData::properties = {{
     {1.0000f, 0.5f, 1, 0.0f, atomColor(0, 230, 170, 255), 2.00f, 15.0f, AtomData::Category::Custom}, // Ze - Zerium
 
@@ -225,4 +291,9 @@ std::string_view AtomData::categoryName(Category category) {
         return "Unknown";
     }
     return "Unknown";
+}
+
+StaticAtomState AtomData::atomState(Type type) {
+    const size_t index = static_cast<size_t>(type);
+    return kAtomState[index];
 }

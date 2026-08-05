@@ -8,21 +8,21 @@
 #include "Lattice/Engine/physics/BondOps.h"
 #include <iostream>
 
-namespace {
-constexpr double kBondBreakDistance = 3.0;
-}
+// namespace {
+// constexpr double kBondBreakDistance = 3.0;
+// }
 
-void BondForceField::breakBond(Bond::List& bonds, Bond* bond, AtomStorage& atomStorage) {
-    if (!bond) {
-        return;
-    }
+// void BondForceField::breakBond(Bond::List& bonds, Bond* bond, AtomStorage& atomStorage) {
+//     if (!bond) {
+//         return;
+//     }
 
-    detachBond(*bond, atomStorage);
+//     detachBond(*bond, atomStorage);
 
-    if (auto it = std::ranges::find_if(bonds, [bond](const Bond& currentBond) { return &currentBond == bond; }); it != bonds.end()) {
-        bonds.erase(it);
-    }
-}
+//     if (auto it = std::ranges::find_if(bonds, [bond](const Bond& currentBond) { return &currentBond == bond; }); it != bonds.end()) {
+//         bonds.erase(it);
+//     }
+// }
 
 bool BondForceField::compute(AtomStorage& atoms, Bond::List& bonds, const NeighborList& neighborList, const ChemistryData& chemistryData, bool allowBondFormation, float dt) const {
     PROFILE_SCOPE("ForceField::Bonded");
@@ -32,18 +32,18 @@ bool BondForceField::compute(AtomStorage& atoms, Bond::List& bonds, const Neighb
 
     // проверка образования и разрыва связей, а также расчет сил
     bool changed = false;
-    std::erase_if(bonds, [&](Bond& bond) {
-        if (shouldBreak(bond, atoms)) {
-            detachBond(bond, atoms);
-            changed = true;
-            return true;
-        }
-        return false;
-    });
+    // std::erase_if(bonds, [&](Bond& bond) {
+    //     if (shouldBreak(bond, atoms)) {
+    //         detachBond(bond, atoms);
+    //         changed = true;
+    //         return true;
+    //     }
+    //     return false;
+    // });
 
-    if (allowBondFormation) {
-        changed = formBonds(atoms, bonds, neighborList, chemistryData) || changed;
-    }
+    // if (allowBondFormation) {
+    //     changed = formBonds(atoms, bonds, neighborList, chemistryData) || changed;
+    // }
 
     for (Bond& bond : bonds) {
         applyBondForce(bond, atoms, dt);
@@ -53,93 +53,105 @@ bool BondForceField::compute(AtomStorage& atoms, Bond::List& bonds, const Neighb
     return changed;
 }
 
-bool BondForceField::formBonds(AtomStorage& atoms, Bond::List& bonds, const NeighborList& neighborList, const ChemistryData& chemistryData) const {
-    PROFILE_SCOPE("ForceField::FormBonds(NL)");
-    const uint32_t atomCount = static_cast<uint32_t>(atoms.size());
-    if (atomCount < 2) {
-        return false;
-    }
+// bool BondForceField::formBonds(AtomStorage& atoms, Bond::List& bonds, const NeighborList& neighborList, const ChemistryData& chemistryData) const {
+//     PROFILE_SCOPE("ForceField::FormBonds(NL)");
+//     const uint32_t atomCount = static_cast<uint32_t>(atoms.size());
+//     if (atomCount < 2) {
+//         return false;
+//     }
 
-    const auto& offsets = neighborList.offsets();
-    const auto& neighbours = neighborList.neighbors();
-    bool changed = false;
-    for (uint32_t atomIndex = 0; atomIndex < atomCount; ++atomIndex) {
-        if (atomIndex + 1 >= offsets.size()) {
-            break;
-        }
-        const uint32_t begin = offsets[atomIndex];
-        const uint32_t end = offsets[atomIndex + 1];
-        for (uint32_t p = begin; p < end; ++p) {
-            changed = tryCreateBond(atoms, bonds, atomIndex, neighbours[p], chemistryData) || changed;
-        }
-    }
-    return changed;
-}
+//     const auto& offsets = neighborList.offsets();
+//     const auto& neighbours = neighborList.neighbors();
+//     bool changed = false;
+//     for (uint32_t atomIndex = 0; atomIndex < atomCount; ++atomIndex) {
+//         if (atomIndex + 1 >= offsets.size()) {
+//             break;
+//         }
+//         const uint32_t begin = offsets[atomIndex];
+//         const uint32_t end = offsets[atomIndex + 1];
+//         for (uint32_t p = begin; p < end; ++p) {
+//             changed = tryCreateBond(atoms, bonds, atomIndex, neighbours[p], chemistryData) || changed;
+//         }
+//     }
+//     return changed;
+// }
 
-bool BondForceField::tryCreateBond(AtomStorage& atoms, Bond::List& bonds, uint32_t aIndex, uint32_t bIndex, const ChemistryData& chemistryData) const {
-    if (aIndex >= atoms.size() || bIndex >= atoms.size() || aIndex == bIndex) {
-        return false;
-    }
+// bool BondForceField::tryCreateBond(AtomStorage& atoms, Bond::List& bonds, uint32_t aIndex, uint32_t bIndex, const ChemistryData& chemistryData) const {
+//     if (aIndex >= atoms.size() || bIndex >= atoms.size() || aIndex == bIndex) {
+//         return false;
+//     }
 
-    const uint8_t availableValence = std::min(atoms.valence()[aIndex], atoms.valence()[bIndex]);
-    if (availableValence == 0) {
-        return false;
-    }
+//     const uint8_t availableValence = std::min(atoms.valence()[aIndex], atoms.valence()[bIndex]);
+//     if (availableValence == 0) {
+//         return false;
+//     }
 
-    uint8_t bondOrder = 0;
-    const BondParams* bondParams = nullptr;
-    const uint8_t maxBondOrder = static_cast<uint8_t>(std::min<int>(availableValence, kBondOrderCount));
-    for (int order = maxBondOrder; order >= 0; --order) {
-        bondParams = chemistryData.bondTable.get(atoms.type()[aIndex], atoms.type()[bIndex], order);
-        if (bondParams != nullptr) {
-            bondOrder = static_cast<uint8_t>(order);
-            break;
-        }
-    }
-    if (bondParams == nullptr) {
-        return false;
-    }
+//     uint8_t bondOrder = 0;
+//     const BondParams* bondParams = nullptr;
+//     const uint8_t maxBondOrder = static_cast<uint8_t>(std::min<int>(availableValence, kBondOrderCount));
+//     for (int order = maxBondOrder; order >= 0; --order) {
+//         bondParams = chemistryData.bondTable.get(atoms.type()[aIndex], atoms.type()[bIndex], order);
+//         if (bondParams != nullptr) {
+//             bondOrder = static_cast<uint8_t>(order);
+//             break;
+//         }
+//     }
+//     if (bondParams == nullptr) {
+//         return false;
+//     }
 
-    const float dx = atoms.x()[bIndex] - atoms.x()[aIndex];
-    const float dy = atoms.y()[bIndex] - atoms.y()[aIndex];
-    const float dz = atoms.z()[bIndex] - atoms.z()[aIndex];
-    const float distanceSqr = dx * dx + dy * dy + dz * dz;
+//     const float dx = atoms.x()[bIndex] - atoms.x()[aIndex];
+//     const float dy = atoms.y()[bIndex] - atoms.y()[aIndex];
+//     const float dz = atoms.z()[bIndex] - atoms.z()[aIndex];
+//     const float distanceSqr = dx * dx + dy * dy + dz * dz;
 
-    // Расстояние образования связи
-    const float formationDistance = bondParams->r0 * 3.f;
-    if (distanceSqr > formationDistance * formationDistance) {
-        return false;
-    }
+//     // Расстояние образования связи
+//     const float formationDistance = bondParams->r0 * 3.f;
+//     if (distanceSqr > formationDistance * formationDistance) {
+//         return false;
+//     }
 
-    return BondOps::create(bonds, aIndex, bIndex, bondOrder, atoms, chemistryData) != nullptr;
-}
+//     // std::vector<size_t> neighbors;
 
-bool BondForceField::shouldBreak(const Bond& bond, const AtomStorage& atoms) {
-    if (bond.aIndex >= atoms.size() || bond.bIndex >= atoms.size()) {
-        return true;
-    }
+//     // uint8_t Hybridization = 0;
+//     // // chemistryData.atomData.getProps(atoms.type()[aIndex]).maxValence
+//     // for (const Bond& bond : bonds) {
+//     //     if (bond.aIndex == aIndex || bond.bIndex == aIndex)
+//     //         ++Hybridization;
+//     // }
+//     // for (uint32_t neighbor : neighbors) {
 
-    const double dx = static_cast<double>(atoms.x()[bond.aIndex]) - atoms.x()[bond.bIndex];
-    const double dy = static_cast<double>(atoms.y()[bond.aIndex]) - atoms.y()[bond.bIndex];
-    const double dz = static_cast<double>(atoms.z()[bond.aIndex]) - atoms.z()[bond.bIndex];
-    const double distanceSqr = dx * dx + dy * dy + dz * dz;
-    return distanceSqr > kBondBreakDistance * kBondBreakDistance;
-}
+//     // }
 
-void BondForceField::detachBond(const Bond& bond, AtomStorage& atomStorage) {
-    const uint8_t valenceCost = static_cast<uint8_t>(bond.order);
-    if (bond.aIndex < atomStorage.size()) {
-        atomStorage.valence()[bond.aIndex] += valenceCost;
-    }
-    if (bond.bIndex < atomStorage.size()) {
-        atomStorage.valence()[bond.bIndex] += valenceCost;
-    }
-}
+//     return BondOps::create(bonds, aIndex, bIndex, bondOrder, atoms, chemistryData) != nullptr;
+// }
 
-float BondForceField::morseForce(const Bond& bond, float distance) {
-    const float expA = std::exp(-bond.params.a * (distance - bond.params.r0));
-    return 2.0f * bond.params.De * bond.params.a * (expA * expA - expA);
-}
+// bool BondForceField::shouldBreak(const Bond& bond, const AtomStorage& atoms) {
+//     if (bond.aIndex >= atoms.size() || bond.bIndex >= atoms.size()) {
+//         return true;
+//     }
+
+//     const double dx = static_cast<double>(atoms.x()[bond.aIndex]) - atoms.x()[bond.bIndex];
+//     const double dy = static_cast<double>(atoms.y()[bond.aIndex]) - atoms.y()[bond.bIndex];
+//     const double dz = static_cast<double>(atoms.z()[bond.aIndex]) - atoms.z()[bond.bIndex];
+//     const double distanceSqr = dx * dx + dy * dy + dz * dz;
+//     return distanceSqr > kBondBreakDistance * kBondBreakDistance;
+// }
+
+// void BondForceField::detachBond(const Bond& bond, AtomStorage& atomStorage) {
+//     const uint8_t valenceCost = static_cast<uint8_t>(bond.order);
+//     if (bond.aIndex < atomStorage.size()) {
+//         atomStorage.valence()[bond.aIndex] += valenceCost;
+//     }
+//     if (bond.bIndex < atomStorage.size()) {
+//         atomStorage.valence()[bond.bIndex] += valenceCost;
+//     }
+// }
+
+// float BondForceField::morseForce(const Bond& bond, float distance) {
+//     const float expA = std::exp(-bond.params.a * (distance - bond.params.r0));
+//     return 2.0f * bond.params.De * bond.params.a * (expA * expA - expA);
+// }
 
 void BondForceField::applyBondForce(const Bond& bond, AtomStorage& atomStorage, float dt) {
     (void)dt;
@@ -156,11 +168,12 @@ void BondForceField::applyBondForce(const Bond& bond, AtomStorage& atomStorage, 
         return;
     }
 
-    const double forceMagnitude = morseForce(bond, static_cast<float>(distance));
+    // const double forceMagnitude = morseForce(bond, static_cast<float>(distance));
+    const double force = -bond.params.k * (distance - bond.params.r0);
     const double invDistance = 1.0 / distance;
-    const double forceX = dx * invDistance * forceMagnitude;
-    const double forceY = dy * invDistance * forceMagnitude;
-    const double forceZ = dz * invDistance * forceMagnitude;
+    const double forceX = dx * invDistance * force;
+    const double forceY = dy * invDistance * force;
+    const double forceZ = dz * invDistance * force;
 
     atomStorage.fx()[bond.aIndex] += static_cast<float>(forceX);
     atomStorage.fy()[bond.aIndex] += static_cast<float>(forceY);

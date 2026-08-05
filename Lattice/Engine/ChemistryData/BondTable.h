@@ -2,11 +2,19 @@
 
 #include "Lattice/Engine/physics/Atom/AtomData.h"
 
+// Morse param
+// struct BondParams {
+//     float r0 = 0;
+//     float De = 0;
+//     float a = 0;
+// };
+
+// Harmonic param
 struct BondParams {
     float r0 = 0;
-    float De = 0;
-    float a = 0;
+    float k = 0;
 };
+
 
 inline constexpr uint8_t kBondOrderCount = 4;
 

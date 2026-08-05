@@ -38,6 +38,7 @@ namespace {
             DebugValue("Тип", DebugDrawers::Int),
             DebugValue("Валентность", DebugDrawers::Int),
             DebugValue("К-во связей", DebugDrawers::Int),
+            DebugValue("Гибридизация", DebugDrawers::String),
         }));
     }
 

@@ -37,6 +37,7 @@ public:
         Charge,
         Type,
         Valence,
+        Hybridization,
         Id
     };
 
@@ -74,6 +75,7 @@ private:
         schema.add<float>(static_cast<uint32_t>(Column::Charge));
         schema.add<AtomData::Type>(static_cast<uint32_t>(Column::Type));
         schema.add<uint8_t>(static_cast<uint32_t>(Column::Valence));
+        schema.add<uint8_t>(static_cast<uint32_t>(Column::Hybridization));
         schema.add<AtomId>(static_cast<uint32_t>(Column::Id));
         return schema;
     }
@@ -147,7 +149,7 @@ public:
 
     void resize(size_t count) { buffer_.resize(count); }
 
-    [[nodiscard]] AtomId addAtom(const glm::vec3& coords, const glm::vec3& speed, AtomData::Type typeValue, bool fixed = false) {
+    [[nodiscard]] AtomId addAtom(const glm::vec3& coords, const glm::vec3& speed, AtomData::Type typeValue, bool fixed = false, AtomData::Hybridization hybridization = AtomData::Hybridization::None) {
         buffer_.resize(size() + 1);
         const size_t i = size() - 1;
 
@@ -162,6 +164,7 @@ public:
         at<float>(Column::Charge, i) = props.defaultCharge;
         at<AtomData::Type>(Column::Type, i) = typeValue;
         at<uint8_t>(Column::Valence, i) = props.maxValence;
+        at<uint8_t>(Column::Hybridization, i) = (uint8_t)hybridization;
 
         const AtomId id = nextAtomId_++;
         setAtomId(i, id);
@@ -263,6 +266,9 @@ public:
 
     std::span<uint8_t> valence() { return colSpan<uint8_t>(Column::Valence); }
     std::span<const uint8_t> valence() const { return colSpan<uint8_t>(Column::Valence); }
+
+    std::span<uint8_t> hybridization() { return colSpan<uint8_t>(Column::Hybridization); }
+    std::span<const uint8_t> hybridization() const { return colSpan<uint8_t>(Column::Hybridization); }
 
     std::span<AtomId> id() { return colSpan<AtomId>(Column::Id); }
     std::span<const AtomId> id() const { return colSpan<AtomId>(Column::Id); }

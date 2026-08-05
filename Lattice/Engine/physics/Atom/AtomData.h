@@ -27,6 +27,11 @@ enum class AtomCategory : uint8_t {
     Unknown,
 };
 
+struct StaticAtomState {
+    const uint8_t valenceElectrons;
+    const uint8_t lonePairs;
+};
+
 struct StaticAtomicData {
     const float mass;
     const float radius;
@@ -99,4 +104,5 @@ public:
     static std::string_view name(Type type);
     static Category category(Type type);
     static std::string_view categoryName(Category category);
+    static StaticAtomState atomState(Type type);
 };

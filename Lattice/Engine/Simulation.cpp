@@ -15,6 +15,7 @@
 #include "Lattice/Engine/io/MoleculeMol.hpp"
 #include "Lattice/Engine/metrics/Profiler.h"
 #include "Lattice/Engine/physics/BondOps.h"
+#include "Lattice/Engine/physics/MoleculeOps.hpp"
 
 namespace Lattice {
 namespace {
@@ -202,7 +203,8 @@ bool Simulation::loadMoleculeTemplate(std::string name, const std::filesystem::p
         return false;
     }
 
-    moleculeTemplates_[std::move(name)] = MoleculeMol::loadTemplate(moleculePath);
+    moleculeTemplates_[name] = MoleculeMol::loadTemplate(moleculePath);
+    MoleculeOps::calcMoleculeHybridization(moleculeTemplates_.at(name), chemistryData);
     return true;
 }
 
@@ -314,7 +316,7 @@ bool Simulation::spawnMolecule(std::string_view speciesName, glm::vec3 start_coo
 
         for (const MoleculeAtom& atom : molecule->atoms) {
             const glm::vec3 worldPos = start_coords + actualRotation * atom.localPos;
-            createdIds.push_back(appendAtomFast(worldPos, velocity, atom.type, fixed));
+            createdIds.push_back(appendAtomFast(worldPos, velocity, atom.type, fixed, atom.hybridization));
         }
         if (atomBatchActive_) {
             atomBatchDirty_ = true;

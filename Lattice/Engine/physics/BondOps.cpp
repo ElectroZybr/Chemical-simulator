@@ -32,5 +32,4 @@ Bond* create(Bond::List& bonds, size_t aIndex, size_t bIndex, uint8_t order, Ato
     atomStorage.valence()[bIndex] -= valenceCost;
     return &bonds.back();
 }
-
 } // namespace BondOps

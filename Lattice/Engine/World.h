@@ -82,8 +82,8 @@ public:
     void clearBonds() { bonds_.clear(); }
     void reserveAtoms(size_t count) { atomStorage_.reserve(count); }
     [[nodiscard]] AtomStorage::AtomId appendAtomFast(const glm::vec3& startCoords, const glm::vec3& startSpeed, AtomData::Type type,
-                                                     bool fixed = false) {
-        const AtomStorage::AtomId atomId = atomStorage_.addAtom(startCoords, startSpeed, type, fixed);
+                                                     bool fixed = false, AtomData::Hybridization hybridization = AtomData::Hybridization::None) {
+        const AtomStorage::AtomId atomId = atomStorage_.addAtom(startCoords, startSpeed, type, fixed, hybridization);
         invalidateMetrics();
         invalidateVectorField();
         return atomId;

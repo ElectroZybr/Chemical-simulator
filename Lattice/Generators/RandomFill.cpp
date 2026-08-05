@@ -107,7 +107,7 @@ int randomFill(Lattice::Simulation& sim, const Generators::Region& region, const
         }
 
         int atomsPerSpawn = 1;
-        if (const Lattice::MoleculeTemplate* molecule = sim.findMoleculeTemplate(entry.species); molecule != nullptr) {
+        if (const MoleculeTemplate* molecule = sim.findMoleculeTemplate(entry.species); molecule != nullptr) {
             atomsPerSpawn = std::max<int>(1, static_cast<int>(molecule->atoms.size()));
         }
 
@@ -123,7 +123,7 @@ int randomFill(Lattice::Simulation& sim, const Generators::Region& region, const
         }
 
         int atomsPerSpawn = 1;
-        if (const Lattice::MoleculeTemplate* molecule = sim.findMoleculeTemplate(entry.species); molecule != nullptr) {
+        if (const MoleculeTemplate* molecule = sim.findMoleculeTemplate(entry.species); molecule != nullptr) {
             atomsPerSpawn = std::max<int>(1, static_cast<int>(molecule->atoms.size()));
         }
 
