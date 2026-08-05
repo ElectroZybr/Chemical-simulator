@@ -54,15 +54,10 @@ target_link_libraries(Lattice PUBLIC
     sol2
 )
 
-include(FetchContent)
-
-FetchContent_Declare(
-    CLI11
-    GIT_REPOSITORY https://github.com/CLIUtils/CLI11.git
-    GIT_TAG v2.5.0
+CPMAddPackage(
+    NAME CLI11
+    URL https://github.com/CLIUtils/CLI11/archive/refs/tags/v2.5.0.zip
 )
-
-FetchContent_MakeAvailable(CLI11)
 
 add_executable(Lattice-cli
     LogStyle.h
@@ -89,18 +84,13 @@ target_compile_definitions(Lattice-cli PRIVATE
 add_subdirectory(tests)
 
 if(BUILD_BENCHMARKS)
-    FetchContent_Declare(
-        googlebenchmark
-        GIT_REPOSITORY https://github.com/google/benchmark.git
-        GIT_TAG v1.9.5
-        GIT_SHALLOW ON
+    CPMAddPackage(
+        NAME google_benchmark
+        URL  https://github.com/google/benchmark/archive/refs/tags/v1.9.5.zip
+        OPTIONS
+            "BENCHMARK_ENABLE_TESTING OFF"
+            "BENCHMARK_ENABLE_INSTALL OFF"
     )
 
-    set(BENCHMARK_ENABLE_TESTING OFF CACHE BOOL "" FORCE)
-    set(BENCHMARK_INSTALL_DOCS OFF CACHE BOOL "" FORCE)
-    set(BENCHMARK_ENABLE_GTEST_TESTS OFF CACHE BOOL "" FORCE)
-    set(BENCHMARK_ENABLE_INSTALL OFF CACHE BOOL "" FORCE)
-
-    FetchContent_MakeAvailable(googlebenchmark)
     add_subdirectory(benchmarks)
 endif()
