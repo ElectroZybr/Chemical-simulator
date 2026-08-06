@@ -49,6 +49,8 @@ option(OPTIMIZE_FOR_NATIVE "Enable native CPU optimizations outside Debug builds
 option(BUILD_BENCHMARKS "Build benchmarks" OFF)
 option(ENABLE_IPO "Enable link-time optimization for non-Debug builds when supported" ON)
 option(BUILD_RENDERING_TESTS "Build Rendering module tests" ON)
+# Modified by AI: enable optional compute shader path for field preparation (OFF by default)
+option(ENABLE_FIELD_COMPUTE_SHADERS "Enable WGSL compute shader path for field preparation (experimental)" OFF)
 
 set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -124,6 +126,7 @@ add_dependencies(latticelab_lib
 )
 
 target_link_libraries(latticelab_lib PUBLIC TBB::tbb)
+# define ENABLE_TBB for code paths that use TBB-based parallelism
 target_compile_definitions(latticelab_lib PUBLIC ENABLE_TBB)
 
 target_compile_options(latticelab_lib PRIVATE
