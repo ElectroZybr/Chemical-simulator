@@ -39,7 +39,7 @@ struct AngleTable {
         table[{a, b, c, hybridization}] = {Angle, stiffness};
     }
 
-    AngleParams* get(AngleKey key) {
+    const AngleParams* get(AngleKey key) const {
         // свап, например C-C-H = H-C-C
         if (key.a > key.c) {
             std::swap(key.a, key.c);

@@ -46,7 +46,7 @@ void updateAtomSelectionDebug(const DebugViews& debugViews, const Lattice::Simul
             debugViews.atomSingle->add_data("Тип", static_cast<int>(atomType));
             debugViews.atomSingle->add_data("Валентность", atoms.valence()[selectedIndex]);
             std::string hybrid_name;
-            uint8_t hybridization = atoms.hybridization()[selectedIndex];
+            uint8_t hybridization = static_cast<uint8_t>(atoms.hybridization()[selectedIndex]);
             switch (hybridization) {
             case 1:
                 hybrid_name = "S";

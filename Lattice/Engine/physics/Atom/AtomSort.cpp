@@ -22,6 +22,7 @@ struct AtomSort::AtomView {
     float charge;
     AtomData::Type type;
     uint8_t valenceCount;
+    AtomData::Hybridization hybridization;
     AtomStorage::AtomId id = AtomStorage::InvalidAtomId;
 };
 
@@ -36,6 +37,7 @@ void AtomSort::updateViewFromStorage(AtomStorage& atoms, size_t index, AtomView&
     view.charge = atoms.charge()[index];
     view.type = atoms.type()[index];
     view.valenceCount = atoms.valence()[index];
+    view.hybridization = atoms.hybridization()[index];
     view.id = atoms.atomId(index);
 }
 
@@ -50,6 +52,7 @@ void AtomSort::applyViewToStorage(AtomStorage& atoms, size_t index, const AtomVi
     atoms.charge()[index] = view.charge;
     atoms.type()[index] = view.type;
     atoms.valence()[index] = view.valenceCount;
+    atoms.hybridization()[index] = view.hybridization;
     atoms.setAtomId(index, view.id);
 }
 

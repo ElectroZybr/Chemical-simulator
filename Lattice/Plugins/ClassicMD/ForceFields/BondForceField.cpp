@@ -2,11 +2,12 @@
 
 #include <numbers>
 #include <vector>
+#include <iostream>
 
 #include "Lattice/Engine/NeighborSearch/NeighborList.h"
 #include "Lattice/Engine/metrics/Profiler.h"
 #include "Lattice/Engine/physics/BondOps.h"
-#include <iostream>
+#include "Lattice/Log.hpp"
 
 // namespace {
 // constexpr double kBondBreakDistance = 3.0;
@@ -185,6 +186,7 @@ void BondForceField::applyBondForce(const Bond& bond, AtomStorage& atomStorage, 
 }
 
 void BondForceField::applyAngleForce(AtomStorage& atomStorage, size_t aIndex, size_t bIndex, size_t cIndex, const ChemistryData& chemistryData) {
+    // !!! a - центральный атом !!!
     const double ox = atomStorage.x()[aIndex];
     const double oy = atomStorage.y()[aIndex];
     const double oz = atomStorage.z()[aIndex];
@@ -223,14 +225,20 @@ void BondForceField::applyAngleForce(AtomStorage& atomStorage, size_t aIndex, si
     }
 
     double angle_theta = std::acos(cos_theta);
-    // {atomStorage.type()[aIndex], atomStorage.type()[bIndex], atomStorage.type()[cIndex],}
-    constexpr double theta_0 = 104.5 / 180.0 * std::numbers::pi;
+    const AngleParams* angleParam = chemistryData.angleTable.get({atomStorage.type()[bIndex], atomStorage.type()[aIndex], atomStorage.type()[cIndex], atomStorage.hybridization()[aIndex]});
+    
+    if (!angleParam) {
+        Log::warning("BondForceField", "there is no suitable angle for a triple of atoms {} {} {} {}", 
+            static_cast<uint8_t>(atomStorage.type()[bIndex]), static_cast<uint8_t>(atomStorage.type()[aIndex]), static_cast<uint8_t>(atomStorage.type()[cIndex]), static_cast<uint8_t>(atomStorage.hybridization()[aIndex]));
+        return;
+    }
+
+    double theta_0 = angleParam->Angle / 180.0 * std::numbers::pi;
     double angle_loss = angle_theta - theta_0;
 
     double sin_theta = std::sqrt(sin_theta_sqr);
 
-    constexpr double k = 100;
-    const double force_scale = -k * angle_loss / sin_theta;
+    const double force_scale = -angleParam->stiffness * angle_loss / sin_theta;
     const double force_b_x = -((oc_hat_x - ob_hat_x * cos_theta) / len_ob) * force_scale;
     const double force_b_y = -((oc_hat_y - ob_hat_y * cos_theta) / len_ob) * force_scale;
     const double force_b_z = -((oc_hat_z - ob_hat_z * cos_theta) / len_ob) * force_scale;
