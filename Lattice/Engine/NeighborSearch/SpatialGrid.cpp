@@ -41,8 +41,22 @@ void SpatialGrid::rebuild(std::span<const float> posX, std::span<const float> po
     cellIndices_.resize(n);
     counts_.assign(countCells, 0);
 
+    const float invCellSize = 1.0f / cellSize;
+    const int sizeX = static_cast<int>(size.x);
+    const int sizeY = static_cast<int>(size.y);
+    const int sizeZ = static_cast<int>(size.z);
+
+    const auto toCell = [invCellSize](float coord, int axisSize) -> uint32_t {
+        const int c = static_cast<int>(coord * invCellSize) + 1;
+        return static_cast<uint32_t>(std::clamp(c, 1, std::max(1, axisSize - 2)));
+    };
+
     for (size_t i = 0; i < n; ++i) {
-        const size_t cell = static_cast<size_t>(index(worldToCellX(posX[i]), worldToCellY(posY[i]), worldToCellZ(posZ[i])));
+        const size_t cell = static_cast<size_t>(index(
+            toCell(posX[i], sizeX),
+            toCell(posY[i], sizeY),
+            toCell(posZ[i], sizeZ)
+        ));
         cellIndices_[i] = cell;
         ++counts_[cell];
     }
