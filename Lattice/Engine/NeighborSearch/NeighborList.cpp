@@ -39,11 +39,6 @@ void NeighborList::clear() {
     refPosX_.clear();
     refPosY_.clear();
     refPosZ_.clear();
-    neighbors_.shrink_to_fit();
-    offsets_.shrink_to_fit();
-    refPosX_.shrink_to_fit();
-    refPosY_.shrink_to_fit();
-    refPosZ_.shrink_to_fit();
     valid_ = false;
     resetStats();
 }
@@ -107,16 +102,16 @@ bool NeighborList::needsRebuild(const AtomStorage& atoms) const {
     const float* RESTRICT refY = refPosY_.data();
     const float* RESTRICT refZ = refPosZ_.data();
 
-    int rebuild = false;
-#pragma GCC ivdep
     for (uint32_t i = 0; i < n; ++i) {
         const float dx = x[i] - refX[i];
         const float dy = y[i] - refY[i];
         const float dz = z[i] - refZ[i];
-        rebuild |= ((dx * dx + dy * dy + dz * dz) > maxDispSqr);
+        if ((dx * dx + dy * dy + dz * dz) > maxDispSqr) {
+            return true;
+        }
     }
 
-    return rebuild;
+    return false;
 }
 
 uint32_t NeighborList::atomCount() const {
@@ -145,11 +140,8 @@ void NeighborList::reserveListBuffers(const AtomStorage& atoms) {
     refPosY_.resize(atoms.mobileCount());
     refPosZ_.resize(atoms.mobileCount());
 
-    // первый build — fallback, потом реальный размер из прошлого раза
-    if (prevCapacity > 0) {
-        neighbors_.reserve(prevCapacity);
-    }
-    else {
-        neighbors_.reserve(atoms.size() * 64);
+    const size_t targetCapacity = std::max(prevCapacity, atoms.size() * 64);
+    if (targetCapacity > 0) {
+        neighbors_.reserve(targetCapacity);
     }
 }
