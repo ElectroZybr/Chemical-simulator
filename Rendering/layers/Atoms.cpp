@@ -12,8 +12,9 @@ void RendererWGPU::ensureStorageBuffers(size_t count) {
         return;
     }
 
-    const uint64_t vec4Bytes = count * sizeof(AtomVec4);
-    const uint64_t f32Bytes = count * sizeof(float);
+    const size_t newCapacity = atomLayer_.storageCapacity == 0 ? count : std::max(count, atomLayer_.storageCapacity * 2);
+    const uint64_t vec4Bytes = static_cast<uint64_t>(newCapacity) * sizeof(AtomVec4);
+    const uint64_t f32Bytes = static_cast<uint64_t>(newCapacity) * sizeof(float);
     const wgpu::BufferUsage usage = wgpu::BufferUsage::Storage | wgpu::BufferUsage::CopyDst;
 
     atomLayer_.sbPos = WGPUContext::instance().createBuffer(vec4Bytes, usage, "Atoms_Pos");
@@ -21,7 +22,7 @@ void RendererWGPU::ensureStorageBuffers(size_t count) {
     atomLayer_.sbType = WGPUContext::instance().createBuffer(f32Bytes, usage, "Atoms_Type");
     atomLayer_.sbRadius = WGPUContext::instance().createBuffer(f32Bytes, usage, "Atoms_Radius");
     atomLayer_.sbSel = WGPUContext::instance().createBuffer(f32Bytes, usage, "Atoms_Selection");
-    atomLayer_.storageCapacity = count;
+    atomLayer_.storageCapacity = newCapacity;
 
     std::array<wgpu::BindGroupEntry, 6> entries{};
     entries[0].binding = 0;
@@ -76,19 +77,38 @@ bool RendererWGPU::prepareAtomsCpuData(const View::RenderAtomsView& atoms, const
         return false;
     }
 
+    const bool hasVelocities = atoms.hasVelocities();
+    const bool hasRadii = atoms.hasRadii();
+
     atomLayer_.posData.resize(count);
     atomLayer_.velData.resize(count);
     atomLayer_.radii.resize(count);
     atomLayer_.typeData.resize(count);
     atomLayer_.selectedData.assign(count, 0.0f);
 
+    const float* x = atoms.x;
+    const float* y = atoms.y;
+    const float* z = atoms.z;
+    const float* vx = atoms.vx;
+    const float* vy = atoms.vy;
+    const float* vz = atoms.vz;
+    const uint8_t* type = atoms.type;
+    const float* radius = atoms.radius;
+
     for (size_t i = 0; i < count; ++i) {
-        atomLayer_.posData[i] = {atoms.x[i], atoms.y[i], atoms.z[i]};
-        atomLayer_.velData[i] = atoms.hasVelocities() ? AtomVec4{atoms.vx[i], atoms.vy[i], atoms.vz[i]} : AtomVec4{};
-        const AtomData::Type atomType = static_cast<AtomData::Type>(atoms.type[i]);
-        atomLayer_.radii[i] = atoms.hasRadii() ? atoms.radius[i] : AtomData::getProps(atomType).radius;
+        atomLayer_.posData[i] = {x[i], y[i], z[i]};
+
+        if (hasVelocities) {
+            atomLayer_.velData[i] = AtomVec4{vx[i], vy[i], vz[i]};
+        } else {
+            atomLayer_.velData[i] = AtomVec4{};
+        }
+
+        const AtomData::Type atomType = static_cast<AtomData::Type>(type[i]);
         atomLayer_.typeData[i] = static_cast<float>(atomType);
+        atomLayer_.radii[i] = hasRadii ? radius[i] : AtomData::getProps(atomType).radius;
     }
+
     if (applySelection) {
         for (const size_t idx : renderData.selectedAtomIndices) {
             if (idx < count) {
@@ -96,6 +116,7 @@ bool RendererWGPU::prepareAtomsCpuData(const View::RenderAtomsView& atoms, const
             }
         }
     }
+
     return true;
 }
 
@@ -117,15 +138,18 @@ void RendererWGPU::uploadPreparedAtomsGpu(const View::RenderAtomsView& atoms, co
     if (renderData.speedColorMode != RenderData::SpeedColorMode::AtomColor) {
         if (renderData.speedGradientMax > 0.f) {
             maxSpeedSqr = renderData.speedGradientMax * renderData.speedGradientMax;
-        }
-        else if (atoms.hasVelocities()) {
-            const auto it = std::ranges::max_element(std::views::iota(size_t{0}, count), {}, [&](size_t i) {
-                return atoms.vx[i] * atoms.vx[i] + atoms.vy[i] * atoms.vy[i] + atoms.vz[i] * atoms.vz[i];
-            });
-            const float speedSqr = atoms.vx[*it] * atoms.vx[*it] + atoms.vy[*it] * atoms.vy[*it] + atoms.vz[*it] * atoms.vz[*it];
-            maxSpeedSqr = std::max(1e-6f, speedSqr);
+        } else if (atoms.hasVelocities()) {
+            maxSpeedSqr = 1e-6f;
+            const float* vx = atoms.vx;
+            const float* vy = atoms.vy;
+            const float* vz = atoms.vz;
+            for (size_t i = 0; i < count; ++i) {
+                const float speedSqr = vx[i] * vx[i] + vy[i] * vy[i] + vz[i] * vz[i];
+                maxSpeedSqr = std::max(maxSpeedSqr, speedSqr);
+            }
         }
     }
+
     WGPUContext::instance().queue()->writeBuffer(*uniformBuffer, offsetof(SceneUniforms, maxSpeedSqr), &maxSpeedSqr, sizeof(float));
 }
 
