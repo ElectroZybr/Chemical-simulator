@@ -64,9 +64,15 @@ endfunction()
 file(GLOB plugin_dirs RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/*")
 
 foreach(plugin_dir IN LISTS plugin_dirs)
+
+    if(plugin_dir STREQUAL "RandomTestPlugin")
+        continue()
+    endif()
+
     if(IS_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/${plugin_dir}")
         lattice_add_plugin("${plugin_dir}")
     endif()
+
 endforeach()
 
 get_property(lattice_plugin_targets GLOBAL PROPERTY LATTICE_PLUGIN_TARGETS)

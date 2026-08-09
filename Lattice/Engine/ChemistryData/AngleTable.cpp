@@ -40,7 +40,7 @@ void AngleTable::init() {
     set(T::C, T::C, T::H, H::SP3, 109.5f, 500.0f); // C-Cα-H
     set(T::H, T::C, T::H, H::SP3, 109.5f, 500.0f); // H-Cα-H
 
-    set(T::C, T::C, T::C, H::SP2, 109.5f, 500.0f); // C-C-C
+    set(T::C, T::C, T::C, H::SP2, 120.0f, 500.0f); // C-C-C
     set(T::C, T::C, T::C, H::SP3, 109.5f, 500.0f); // C-C-C
 
     // аминогруппа NH2

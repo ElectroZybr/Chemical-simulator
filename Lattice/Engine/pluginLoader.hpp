@@ -5,7 +5,7 @@
 #include <vector>
 #include <string_view>
 
-#include "Lattice/Engine/DynamicLibrary.hpp"
+#include "Lattice/Kernel/DynamicLibrary.hpp"
 #include "Lattice/Engine/PluginHost.hpp"
 #include "Lattice/Log.hpp"
 #include "Lattice/Engine/physics/IForceField.h"
@@ -32,10 +32,14 @@ public:
         Log::action("PluginLoader", "Scanning {}...", pluginsDir.string());
 
         for (const std::filesystem::directory_entry& entry : std::filesystem::directory_iterator(pluginsDir)) {
+            if (entry.path().filename() == "libLatticeRandomTestPlugin.so") {
+                continue;
+            } 
+            
             if (!entry.is_regular_file()) {
                 continue;
             }
-
+        
             const std::filesystem::path libraryPath = entry.path();
             if (libraryPath.extension() != DynamicLibrary::extension()) {
                 continue;

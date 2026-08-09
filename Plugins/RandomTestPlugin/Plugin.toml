@@ -1,0 +1,10 @@
+id = "RandomTestPlugin"
+name = "Random Test Plugin"
+version = "1.0.0"
+
+[core]
+api = "1.0"
+
+[[dependencies]]
+id = "LatticeLab"
+version = ">=1.0.0"

@@ -242,3 +242,10 @@ if(LATTICE_BUILD_TESTS)
     )
     list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/extras)
 endif()
+
+# --- Настройка toml++ ---
+CPMAddPackage(
+    NAME tomlplusplus
+    GITHUB_REPOSITORY marzer/tomlplusplus
+    VERSION 3.4.0
+)

@@ -4,7 +4,7 @@
 #include <string_view>
 
 int runApplication(int argc, char** argv) {
-    Log::ConsoleMode consoleMode = Log::ConsoleMode::Default;
+    Log::ConsoleMode consoleMode = Log::ConsoleMode::Trace;
     for (int i = 1; i < argc; ++i) {
         const std::string_view arg = argv[i];
         if (arg == "--trace") {

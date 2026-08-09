@@ -117,6 +117,19 @@ include(embedded_translate)
 add_subdirectory(Lattice)
 add_subdirectory(Rendering)
 
+file(GLOB PLUGIN_DIRS RELATIVE "${CMAKE_SOURCE_DIR}"
+    "${CMAKE_SOURCE_DIR}/Plugins/*"
+)
+
+foreach(plugin_dir IN LISTS PLUGIN_DIRS)
+    if(IS_DIRECTORY "${CMAKE_SOURCE_DIR}/${plugin_dir}"
+        AND EXISTS "${CMAKE_SOURCE_DIR}/${plugin_dir}/CMakeLists.txt")
+        message(STATUS "Adding plugin: ${plugin_dir}")
+        add_subdirectory("${CMAKE_SOURCE_DIR}/${plugin_dir}")
+
+    endif()
+endforeach()
+
 add_library(latticelab_lib STATIC ${CORE_SOURCES})
 add_dependencies(latticelab_lib
     embedded_resources
@@ -175,6 +188,7 @@ target_link_libraries(latticelab_lib PUBLIC
     webgpu
     zpp_bits
     libzstd_static
+    tomlplusplus::tomlplusplus
 )
 
 include(CheckIPOSupported)
@@ -227,3 +241,7 @@ endif()
 if(EXISTS "${CMAKE_SOURCE_DIR}/Plugins")
     install(DIRECTORY "${CMAKE_SOURCE_DIR}/Plugins" DESTINATION .)
 endif()
+
+target_link_libraries(Lattice PRIVATE
+    tomlplusplus::tomlplusplus
+)

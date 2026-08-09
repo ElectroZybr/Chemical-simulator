@@ -4,6 +4,7 @@ file(GLOB_RECURSE LATTICE_SOURCES CONFIGURE_DEPENDS
 
 file(GLOB_RECURSE LATTICE_PUBLIC_HEADERS CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/*.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/*.hpp"
 )
 
 foreach(lattice_file_list IN ITEMS LATTICE_SOURCES LATTICE_PUBLIC_HEADERS)
@@ -21,8 +22,6 @@ set_target_properties(Lattice PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}"
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}"
 )
-
-add_subdirectory(Plugins)
 
 add_library(LatticeLab::Lattice ALIAS Lattice)
 
@@ -48,10 +47,17 @@ target_include_directories(Lattice PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
+if(TARGET tomlplusplus::tomlplusplus)
+    message(STATUS "toml++ OK")
+else()
+    message(FATAL_ERROR "toml++ MISSING")
+endif()
+
 target_link_libraries(Lattice PUBLIC
     glm::glm
     lua::lua
     sol2
+    tomlplusplus::tomlplusplus
 )
 
 CPMAddPackage(
@@ -96,3 +102,17 @@ if(BUILD_BENCHMARKS)
 
     add_subdirectory(benchmarks)
 endif()
+
+add_library(LatticeKernel INTERFACE)
+
+target_include_directories(LatticeKernel INTERFACE
+${CMAKE_SOURCE_DIR}
+)
+
+target_link_libraries(LatticeKernel INTERFACE
+Lattice
+)
+
+add_library(Lattice::Kernel ALIAS LatticeKernel)
+add_subdirectory(Plugins)
+

@@ -25,6 +25,7 @@
 #include "debug/CreateDebugPanels.h"
 #include "debug/DebugRuntime.h"
 #include "Lattice/Engine/pluginLoader.hpp"
+#include "Lattice/Kernel/PluginManager.hpp"
 
 using Clock = std::chrono::high_resolution_clock;
 
@@ -45,6 +46,11 @@ namespace {
 int Application::run() {
     PluginLoader pluginLoader;
     pluginLoader.load(pluginsPath);
+    Kernel::PluginManager pluginManager;
+    pluginManager.scanDirectory(pluginsPath);
+    pluginManager.checkCandidates();
+    pluginManager.loadCandidates();
+
     UserSettings userSettings;
     {
         LogScope applicationScope("Application", "LatticeLab starting...", "Initialized");

@@ -461,38 +461,7 @@ bool Simulation::randomSpawn(std::string_view speciesName, const SpawnOptions& o
                     removeAtomIndicesDescending(*this, collidingIndices);
                 }
                 const glm::vec3 velocity = temperatureVelocity(speciesName, options.temperature, is3d, options.velocity);
-                std::vector<AtomStorage::AtomId> createdIds;
-                createdIds.reserve(molecule->atoms.size());
-                reserveAtoms(atoms().size() + molecule->atoms.size());
-
-                for (const MoleculeAtom& atom : molecule->atoms) {
-                    const glm::vec3 worldPos = origin + rotation * atom.localPos;
-                    createdIds.push_back(appendAtomFast(worldPos, velocity, atom.type, options.fixed));
-                }
-                if (atomBatchActive_) {
-                    atomBatchDirty_ = true;
-                } else {
-                    world().finalizeAtomBatch();
-                }
-
-                const AtomStorage& createdStorage = atoms();
-                std::vector<size_t> createdIndices;
-                createdIndices.reserve(createdIds.size());
-                for (const AtomStorage::AtomId atomId : createdIds) {
-                    const size_t atomIndex = createdStorage.indexOf(atomId);
-                    if (atomIndex >= createdStorage.size()) {
-                        return false;
-                    }
-                    createdIndices.push_back(atomIndex);
-                }
-
-                for (const MoleculeBond& bond : molecule->bonds) {
-                    if (bond.atomA < createdIndices.size() && bond.atomB < createdIndices.size()) {
-                        addBond(createdIndices[bond.atomA], createdIndices[bond.atomB], bond.order);
-                    }
-                }
-
-                return true;
+                return spawnMolecule(speciesName, origin, rotation, options.fixed);
             }
         }
 
