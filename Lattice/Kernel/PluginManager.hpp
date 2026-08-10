@@ -10,8 +10,12 @@
 
 namespace Kernel {
 struct LoadedPlugin {
+    LoadedPlugin(DynamicLibrary&& library, PluginContext&& context)
+        : library(std::move(library)),
+          context(std::move(context)) {}
     DynamicLibrary library;
     PluginInfo info;
+    PluginContext context;
     PluginInitFn init;
     PluginShutdownFn shutdown;
 };
@@ -95,8 +99,8 @@ private:
  */
     bool loadPlugin(const PluginCandidate* pluginCandidate);
 private:
-    std::string_view moduleName = "PluginManager";
-    ModuleRegistry registry;
+    static constexpr std::string_view moduleName = "PluginManager";
+    ModuleRegistry globalRegistry;
     std::vector<LoadedPlugin> plugins;
     std::unordered_map<std::string, PluginCandidate> candidates;
     std::vector<PluginCandidate*> loadQueue;

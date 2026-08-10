@@ -6,5 +6,5 @@ version = "1.0.0"
 api = "1.0"
 
 [[dependencies]]
-id = "LatticeLab"
+id = "Physics"
 version = ">=1.0.0"

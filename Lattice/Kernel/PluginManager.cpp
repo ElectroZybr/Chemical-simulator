@@ -20,7 +20,7 @@ namespace Kernel {
                     Log::error(moduleName, "Duplicate plugin id '{}': {}", candidate.manifest.id, entry.path().string());
                 }
 
-                Log::info(moduleName, "Found plugin: {}", candidate.manifest.id);
+                Log::info(moduleName, "Found plugin: {} v{}", candidate.manifest.id, candidate.manifest.version.str());
             }
             catch (const std::exception& e) {
                 Log::error(moduleName, "Failed to parse {}: {}", entry.path().string(), e.what());
@@ -110,10 +110,17 @@ namespace Kernel {
 
         for (const auto& dep : plugin.manifest.dependencies) {
             auto it = candidates.find(dep.id);
-
             if (it == candidates.end()) {
                 plugin.status = LoadStatus::MissingDependency;
                 Log::error(moduleName, "Missing dependency '{}' for plugin '{}'", dep.id, id);
+                return false;
+            }
+
+            PluginCandidate& dependency = it->second;
+            if (!dep.requirement.contains(dependency.manifest.version)) {
+                plugin.status = LoadStatus::IncompatibleVersion;
+                Log::error(moduleName, "Plugin '{}' requires '{}' version {}, but found v{}", 
+                    id, dep.id, dep.requirement.requirement, dependency.manifest.version.str());
                 return false;
             }
 
@@ -184,27 +191,32 @@ namespace Kernel {
             return false;
         }
 
-        PluginManifest manifest{};
-        PluginContext context{registry};
+        std::vector<std::string> allowed;
+        for (const PluginDependency& dep : pluginCandidate->manifest.dependencies) {
+            allowed.push_back(dep.id);
+        }
+        PluginContext context(globalRegistry, allowed);
         if (!init(&context)) {
             Log::error(moduleName, "plugin_init failed for '{}'", pluginPath.string());
             return false;
         }
         
-        LoadedPlugin plugin;
+        LoadedPlugin plugin(std::move(library), std::move(context));
         plugin.init = init;
-        plugin.shutdown = library.symbol<PluginShutdownFn>("plugin_shutdown");
-        plugin.library = std::move(library);
+        PluginRegisterFn reg = plugin.library.symbol<PluginRegisterFn>("plugin_register");
+        if (reg) {
+            reg(&plugin.context);
+        }
+        plugin.shutdown = plugin.library.symbol<PluginShutdownFn>("plugin_shutdown");
         plugins.push_back(std::move(plugin));
 
         return true;
     }
 
     PluginManager::~PluginManager() {
-        PluginContext context{registry};
         for (LoadedPlugin& plugin : plugins) {
             if (plugin.shutdown)
-                plugin.shutdown(&context);
+                plugin.shutdown(&plugin.context);
         }
         plugins.clear();
     }

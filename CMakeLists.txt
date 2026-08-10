@@ -121,12 +121,15 @@ file(GLOB PLUGIN_DIRS RELATIVE "${CMAKE_SOURCE_DIR}"
     "${CMAKE_SOURCE_DIR}/Plugins/*"
 )
 
+set(PLUGIN_TARGETS "")
+
 foreach(plugin_dir IN LISTS PLUGIN_DIRS)
     if(IS_DIRECTORY "${CMAKE_SOURCE_DIR}/${plugin_dir}"
-        AND EXISTS "${CMAKE_SOURCE_DIR}/${plugin_dir}/CMakeLists.txt")
+    AND EXISTS "${CMAKE_SOURCE_DIR}/${plugin_dir}/CMakeLists.txt")
         message(STATUS "Adding plugin: ${plugin_dir}")
         add_subdirectory("${CMAKE_SOURCE_DIR}/${plugin_dir}")
-
+        get_directory_property(dir_targets DIRECTORY "${CMAKE_SOURCE_DIR}/${plugin_dir}" BUILDSYSTEM_TARGETS)
+        list(APPEND PLUGIN_TARGETS ${dir_targets})
     endif()
 endforeach()
 
@@ -208,6 +211,11 @@ if(BUILD_TESTING)
 endif()
 
 add_executable(${APP_NAME} main.cpp)
+
+if(PLUGIN_TARGETS)
+    add_dependencies(${APP_NAME} ${PLUGIN_TARGETS})
+endif()
+
 set_target_properties(${APP_NAME} PROPERTIES
     WIN32_EXECUTABLE $<BOOL:${WIN32}>
 )
@@ -226,9 +234,6 @@ endif()
 
 target_link_libraries(${APP_NAME} PRIVATE latticelab_lib)
 add_dependencies(${APP_NAME} Lattice-cli)
-if(TARGET Lattice-plugins)
-    add_dependencies(${APP_NAME} Lattice-plugins)
-endif()
 target_copy_webgpu_binaries(${APP_NAME})
 
 include(windows_resources)

@@ -14,14 +14,18 @@ struct Version {
     uint8_t patch;
 
     auto operator<=>(const Version&) const = default;
+
+    std::string str() {
+        return std::format("{}.{}.{}", major, minor, patch);
+    }
 };
 
 struct VersionRange {
     std::optional<Version> min;
     std::optional<Version> max;
+    std::string requirement;
 
-    bool contains(const Version& version) const
-    {
+    bool contains(const Version& version) const {
         if (min && version < *min)
             return false;
 
@@ -31,10 +35,8 @@ struct VersionRange {
         return true;
     }
 
-    static Version parseVersion(std::string_view str)
-    {
+    static Version parseVersion(std::string_view str) {
         Version version{};
-
         std::sscanf(
             str.data(),
             "%hhu.%hhu.%hhu",
@@ -46,9 +48,10 @@ struct VersionRange {
         return version;
     }
 
-    static VersionRange parse(std::string_view str)
-    {
+    static VersionRange parse(std::string_view str) {
         VersionRange range;
+
+        range.requirement = str;
 
         if (str.starts_with(">=")) {
             range.min = parseVersion(str.substr(2));
@@ -76,12 +79,33 @@ struct PluginDependency {
     VersionRange requirement;
 };
 
-struct PluginContext {
-    ModuleRegistry& registry;
+class PluginContext {
+public:
+    PluginContext(ModuleRegistry& registry, const std::vector<std::string>& allowedModules)
+        : globalRegistry(registry),
+          sharedRegistry(registry, allowedModules) {}
 
     void log(std::string_view message) {
         Log::info("Plugin", "{}", message);
     }
+
+    template<typename T>
+    T& getAPI() {
+        T* api = sharedRegistry.get<T>();
+        if (!api) {
+            throw std::runtime_error(std::format("Required API '{}' is not available", typeid(T).name()));
+        }
+        return *api;
+    }
+
+    template<typename T>
+    void registerAPI(T* module) {
+        globalRegistry.registerAPI<T>(module);
+    }
+
+private:
+    ModuleRegistry sharedRegistry;
+    ModuleRegistry& globalRegistry;
 };
 
 struct PluginManifest {
@@ -113,5 +137,6 @@ struct PluginCandidate {
 };
 
 using PluginInitFn = bool(*)(PluginContext*);
+using PluginRegisterFn = void(*)(PluginContext*);
 using PluginShutdownFn = void(*)(PluginContext*);
 }
