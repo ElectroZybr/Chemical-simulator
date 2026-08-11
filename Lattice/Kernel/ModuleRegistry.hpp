@@ -1,22 +1,21 @@
 #pragma once
 
-#include <typeindex>
+#include <string>
+#include <string_view>
 #include <unordered_map>
+#include <stdexcept>
 #include <format>
 
 namespace Kernel {
 class ModuleRegistry {
 public:
     ModuleRegistry() = default;
+    // Конструктор для создания ограниченного (shared) реестра
     ModuleRegistry(const ModuleRegistry& source, const std::vector<std::string>& allowed) {
-        for (const std::string id : allowed) {
-            auto typeIt = source.typeMap.find(id);
-            if (typeIt == source.typeMap.end())
-                continue;
-            auto it = source.modules.find(typeIt->second);
+        for (const std::string& id : allowed) {
+            auto it = source.modules.find(id);
             if (it != source.modules.end()) {
-                modules.emplace(*it);
-                typeMap.emplace(*typeIt);
+                modules.emplace(id, it->second);
             }
         }
     }
@@ -24,44 +23,38 @@ public:
     template<typename T>
     void registerAPI(T* module) {
         static_assert(requires { T::apiName; },
-        "API must define static constexpr moduleName");
+        "API must define static constexpr apiName");
 
-        const std::type_index type = typeid(T);
-        auto [it, inserted] = modules.emplace(type, static_cast<void*>(module));
+        const std::string name{T::apiName};
 
+        auto [it, inserted] = modules.emplace(name, static_cast<void*>(module));
         if (!inserted) {
-            throw std::runtime_error(std::format("API '{}' already registered", T::apiName));
+            throw std::runtime_error(std::format("API '{}' already registered", name));
         }
-        typeMap.emplace(T::apiName, type);
     }
 
     template<typename T>
     T* get() {
-        auto it = modules.find(typeid(T));
+        static_assert(requires { T::apiName; },
+        "API must define static constexpr apiName");
 
+        auto it = modules.find(std::string(T::apiName));
         if (it == modules.end())
             return nullptr;
 
         return static_cast<T*>(it->second);
     }
 
-    std::type_index getType(std::string_view id) const {
-        auto it = typeMap.find(std::string(id));
-
-        if (it == typeMap.end()) {
-            throw std::runtime_error(std::format("Unknown API '{}'", id));
-        }
-
-        return it->second;
+    bool contains(std::string_view name) const {
+        return modules.contains(std::string(name));
     }
 
     template<typename T>
     bool contains() const {
-        return modules.contains(typeid(T));
+        return contains(T::apiName);
     }
 
 private:
-    std::unordered_map<std::type_index, void*> modules;
-    std::unordered_map<std::string, std::type_index> typeMap;
+    std::unordered_map<std::string, void*> modules;
 };
 }

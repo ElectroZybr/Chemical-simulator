@@ -10,7 +10,6 @@ add_executable(LatticeTests
 
 target_link_libraries(LatticeTests PRIVATE
     Lattice
-    LatticeClassicMD
     Catch2::Catch2WithMain
 )
 

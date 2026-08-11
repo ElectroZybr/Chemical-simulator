@@ -81,9 +81,13 @@ struct PluginDependency {
 
 class PluginContext {
 public:
-    PluginContext(ModuleRegistry& registry, const std::vector<std::string>& allowedModules)
+    PluginContext(ModuleRegistry& registry,
+                  std::vector<std::string>& allowedModules,
+                  std::vector<std::string>* providedOut = nullptr)
         : globalRegistry(registry),
-          sharedRegistry(registry, allowedModules) {}
+          sharedRegistry(registry, allowedModules),
+          providedAPIs(providedOut)
+    {}
 
     void log(std::string_view message) {
         Log::info("Plugin", "{}", message);
@@ -93,7 +97,7 @@ public:
     T& getAPI() {
         T* api = sharedRegistry.get<T>();
         if (!api) {
-            throw std::runtime_error(std::format("Required API '{}' is not available", typeid(T).name()));
+            throw std::runtime_error(std::format("Required API '{}' is not available", T::apiName));
         }
         return *api;
     }
@@ -101,11 +105,15 @@ public:
     template<typename T>
     void registerAPI(T* module) {
         globalRegistry.registerAPI<T>(module);
+        if (providedAPIs) {
+            providedAPIs->emplace_back(T::apiName);
+        }
     }
 
 private:
     ModuleRegistry sharedRegistry;
     ModuleRegistry& globalRegistry;
+    std::vector<std::string>* providedAPIs = nullptr;
 };
 
 struct PluginManifest {
@@ -134,6 +142,7 @@ struct PluginCandidate {
     std::filesystem::path path;
     PluginManifest manifest;
     LoadStatus status = LoadStatus::NonChecked;
+    std::vector<std::string> providedAPIs;
 };
 
 using PluginInitFn = bool(*)(PluginContext*);

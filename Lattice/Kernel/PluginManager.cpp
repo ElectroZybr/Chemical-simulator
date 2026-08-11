@@ -160,7 +160,7 @@ namespace Kernel {
         return true;
     }
 
-    bool PluginManager::loadPlugin(const PluginCandidate* pluginCandidate) {
+    bool PluginManager::loadPlugin(PluginCandidate* pluginCandidate) {
         std::filesystem::path pluginPath;
         for (const auto& entry : std::filesystem::directory_iterator(pluginCandidate->path)) {
             if (!entry.is_regular_file())
@@ -191,11 +191,17 @@ namespace Kernel {
             return false;
         }
 
-        std::vector<std::string> allowed;
+        std::vector<std::string> allowedAPIs;
+
         for (const PluginDependency& dep : pluginCandidate->manifest.dependencies) {
-            allowed.push_back(dep.id);
+            auto it = candidates.find(dep.id);
+            if (it == candidates.end())
+                return false;
+            PluginCandidate& provider = it->second;
+            allowedAPIs.insert(allowedAPIs.end(), provider.providedAPIs.begin(), provider.providedAPIs.end());
         }
-        PluginContext context(globalRegistry, allowed);
+
+        PluginContext context(globalRegistry, allowedAPIs, &pluginCandidate->providedAPIs);
         if (!init(&context)) {
             Log::error(moduleName, "plugin_init failed for '{}'", pluginPath.string());
             return false;
@@ -207,8 +213,17 @@ namespace Kernel {
         if (reg) {
             reg(&plugin.context);
         }
-        plugin.shutdown = plugin.library.symbol<PluginShutdownFn>("plugin_shutdown");
-        plugins.push_back(std::move(plugin));
+        
+        if (!pluginCandidate->providedAPIs.empty()) {
+            Log::info(moduleName, "Plugin '{}' provided APIs:", pluginCandidate->manifest.id);
+            for (const auto& api : pluginCandidate->providedAPIs) {
+                Log::info(moduleName, "  - {}", api);
+            }
+            plugin.shutdown = plugin.library.symbol<PluginShutdownFn>("plugin_shutdown");
+            plugins.push_back(std::move(plugin));
+        } else {
+            Log::info(moduleName, "Plugin '{}' non provided API", pluginCandidate->manifest.id);
+        }
 
         return true;
     }

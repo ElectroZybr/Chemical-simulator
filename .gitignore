@@ -4,6 +4,7 @@
 /build-*/
 /Debug/
 /Release/
+/legacy/
 
 # Obsidian
 **/.obsidian/

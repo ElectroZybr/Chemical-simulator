@@ -97,7 +97,7 @@ private:
  *
  * @return true, если загрузка прошла успешно.
  */
-    bool loadPlugin(const PluginCandidate* pluginCandidate);
+    bool loadPlugin(PluginCandidate* pluginCandidate);
 private:
     static constexpr std::string_view moduleName = "PluginManager";
     ModuleRegistry globalRegistry;
