@@ -2,17 +2,17 @@
 #include "Lattice/Engine/physics/IIntegrator.h"
 #include "Lattice/Engine/physics/IThermostat.h"
 
-ModuleRegistry<IForceField>& ForceField::registry() {
-    static ModuleRegistry<IForceField> registry;
+ModuleRegistry2<IForceField>& ForceField::registry() {
+    static ModuleRegistry2<IForceField> registry;
     return registry;
 }
 
-ModuleRegistry<IIntegrator>& Integrator::registry() {
-    static ModuleRegistry<IIntegrator> registry;
+ModuleRegistry2<IIntegrator>& Integrator::registry() {
+    static ModuleRegistry2<IIntegrator> registry;
     return registry;
 }
 
-ModuleRegistry<IThermostat>& Thermostat::registry() {
-    static ModuleRegistry<IThermostat> registry;
+ModuleRegistry2<IThermostat>& Thermostat::registry() {
+    static ModuleRegistry2<IThermostat> registry;
     return registry;
 }

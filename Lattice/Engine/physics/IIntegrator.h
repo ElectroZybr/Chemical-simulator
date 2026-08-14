@@ -28,7 +28,7 @@ public:
     Integrator(Integrator&&) noexcept = default;
     Integrator& operator=(Integrator&&) noexcept = default;
 
-    static ModuleRegistry<IIntegrator>& registry();
+    static ModuleRegistry2<IIntegrator>& registry();
 
     bool setIntegrator(std::string_view id) { return set(id); }
     std::string_view getIntegrator() const { return get(); }

@@ -1,8 +1,7 @@
 #pragma once
 
 struct IntegratorAPI {
-    static constexpr std::string_view apiName = "IntegratorAPI";
-    
-    void* instance = nullptr;
-    void (*step)(void* instance, float dt) = nullptr;
+    static constexpr std::string_view apiName = "Integrator";
+
+    virtual void step(float dt) = 0;
 };

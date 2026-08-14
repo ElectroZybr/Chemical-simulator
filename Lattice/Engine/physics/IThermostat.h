@@ -28,7 +28,7 @@ public:
     Thermostat(Thermostat&&) noexcept = default;
     Thermostat& operator=(Thermostat&&) noexcept = default;
 
-    static ModuleRegistry<IThermostat>& registry();
+    static ModuleRegistry2<IThermostat>& registry();
 
     bool setThermostat(std::string_view id) { return set(id); }
     std::string_view getThermostat() const { return get(); }

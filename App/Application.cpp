@@ -25,7 +25,9 @@
 #include "debug/CreateDebugPanels.h"
 #include "debug/DebugRuntime.h"
 #include "Lattice/Engine/pluginLoader.hpp"
-#include "Lattice/Kernel/PluginManager.hpp"
+
+#include "Lattice/Kernel/Runtime.hpp"
+#include "Lattice/Kernel/Universe.hpp"
 
 using Clock = std::chrono::high_resolution_clock;
 
@@ -46,10 +48,12 @@ namespace {
 int Application::run() {
     PluginLoader pluginLoader;
     pluginLoader.load(pluginsPath);
-    Kernel::PluginManager pluginManager;
-    pluginManager.scanDirectory(pluginsPath);
-    pluginManager.checkCandidates();
-    pluginManager.loadCandidates();
+    
+    Lattice::Runtime runtime;
+    runtime.loadPlugins(pluginsPath);
+    Lattice::Universe& universe = runtime.createUniverse();
+    universe.configure("ClassicMD");
+    universe.update();
 
     UserSettings userSettings;
     {

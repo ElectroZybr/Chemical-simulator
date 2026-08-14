@@ -1,7 +1,7 @@
 #include "Lattice/Kernel/PluginManager.hpp"
 #include "Lattice/Log.hpp"
 
-namespace Kernel {
+namespace Lattice {
     void PluginManager::scanDirectory(std::filesystem::path path) {
         for (const std::filesystem::directory_entry& entry : std::filesystem::recursive_directory_iterator(path)) {
             if (!entry.is_regular_file())
@@ -36,10 +36,10 @@ namespace Kernel {
         }
     }
 
-    void PluginManager::loadCandidates() {
+    void PluginManager::loadCandidates(ModuleRegistry& globalRegistry) {
         uint16_t loadedPlugins = 0; 
         for (PluginCandidate* plugin : loadQueue) {
-            if (loadPlugin(plugin)) {
+            if (loadPlugin(plugin, globalRegistry)) {
                 Log::ok(moduleName, "Loaded plugin {}", plugin->manifest.id);
                 loadedPlugins++;
             }
@@ -160,7 +160,7 @@ namespace Kernel {
         return true;
     }
 
-    bool PluginManager::loadPlugin(PluginCandidate* pluginCandidate) {
+    bool PluginManager::loadPlugin(PluginCandidate* pluginCandidate, ModuleRegistry& globalRegistry) {
         std::filesystem::path pluginPath;
         for (const auto& entry : std::filesystem::directory_iterator(pluginCandidate->path)) {
             if (!entry.is_regular_file())
@@ -174,6 +174,7 @@ namespace Kernel {
         
         if (pluginPath.empty()) {
             Log::error(moduleName, "No regular file to: {}", pluginPath.string());
+            pluginCandidate->status = LoadStatus::Failed;
             return false;
         }
 
@@ -182,12 +183,14 @@ namespace Kernel {
         DynamicLibrary library;
         if (!library.open(pluginPath)) {
             Log::error(moduleName, "Failed to open '{}': {}", pluginPath.string(), library.lastError());
+            pluginCandidate->status = LoadStatus::Failed;
             return false;
         }
 
         PluginInitFn init = library.symbol<PluginInitFn>("plugin_init");
         if (init == nullptr) {
             Log::error(moduleName, "Missing symbol 'plugin_init' in '{}': {}", pluginPath.string(), library.lastError());
+            pluginCandidate->status = LoadStatus::Failed;
             return false;
         }
 
@@ -195,32 +198,38 @@ namespace Kernel {
 
         for (const PluginDependency& dep : pluginCandidate->manifest.dependencies) {
             auto it = candidates.find(dep.id);
-            if (it == candidates.end())
+            if (it == candidates.end()) {
+                Log::error(moduleName, "Missing dependency '{}'", dep.id);
+                pluginCandidate->status = LoadStatus::Failed;
                 return false;
+            }
             PluginCandidate& provider = it->second;
             allowedAPIs.insert(allowedAPIs.end(), provider.providedAPIs.begin(), provider.providedAPIs.end());
         }
 
-        PluginContext context(globalRegistry, allowedAPIs, &pluginCandidate->providedAPIs);
-        if (!init(&context)) {
-            Log::error(moduleName, "plugin_init failed for '{}'", pluginPath.string());
+        PluginRegister reg(globalRegistry, allowedAPIs, &pluginCandidate->providedAPIs);
+        PluginRegisterFn regFn = library.symbol<PluginRegisterFn>("plugin_register");
+        if (!regFn(&reg)) {
+            Log::error(moduleName, "plugin_register failed for '{}'", pluginPath.string());
+            pluginCandidate->status = LoadStatus::Failed;
             return false;
         }
-        
-        LoadedPlugin plugin(std::move(library), std::move(context));
-        plugin.init = init;
-        PluginRegisterFn reg = plugin.library.symbol<PluginRegisterFn>("plugin_register");
-        if (reg) {
-            reg(&plugin.context);
+
+        KernelAPI kernel(reg);
+        if (!init(&kernel)) {
+            Log::error(moduleName, "plugin_init failed for '{}'", pluginPath.string());
+            pluginCandidate->status = LoadStatus::Failed;
+            return false;
         }
-        
+
+        pluginCandidate->status = LoadStatus::Loaded;
         if (!pluginCandidate->providedAPIs.empty()) {
             Log::info(moduleName, "Plugin '{}' provided APIs:", pluginCandidate->manifest.id);
             for (const auto& api : pluginCandidate->providedAPIs) {
                 Log::info(moduleName, "  - {}", api);
             }
-            plugin.shutdown = plugin.library.symbol<PluginShutdownFn>("plugin_shutdown");
-            plugins.push_back(std::move(plugin));
+            PluginShutdownFn shutdown = library.symbol<PluginShutdownFn>("plugin_shutdown");
+            plugins.push_back(LoadedPlugin{std::move(library), pluginCandidate->manifest, std::move(kernel), shutdown});
         } else {
             Log::info(moduleName, "Plugin '{}' non provided API", pluginCandidate->manifest.id);
         }
@@ -231,7 +240,7 @@ namespace Kernel {
     PluginManager::~PluginManager() {
         for (LoadedPlugin& plugin : plugins) {
             if (plugin.shutdown)
-                plugin.shutdown(&plugin.context);
+                plugin.shutdown(&plugin.kernel);
         }
         plugins.clear();
     }

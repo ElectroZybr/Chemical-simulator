@@ -4,14 +4,16 @@
 
 #include "Lattice/Log.hpp"
 
+#include <Plugins/LatticeParticleAPI/ParticleAPI.hpp>
+
 struct StepContext;
 class AtomStorage;
 
-class Verlet {
+class Verlet final : public IntegratorAPI{
 public:
     static constexpr std::string_view id = "verlet";
     static constexpr std::string_view description = "integrator_velocity_verlet";
-    void step(float dt) { Log::ok("Verlet", "step dt: {}", dt); }
+    void step(float dt) override { Log::ok(id, "step dt: {}", dt); }
 private:
     void pipeline(StepContext& stepContext) const;
     static void predict(AtomStorage& atomStorage, float dt);

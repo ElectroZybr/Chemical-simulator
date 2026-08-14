@@ -1,18 +1,24 @@
 #pragma once
 
 #include "Plugins/LatticeParticleAPI/ParticleAPI.hpp"
+#include "Lattice/Kernel/PluginAPI.hpp"
+#include "Lattice/Kernel/Universe.hpp"
+#include "Lattice/Kernel/UniverseModelAPI.hpp"
 
-class ClassicMD {
+class ClassicMD final : public UniverseModelAPI {
 public:
-    void setIntegrator(IntegratorAPI* api) {
-        integrator = api;
+    static constexpr std::string_view id = "ClassicMD";
+
+    void configure(Lattice::Universe& universe) override {
+        integrator = universe.require<IntegratorAPI>();
+        Log::ok(id, "Configure done");
     }
 
-    void step(float dt) {
-        if (integrator)
-            integrator->step(integrator->instance, dt);
+    void update() override {
+        Log::info(id, "Update world ClassocMD");
     }
 
 private:
-    IntegratorAPI* integrator = nullptr;
+    // Lattice::KernelAPI& kernel;
+    IntegratorAPI* integrator;
 };

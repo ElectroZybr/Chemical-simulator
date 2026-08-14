@@ -1,16 +1,17 @@
 #include <Lattice/Kernel/PluginAPI.hpp>
 #include <Plugins/LatticeParticleAPI/ParticleAPI.hpp>
 
-extern "C" bool plugin_init(Kernel::PluginContext& context) {
+extern "C" bool plugin_register(Lattice::PluginRegister& reg) {
+    return true;
+}
 
-    context.log("Hello from LatticeParticleAPI!");
+extern "C" bool plugin_init(Lattice::KernelAPI& kernel) {
+
+    kernel.log("Hello from LatticeParticleAPI!");
 
     return true;
 }
 
-extern "C" void plugin_register(Kernel::PluginContext& context) {
-}
-
-extern "C" void plugin_shutdown(Kernel::PluginContext& context) {
+extern "C" void plugin_shutdown(Lattice::KernelAPI& kernel) {
 
 }

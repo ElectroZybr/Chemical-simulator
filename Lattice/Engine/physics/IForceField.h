@@ -43,7 +43,7 @@ public:
     ForceField(ForceField&&) noexcept = default;
     ForceField& operator=(ForceField&&) noexcept = default;
 
-    static ModuleRegistry<IForceField>& registry();
+    static ModuleRegistry2<IForceField>& registry();
 
     bool setForceField(std::string_view id) { return set(id); }
     std::string_view getForceField() const { return get(); }

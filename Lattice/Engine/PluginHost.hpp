@@ -11,9 +11,9 @@ struct PluginInfo {
 };
 
 struct PluginHost {
-    ModuleRegistry<IForceField>& forceFields;
-    ModuleRegistry<IIntegrator>& integrators;
-    ModuleRegistry<IThermostat>& thermostats;
+    ModuleRegistry2<IForceField>& forceFields;
+    ModuleRegistry2<IIntegrator>& integrators;
+    ModuleRegistry2<IThermostat>& thermostats;
 };
 
 using PluginInitFn = bool (*)(PluginHost&, PluginInfo&);

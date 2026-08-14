@@ -7,7 +7,7 @@
 #include "Lattice/Kernel/ModuleRegistry.hpp"
 #include "Lattice/Log.hpp"
 
-namespace Kernel {
+namespace Lattice {
 struct Version {
     uint8_t major;
     uint8_t minor;
@@ -79,39 +79,56 @@ struct PluginDependency {
     VersionRange requirement;
 };
 
-class PluginContext {
+class KernelAPI {
 public:
-    PluginContext(ModuleRegistry& registry,
-                  std::vector<std::string>& allowedModules,
-                  std::vector<std::string>* providedOut = nullptr)
-        : globalRegistry(registry),
-          sharedRegistry(registry, allowedModules),
-          providedAPIs(providedOut)
-    {}
+    explicit KernelAPI(ModuleRegistry registry)
+        : sharedRegistry(std::move(registry)) {}
 
     void log(std::string_view message) {
         Log::info("Plugin", "{}", message);
     }
 
-    template<typename T>
-    T& getAPI() {
-        T* api = sharedRegistry.get<T>();
-        if (!api) {
-            throw std::runtime_error(std::format("Required API '{}' is not available", T::apiName));
-        }
-        return *api;
-    }
+    // template<typename API>
+    // API* getAPI() {
+    //     return sharedRegistry.get<API>();
+    // }
 
-    template<typename T>
-    void registerAPI(T* module) {
-        globalRegistry.registerAPI<T>(module);
-        if (providedAPIs) {
-            providedAPIs->emplace_back(T::apiName);
-        }
-    }
+    // template<typename API>
+    // API& requireAPI() {
+    //     API* api = sharedRegistry.get<API>();
+    //     if (!api)
+    //         throw std::runtime_error(std::format("Required API '{}' is not available", std::string(API::apiName)));
+    //     return *api;
+    // }
 
 private:
     ModuleRegistry sharedRegistry;
+    // ApiSlots apislots;
+};
+
+class PluginRegister : public KernelAPI {
+public:
+    PluginRegister(ModuleRegistry& registry,
+                const std::vector<std::string>& allowedModules,
+                std::vector<std::string>* providedOut = nullptr)
+        : KernelAPI(ModuleRegistry(registry, allowedModules)),
+          globalRegistry(registry),
+          providedAPIs(providedOut) {}
+
+    template<typename API>
+    void registerAPI() {
+        globalRegistry.registerAPI<API>();
+        if (providedAPIs) {
+            providedAPIs->emplace_back(API::apiName);
+        }
+    }
+
+    template<typename API, typename Impl>
+    void registerImpl() {
+        globalRegistry.registerImpl<API, Impl>();
+    }
+
+private:
     ModuleRegistry& globalRegistry;
     std::vector<std::string>* providedAPIs = nullptr;
 };
@@ -135,7 +152,7 @@ enum class LoadStatus {
     // loading
     Queued,
     Loaded,
-    LoadFailed
+    Failed
 };
 
 struct PluginCandidate {
@@ -145,7 +162,7 @@ struct PluginCandidate {
     std::vector<std::string> providedAPIs;
 };
 
-using PluginInitFn = bool(*)(PluginContext*);
-using PluginRegisterFn = void(*)(PluginContext*);
-using PluginShutdownFn = void(*)(PluginContext*);
+using PluginRegisterFn = bool(*)(PluginRegister*);
+using PluginInitFn = bool(*)(KernelAPI*);
+using PluginShutdownFn = void(*)(KernelAPI*);
 }

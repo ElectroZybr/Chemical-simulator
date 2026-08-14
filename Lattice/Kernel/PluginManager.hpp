@@ -8,15 +8,11 @@
 #include "Lattice/Kernel/PluginAPI.hpp"
 #include "toml++/toml.hpp"
 
-namespace Kernel {
+namespace Lattice {
 struct LoadedPlugin {
-    LoadedPlugin(DynamicLibrary&& library, PluginContext&& context)
-        : library(std::move(library)),
-          context(std::move(context)) {}
     DynamicLibrary library;
-    PluginInfo info;
-    PluginContext context;
-    PluginInitFn init;
+    PluginManifest info;
+    KernelAPI kernel;
     PluginShutdownFn shutdown;
 };
 
@@ -45,7 +41,7 @@ public:
  * Использует очередь загрузки, сформированную во время проверки.
  * Плагины загружаются в порядке, учитывающем их зависимости.
  */
-    void loadCandidates();
+    void loadCandidates(ModuleRegistry& globalRegistry);
 
     ~PluginManager();
 private:
@@ -97,10 +93,9 @@ private:
  *
  * @return true, если загрузка прошла успешно.
  */
-    bool loadPlugin(PluginCandidate* pluginCandidate);
+    bool loadPlugin(PluginCandidate* pluginCandidate, ModuleRegistry& globalRegistry);
 private:
     static constexpr std::string_view moduleName = "PluginManager";
-    ModuleRegistry globalRegistry;
     std::vector<LoadedPlugin> plugins;
     std::unordered_map<std::string, PluginCandidate> candidates;
     std::vector<PluginCandidate*> loadQueue;

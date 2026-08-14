@@ -43,7 +43,7 @@ ModuleMeta<TModule> makeModuleMeta() {
 }
 
 template <typename TModule>
-class ModuleRegistry {
+class ModuleRegistry2 {
 public:
     using Meta = ModuleMeta<TModule>;
 
