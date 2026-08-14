@@ -1,15 +1,16 @@
 #include <Lattice/Kernel/Universe.hpp>
 #include <Lattice/Log.hpp>
+#include <stdexcept>
 
 namespace Lattice {
 Universe::Universe(ModuleRegistry& registry)
-        : apis(&registry)
-        , model(nullptr) {}
+    : apis(&registry)
+    , model(apis.require<UniverseModelAPI>())
+{}
 
 void Universe::configure(std::string_view modelName) {
-    apis.require<UniverseModelAPI>();
     apis.use<UniverseModelAPI>(modelName);
-    model = apis.get<UniverseModelAPI>();
+
     if (!model)
         throw std::runtime_error("No UniverseModelAPI selected");
 

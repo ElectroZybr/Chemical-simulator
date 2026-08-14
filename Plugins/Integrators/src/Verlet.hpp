@@ -2,7 +2,7 @@
 
 #include <string>
 
-#include "Lattice/Log.hpp"
+#include <Lattice/Log.hpp>
 
 #include <Plugins/LatticeParticleAPI/ParticleAPI.hpp>
 
@@ -11,7 +11,7 @@ class AtomStorage;
 
 class Verlet final : public IntegratorAPI{
 public:
-    static constexpr std::string_view id = "verlet";
+    static constexpr std::string_view id = "Verlet";
     static constexpr std::string_view description = "integrator_velocity_verlet";
     void step(float dt) override { Log::ok(id, "step dt: {}", dt); }
 private:

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Lattice/Log.hpp>
+
 #include <Plugins/LatticeParticleAPI/ParticleAPI.hpp>
 
 class KDK final : public IntegratorAPI {

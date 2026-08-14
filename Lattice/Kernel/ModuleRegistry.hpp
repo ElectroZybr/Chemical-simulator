@@ -6,6 +6,7 @@
 #include <typeindex>
 #include <stdexcept>
 #include <format>
+#include <vector>
 
 namespace Lattice {
 struct ApiInstance {

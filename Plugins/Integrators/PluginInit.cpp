@@ -1,16 +1,15 @@
-#include <Lattice/Kernel/PluginAPI.hpp>
-#include <Plugins/LatticeParticleAPI/ParticleAPI.hpp>
-#include "Lattice/Log.hpp"
-
 #include "Plugins/Integrators/src/Verlet.hpp"
 #include "Plugins/Integrators/src/KDK.hpp"
 
+#include <Lattice/Kernel/PluginAPI.hpp>
+#include <Lattice/Log.hpp>
+
+#include <Plugins/LatticeParticleAPI/ParticleAPI.hpp>
+
+
 extern "C" bool plugin_register(Lattice::PluginRegister& reg) {
-    reg.registerAPI<IntegratorAPI>();
     reg.registerImpl<IntegratorAPI, Verlet>();
     reg.registerImpl<IntegratorAPI, KDK>();
-    // context.bind<IntegratorAPI, KDK>();
-    // reg.bind<IntegratorAPI, Verlet>();
     return true;
 }
 

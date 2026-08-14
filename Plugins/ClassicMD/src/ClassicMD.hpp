@@ -1,9 +1,15 @@
 #pragma once
 
-#include "Plugins/LatticeParticleAPI/ParticleAPI.hpp"
-#include "Lattice/Kernel/PluginAPI.hpp"
-#include "Lattice/Kernel/Universe.hpp"
-#include "Lattice/Kernel/UniverseModelAPI.hpp"
+// Kernel dependences
+#include <Lattice/Kernel/PluginAPI.hpp>
+#include <Lattice/Kernel/Universe.hpp>
+#include <Lattice/Kernel/UniverseModelAPI.hpp>
+
+// Plugin dependences
+#include <Plugins/LatticeParticleAPI/ParticleAPI.hpp>
+#include <Plugins/Integrators/src/Verlet.hpp>
+
+// Source
 
 class ClassicMD final : public UniverseModelAPI {
 public:
@@ -11,14 +17,14 @@ public:
 
     void configure(Lattice::Universe& universe) override {
         integrator = universe.require<IntegratorAPI>();
+        universe.use<IntegratorAPI>("Verlet");
         Log::ok(id, "Configure done");
     }
 
     void update() override {
-        Log::info(id, "Update world ClassocMD");
+        integrator->step(0.01f);
     }
 
 private:
-    // Lattice::KernelAPI& kernel;
-    IntegratorAPI* integrator;
+    Lattice::Slot<IntegratorAPI> integrator;
 };

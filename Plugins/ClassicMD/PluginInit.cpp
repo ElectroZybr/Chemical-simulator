@@ -3,12 +3,10 @@
 #include <Lattice/Kernel/UniverseModelAPI.hpp>
 
 // Plugin dependences
-#include "Plugins/LatticeParticleAPI/ParticleAPI.hpp"
+#include <Plugins/LatticeParticleAPI/ParticleAPI.hpp>
 
 // Source
-#include "Plugins/ClassicMD/src/ClassicMD.hpp"
-#include "Plugins/Integrators/src/Verlet.hpp"
-
+#include "src/ClassicMD.hpp"
 
 extern "C" bool plugin_register(Lattice::PluginRegister& reg) {
     reg.registerImpl<UniverseModelAPI, ClassicMD>();

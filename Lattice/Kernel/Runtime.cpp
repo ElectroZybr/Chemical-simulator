@@ -10,8 +10,7 @@
 #include <glm/gtc/constants.hpp>
 #include <glm/gtc/quaternion.hpp>
 
-#include "Lattice/Engine/Consts.h"
-#include "Lattice/Log.hpp"
+#include <Lattice/Log.hpp>
 
 namespace Lattice {
 bool Runtime::loadPlugins(std::filesystem::path path) {

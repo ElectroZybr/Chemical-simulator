@@ -1,95 +1,95 @@
 #pragma once
-
 #include <string>
 #include <string_view>
 #include <unordered_map>
 #include <memory>
-
 #include "Lattice/Kernel/ModuleRegistry.hpp"
 
 namespace Lattice {
+// Владеющие данные (живут в map)
+struct SlotData {
+    void* instance = nullptr;
+    void* api      = nullptr;
+    void (*destroy)(void*) = nullptr;
+
+    ~SlotData() {
+        if (instance && destroy)
+            destroy(instance);
+    }
+
+    void reset(void* newInstance, void* newApi, void (*newDestroy)(void*)) {
+        if (instance && destroy)
+            destroy(instance);
+        instance = newInstance;
+        api      = newApi;
+        destroy  = newDestroy;
+    }
+};
+
+// Лёгкий хэндл (можно копировать, хранить по значению)
+template<typename API>
+struct Slot {
+    SlotData* data = nullptr;
+
+    Slot() = default;
+    explicit Slot(SlotData* d) : data(d) {}
+
+    API* operator->() const {
+        return data ? static_cast<API*>(data->api) : nullptr;
+    }
+
+    API& operator*() const {
+        return *static_cast<API*>(data->api);
+    }
+
+    explicit operator bool() const {
+        return data && data->api;
+    }
+
+    API* get() const {
+        return data ? static_cast<API*>(data->api) : nullptr;
+    }
+};
+
 class ApiSlots {
-private:
-    struct IHolder {
-        virtual ~IHolder() = default;
-    };
-
-    template<typename API>
-    struct Holder final : IHolder {
-        void* instance;
-        API* api;
-        void (*destroy)(void*);
-
-        Holder()
-            : instance(nullptr),
-            api(nullptr),
-            destroy(nullptr)
-        {}
-
-        Holder(void* instance, API* api, void (*destroy)(void*))
-            : instance(instance),
-              api(api),
-              destroy(destroy)
-        {}
-
-        ~Holder() override {
-            if (instance && destroy)
-                destroy(instance);
-        }
-    };
-
     ModuleRegistry* registry = nullptr;
-    std::unordered_map<std::string, std::unique_ptr<IHolder>> slots;
+    std::unordered_map<std::string, std::unique_ptr<SlotData>> slots;
 
 public:
-    explicit ApiSlots(ModuleRegistry* registry)
-        : registry(registry) {}
+    explicit ApiSlots(ModuleRegistry* registry) : registry(registry) {}
 
-    
     template<typename API>
-    API* require() {
-        if (!registry->contains<API>()) {
-            throw std::runtime_error(std::format("API '{}' not contains", std::string(API::apiName)));
-        }
+    Slot<API> require() {
+        if (!registry->contains<API>())
+            throw std::runtime_error("API not registered");
 
-        auto holder = std::make_unique<Holder<API>>();
-        slots[std::string(API::apiName)] = std::move(holder);
-        return get<API>();
+        auto& slot = slots[std::string(API::apiName)];
+        if (!slot)
+            slot = std::make_unique<SlotData>();
+
+        return Slot<API>{slot.get()};
     }
 
     template<typename API>
-    bool use(std::string_view id) {
+    Slot<API> get() {
+        auto it = slots.find(std::string(API::apiName));
+        if (it == slots.end() || !it->second)
+            return {};
+        return Slot<API>{it->second.get()};
+    }
+
+    template<typename API>
+    Slot<API> use(std::string_view id) {
         auto instance = registry->create<API>(id);
-
-        if (!instance.instance)
-            return false;
-
-        auto holder = std::make_unique<Holder<API>>(
-            instance.instance,
-            static_cast<API*>(instance.api),
-            instance.destroy
-        );
-
+        auto slot = require<API>();
+        slot.data->reset(instance.instance, instance.api, instance.destroy);
         instance.release();
-
-        slots[std::string(API::apiName)] = std::move(holder);
-
-        return true;
+        return slot;
     }
 
     template<typename API, typename Impl>
-    bool use() {
-        return use<API>(Impl::apiName);
-    }
-
-    template<typename API>
-    API* get() {
-        auto it = slots.find(std::string(API::apiName));
-        if (it == slots.end())
-            return nullptr;
-
-        auto* holder =static_cast<Holder<API>*>(it->second.get());
-        return holder->api;
+    Slot<API> use() {
+        return use<API>(Impl::id);
     }
 };
 }
