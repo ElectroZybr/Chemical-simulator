@@ -7,6 +7,10 @@ set(CMAKE_POLICY_DEFAULT_CMP0169 OLD)
 
 project(LatticeLab VERSION 0.1.3 LANGUAGES C CXX)
 
+# в CMake
+add_compile_options(-fsanitize=address -fno-omit-frame-pointer)
+add_link_options(-fsanitize=address)
+
 set(APP_NAME "${PROJECT_NAME}")
 set(APP_VERSION_MAJOR "${PROJECT_VERSION_MAJOR}")
 set(APP_VERSION_MINOR "${PROJECT_VERSION_MINOR}")

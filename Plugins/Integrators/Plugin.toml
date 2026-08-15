@@ -6,5 +6,5 @@ version = "1.0.0"
 api = "1.0"
 
 [[dependencies]]
-id = "LatticeParticleAPI"
+id = "ParticleDynamics"
 version = ">=1.0.0"

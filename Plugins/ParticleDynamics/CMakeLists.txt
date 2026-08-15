@@ -1,4 +1,4 @@
-project(LatticeParticleAPI)
+project(ParticleDynamics)
 message(STATUS "настройка плагина ${PROJECT_NAME}")
 
 file(GLOB_RECURSE PLUGIN_SOURCES

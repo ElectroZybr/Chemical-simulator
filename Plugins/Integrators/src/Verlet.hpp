@@ -4,18 +4,42 @@
 
 #include <Lattice/Log.hpp>
 
-#include <Plugins/LatticeParticleAPI/ParticleAPI.hpp>
+#include <Plugins/ParticleDynamics/src/ParticleAPI.hpp>
+#include <Plugins/ClassicMD/src/AtomStorage.hpp>
 
-struct StepContext;
-class AtomStorage;
+#include <Lattice/Kernel/Component.hpp>
 
-class Verlet final : public IntegratorAPI{
+namespace Integrators {
+
+class Verlet final : public ParticleDynamics::IntegratorAPI{
 public:
-    static constexpr std::string_view id = "Verlet";
-    static constexpr std::string_view description = "integrator_velocity_verlet";
-    void step(float dt) override { Log::ok(id, "step dt: {}", dt); }
+    struct PrevForceX {using type = float;};
+    struct PrevForceY {using type = float;};
+    struct PrevForceZ {using type = float;};
+
+    Verlet(Lattice::Components& components) 
+        // интегратор требует для работы буфер. Если нет - исключение
+        : atoms(components.require<ClassicMD::AtomStorage>())
+    {
+        // дополнительные поля для работы интегратора
+        atoms->add<PrevForceX>();
+        atoms->add<PrevForceY>();
+        atoms->add<PrevForceZ>();
+    }
+
+    void step(float dt) override { Log::ok("Verlet", "step dt: {}", dt); }
+
+    ~Verlet () {
+        atoms->remove<PrevForceX>();
+        atoms->remove<PrevForceY>();
+        atoms->remove<PrevForceZ>();
+    }
+
 private:
-    void pipeline(StepContext& stepContext) const;
-    static void predict(AtomStorage& atomStorage, float dt);
-    static void correct(AtomStorage& atomStorage, float dt);
+    void pipeline() const;
+    static void predict();
+    static void correct();
+
+    Lattice::Component<ClassicMD::AtomStorage> atoms;
 };
+}

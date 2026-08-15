@@ -5,40 +5,74 @@
 #include <string>
 #include <vector>
 
-#include <glm/glm.hpp>
-
-#include "Lattice/Kernel/Universe.hpp"
-#include "Lattice/Kernel/UniverseModelAPI.hpp"
+#include "Lattice/Kernel/ModelAPI.hpp"
 #include "Lattice/Kernel/PluginManager.hpp"
+#include "Lattice/Kernel/Component.hpp"
 
 using id = size_t;
 
 namespace Lattice {
 class Runtime {
 public:
-    Runtime() = default;
+    Runtime()
+        : root(&globalRegistry)
+    {}
 
-    bool loadPlugins(std::filesystem::path path);
+    bool loadPlugins(std::filesystem::path path) {
+        // регистрация интерфейсов ядра
+        globalRegistry.registerAPI<ModelAPI>();
+        // загрузка внешних плагинов
+        pluginManager.scanDirectory(path);
+        pluginManager.checkCandidates();
+        pluginManager.loadCandidates(globalRegistry);
+        return true;
+    }
 
-    /* === Управление мирами === */
-    Universe& createUniverse();
-    bool removeUniverse(id id);
-    bool setActiveUniverse(id id);
-    
-    [[nodiscard]] id activeUniverse() { return activeUniverseId; }
-    [[nodiscard]] size_t universeCount() const noexcept { return universes.size(); }
-    
-    [[nodiscard]] Universe& universeAt(id universeId);
-    [[nodiscard]] const Universe& universeAt(id universeId) const;
+    Component<ModelAPI> start(std::string_view modelId, std::string_view instanceName = "default") {
+        auto slot = root.add<ModelAPI>(instanceName);
+        auto created = root.use<ModelAPI>(modelId, instanceName);
+        if (!created)
+            throw std::runtime_error("Failed to start model: " + std::string(modelId));
 
-    [[nodiscard]] Universe& universe();
-    [[nodiscard]] const Universe& universe() const ;
+        models[std::string(instanceName)] = created;
+        return created;
+    }
+
+    // Остановить и удалить
+    void stop(std::string_view instanceName = "default") {
+        models.erase(std::string(instanceName));
+        // опционально: root_.remove<ModelAPI>(instanceName);
+    }
+
+    Component<ModelAPI> get(std::string_view instanceName = "default") {
+        auto it = models.find(std::string(instanceName));
+        if (it == models.end())
+            return {};
+        return it->second;
+    }
+
+    // Обновить все
+    void updateAll() {
+        for (auto& [name, model] : models) {
+            if (model)
+                model->update();
+        }
+    }
+
+    // Обновить одну
+    void update(std::string_view instanceName) {
+        if (auto m = get(instanceName))
+            m->update();
+    }
+
+    ModuleRegistry& registry() noexcept { return globalRegistry; }
 
 private:
     static constexpr std::string_view moduleName = "Runtime";
     ModuleRegistry globalRegistry;
     PluginManager pluginManager;
-    std::vector<Universe> universes;
-    id activeUniverseId;
+    Components root;
+
+    std::unordered_map<std::string, Component<ModelAPI>> models;
 };
 }

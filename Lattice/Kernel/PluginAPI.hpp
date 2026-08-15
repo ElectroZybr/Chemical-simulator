@@ -4,6 +4,7 @@
 #include <string>
 #include <filesystem>
 
+#include "Lattice/Kernel/TypeName.hpp"
 #include "Lattice/Kernel/ModuleRegistry.hpp"
 #include "Lattice/Log.hpp"
 
@@ -88,22 +89,8 @@ public:
         Log::info("Plugin", "{}", message);
     }
 
-    // template<typename API>
-    // API* getAPI() {
-    //     return sharedRegistry.get<API>();
-    // }
-
-    // template<typename API>
-    // API& requireAPI() {
-    //     API* api = sharedRegistry.get<API>();
-    //     if (!api)
-    //         throw std::runtime_error(std::format("Required API '{}' is not available", std::string(API::apiName)));
-    //     return *api;
-    // }
-
 private:
     ModuleRegistry sharedRegistry;
-    // ApiSlots apislots;
 };
 
 class PluginRegister : public KernelAPI {
@@ -119,7 +106,7 @@ public:
     void registerAPI() {
         globalRegistry.registerAPI<API>();
         if (providedAPIs) {
-            providedAPIs->emplace_back(API::apiName);
+            providedAPIs->emplace_back(typeName<API>());
         }
     }
 

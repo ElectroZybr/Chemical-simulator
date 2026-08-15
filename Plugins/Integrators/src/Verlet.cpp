@@ -1,19 +1,21 @@
-#include "Verlet.hpp"
+// #include "Verlet.hpp"
 
 // #include "src/StepOps.hpp"
 
-// void Verlet::pipeline(StepContext& stepContext) const {
+// namespace Integrators {
+
+// void Verlet::pipeline() const {
 //     // Расчет новых позиций
-//     StepOps::predictAndSync(stepContext, &Verlet::predict);
+//     StepOps::predict();
 //     // Расчет сил
-//     StepOps::computeForces(stepContext);
+//     StepOps::computeForces();
 //     // Корректировка скоростей
-//     Verlet::correct(stepContext.world.getAtomStorage(), stepContext.dt);
-//     StepOps::applyThermostat(stepContext);
-//     StepOps::postProcessVelocities(stepContext);
+//     Verlet::correct();
+//     // StepOps::applyThermostat();
+//     // StepOps::postProcessVelocities();
 // }
 
-// void Verlet::predict(AtomStorage& atomStorage, float dt) {
+// void Verlet::predict() {
 //     const size_t n = atomStorage.mobileCount();
 
 //     float* RESTRICT x = atomStorage.x().data();
@@ -44,7 +46,7 @@
 //     }
 // }
 
-// void Verlet::correct(AtomStorage& atomStorage, float dt) {
+// void Verlet::correct() {
 //     const size_t n = atomStorage.mobileCount();
 
 //     const float* RESTRICT fx = atomStorage.fx().data();
@@ -76,4 +78,5 @@
 //         const float halfDtInvMass = 0.5f * dt * invMass[i];
 //         vz[i] += (pfz[i] + fz[i]) * halfDtInvMass;
 //     }
+// }
 // }

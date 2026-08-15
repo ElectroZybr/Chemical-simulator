@@ -3,6 +3,8 @@
 // #include "Lattice/Engine/metrics/Profiler.h"
 // #include "Integrators/StepOps.h"
 
+namespace Integrators {
+
 // void KDK::pipeline(StepContext& stepContext) const {
 //     PROFILE_SCOPE("KDK::pipeline");
 //     halfKick(stepContext.world.getAtomStorage(), stepContext.dt);
@@ -64,3 +66,5 @@
 //         z[i] += vz[i] * dt;
 //     }
 // }
+
+}

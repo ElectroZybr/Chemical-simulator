@@ -2,16 +2,20 @@
 
 #include <Lattice/Log.hpp>
 
-#include <Plugins/LatticeParticleAPI/ParticleAPI.hpp>
+#include <Plugins/ParticleDynamics/src/ParticleAPI.hpp>
 
-class KDK final : public IntegratorAPI {
+namespace Integrators {
+
+class KDK final : public ParticleDynamics::IntegratorAPI {
 public:
-    static constexpr std::string_view id = "kdk";
-    static constexpr std::string_view description = "integrator_kdk";
+    KDK(Lattice::Components& components) {
+    }
 
-    void step(float dt) override { Log::ok(id, "step dt: {}", dt); }
+    void step(float dt) override { Log::ok("KDK", "step dt: {}", dt); }
 
     // void pipeline(StepContext& stepContext) const;
     // static void halfKick(AtomStorage& atomStorage, float dt);
     // static void drift(AtomStorage& atomStorage, float dt);
 };
+
+}

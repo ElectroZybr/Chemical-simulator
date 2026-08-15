@@ -8,79 +8,28 @@
 #include <format>
 #include <vector>
 
+#include "Lattice/Kernel/TypeName.hpp"
+
 namespace Lattice {
-struct ApiInstance {
-    void* instance = nullptr;
-    void* api = nullptr;
-    void (*destroy)(void*) = nullptr;
 
-    ApiInstance() = default;
-
-    ApiInstance(
-        void* instance,
-        void* api,
-        void (*destroy)(void*)
-    )
-        : instance(instance)
-        , api(api)
-        , destroy(destroy)
-    {}
-
-    ~ApiInstance() {
-        if (instance && destroy)
-            destroy(instance);
-    }
-
-    ApiInstance(const ApiInstance&) = delete;
-    ApiInstance& operator=(const ApiInstance&) = delete;
-
-    ApiInstance(ApiInstance&& other) noexcept
-        : instance(other.instance)
-        , api(other.api)
-        , destroy(other.destroy)
-    {
-        other.instance = nullptr;
-        other.api = nullptr;
-        other.destroy = nullptr;
-    }
-
-    ApiInstance& operator=(ApiInstance&& other) noexcept {
-        if (this != &other) {
-            if (instance && destroy)
-                destroy(instance);
-
-            instance = other.instance;
-            api = other.api;
-            destroy = other.destroy;
-
-            other.instance = nullptr;
-            other.api = nullptr;
-            other.destroy = nullptr;
-        }
-
-        return *this;
-    }
-
-    void release() noexcept {
-        instance = nullptr;
-        api = nullptr;
-        destroy = nullptr;
-    }
-};
-
-struct ImplementationEntry {
-    std::string id;
-    void* (*create)() = nullptr;
-    void* (*getAPI)(void*) = nullptr;
-    void (*destroy)(void*) = nullptr;
-};
-
-struct ModuleEntry {
-    std::unordered_map<std::string, ImplementationEntry> implementations;
-};
-
+class Components;
 class ModuleRegistry {
 public:
+    using CreateFn  = void* (*)(void*);
+    using GetAPIFn  = void* (*)(void*);
+    using DestroyFn = void (*)(void*);
+
+    struct ImplementationEntry {
+        std::string id;
+        CreateFn create = nullptr;
+        GetAPIFn getAPI = nullptr;
+        DestroyFn destroy = nullptr;
+    };
+
+    struct ModuleEntry {
+        std::unordered_map<std::string, ImplementationEntry> implementations;
+    };
+
     ModuleRegistry() = default;
     // Конструктор для создания ограниченного (shared) реестра
     ModuleRegistry(const ModuleRegistry& source, const std::vector<std::string>& allowed) {
@@ -94,60 +43,46 @@ public:
 
     template<typename API>
     void registerAPI() {
-        static_assert(requires { API::apiName; },
-        "API must define static constexpr apiName");
-        auto [it, inserted] = modules.emplace(std::string(API::apiName), ModuleEntry{});
+        auto [it, inserted] = modules.emplace(typeName<API>(), ModuleEntry{});
         if (!inserted)
-            throw std::runtime_error(std::format("API '{}' already registered", std::string(API::apiName)));
+            throw std::runtime_error(std::format("API '{}' already registered", typeName<API>()));
     }
 
     template<typename API, typename Impl>
     void registerImpl() {
-        static_assert(requires { API::apiName; });
-        static_assert(requires { Impl::id; });
-        auto& module = modules[std::string(API::apiName)];
+        auto& module = modules[std::string(typeName<API>())];
         ImplementationEntry impl;
-        impl.id = std::string(Impl::id);
-        impl.create = []() -> void* { return new Impl(); };
+        impl.id = typeName<Impl>();
+        impl.create = [](void* context) -> void* {
+            // Предпочитаем конструктор от Components&, если он есть
+            if constexpr (requires { Impl(std::declval<Lattice::Components&>()); }) {
+                return new Impl(*static_cast<Lattice::Components*>(context));
+            }
+            else if constexpr (std::is_default_constructible_v<Impl>) {
+                return new Impl();
+            }
+            else {
+                static_assert(
+                    requires { Impl(std::declval<Lattice::Components&>()); } ||
+                    std::is_default_constructible_v<Impl>,
+                    "Impl must be constructible from Components& or default-constructible"
+                );
+                return nullptr;
+            }
+        };
         impl.getAPI = [](void* instance) -> void* { return static_cast<API*>(static_cast<Impl*>(instance));};
         impl.destroy = [](void* ptr) { delete static_cast<Impl*>(ptr); };
         auto [it, inserted] = module.implementations.emplace(impl.id, impl);
         if (!inserted)
-            throw std::runtime_error(std::format("Implementation '{}' already registered", std::string(API::apiName)));
-    }
-
-    template<typename API, typename Impl>
-    ApiInstance create() const {
-        return create<API>(Impl::apiName);
-    }
-
-    template<typename API>
-    ApiInstance create(std::string_view id) const {
-        auto moduleIt = modules.find(std::string(API::apiName));
-        if (moduleIt == modules.end())
-            throw std::runtime_error("API not found");
-
-        auto& module = moduleIt->second;
-        auto implIt = module.implementations.find(std::string(id));
-        if (implIt == module.implementations.end()) {
-            throw std::runtime_error(std::format("Implementation '{}' not found for API '{}'", id, std::string(API::apiName)));
-        }
-
-        const auto& implementation = implIt->second;
-        void* instance = implementation.create();
-        return {
-            instance,
-            implementation.getAPI(instance),
-            implementation.destroy
-        };
+            throw std::runtime_error(std::format("Implementation '{}' already registered", typeName<API>()));
     }
 
     template<typename API>
     API* get() {
-        static_assert(requires { API::apiName; },
-        "API must define static constexpr apiName");
+        static_assert(requires { typeName<API>(); },
+        "API must define static constexpr id");
 
-        auto it = modules.find(std::string(API::apiName));
+        auto it = modules.find(typeName<API>());
         if (it == modules.end())
             return nullptr;
 
@@ -158,9 +93,34 @@ public:
         return modules.contains(std::string(name));
     }
 
-    template<typename T>
+    template<typename API>
     bool contains() const {
-        return contains(T::apiName);
+        return contains(typeName<API>());
+    }
+
+    template<typename API>
+    ModuleEntry& requireApi() {
+        auto moduleIt = modules.find(std::string(typeName<API>()));
+        if (moduleIt == modules.end()) {
+            throw std::runtime_error(std::format("API '{}' not registered", typeName<API>()));
+        }
+        return moduleIt->second;
+    }
+
+    template<typename API, typename Impl>
+    ImplementationEntry& requireImpl() {
+        return requireImpl<API>(typeName<API>());
+    }
+
+    template<typename API>
+    ImplementationEntry& requireImpl(std::string_view id) {
+        auto& module = requireApi<API>();
+        auto implIt = module.implementations.find(std::string(id));
+        if (implIt == module.implementations.end()) {
+            throw std::runtime_error(std::format(
+                "Implementation '{}' not found for API '{}'", id, typeName<API>()));
+        }
+        return implIt->second;
     }
 
 private:
