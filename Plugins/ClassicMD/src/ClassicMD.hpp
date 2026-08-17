@@ -7,8 +7,9 @@
 #include <Lattice/Kernel/Settings.hpp>
 
 // Plugin dependences
-#include <Plugins/ParticleDynamics/src/ParticleAPI.hpp>
-#include <Plugins/ParticleDynamics/src/ParticleStorage.hpp>
+#include <Plugins/ParticleDynamics/api/ParticleAPI.hpp>
+#include <Plugins/ParticleDynamics/api/ParticleStorage.hpp>
+#include <Plugins/ParticleDynamics/src/SpatialGrid.hpp>
 
 // Source
 // #include "AtomStorage.hpp"
@@ -29,6 +30,7 @@ public:
         settings = universe.require<Lattice::Settings>();
         integrator = universe.add<ParticleDynamics::IntegratorAPI>();
         atoms = universe.add<ParticleDynamics::ParticleStorage>();
+        spatialGrid = universe.add<ParticleDynamics::SpatialGrid>();
 
         atoms->addCol<Energy>();
         atoms->addCol<Charge>();
@@ -61,6 +63,7 @@ private:
     Lattice::Component<Lattice::Settings> settings;
     Lattice::Component<ParticleDynamics::IntegratorAPI> integrator;
     Lattice::Component<ParticleDynamics::ParticleStorage> atoms;
+    Lattice::Component<ParticleDynamics::SpatialGrid> spatialGrid;
 };
 
 } // namespace ClassicMD

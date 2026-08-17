@@ -2,14 +2,19 @@
 #include <Lattice/Kernel/PluginAPI.hpp>
 
 // Plugin dependences
-#include "src/ParticleAPI.hpp"
-#include "src/DynamicSoALib.hpp"
+
+// Sources
+#include "api/ParticleAPI.hpp"
+#include "src/SpatialGrid.hpp"
 
 namespace ParticleDynamics {
 
 extern "C" bool plugin_register(Lattice::PluginRegister& reg) {
     reg.registerAPI<IntegratorAPI>();
-    reg.registerAPI<DynamicSoA>();
+    reg.registerAPI<ForceFieldAPI>();
+    reg.registerAPI<SpatialIndexAPI>();
+
+    reg.registerImpl<SpatialIndexAPI, SpatialGrid>();
     return true;
 }
 

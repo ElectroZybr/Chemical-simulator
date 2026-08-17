@@ -4,8 +4,8 @@
 
 #include <Lattice/Log.hpp>
 
-#include <Plugins/ParticleDynamics/src/ParticleAPI.hpp>
-#include <Plugins/ParticleDynamics/src/ParticleStorage.hpp>
+#include <Plugins/ParticleDynamics/api/ParticleAPI.hpp>
+#include <Plugins/ParticleDynamics/api/ParticleStorage.hpp>
 
 #include <Lattice/Kernel/Component.hpp>
 #include <Lattice/Kernel/Settings.hpp>

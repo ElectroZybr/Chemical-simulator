@@ -2,7 +2,7 @@
 
 #include <Lattice/Log.hpp>
 
-#include <Plugins/ParticleDynamics/src/ParticleAPI.hpp>
+#include <Plugins/ParticleDynamics/api/ParticleAPI.hpp>
 
 namespace Integrators {
 

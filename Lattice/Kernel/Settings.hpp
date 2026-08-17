@@ -1,10 +1,13 @@
 #pragma once
 
+#include <type_traits>
 #include <unordered_map>
+#include <cstdint>
 #include <string>
 #include <functional>
 #include <variant>
 #include <stdexcept>
+#include <vector>
 
 namespace Lattice {
 
@@ -38,31 +41,19 @@ public:
               double min = 0, double max = 0, bool hasRange = false) {
         const std::string key = makeKey(group, name);
         Entry entry;
-        entry.info.key = key;
-        entry.info.group = std::string(group);
-        entry.info.name = std::string(name);
-        entry.info.type = typeOf<T>();
-        entry.info.min = min;
-        entry.info.max = max;
-        entry.info.hasRange = hasRange;
-        entry.get = [ptr]() -> Value { return Value{*ptr}; };
-        entry.set = [ptr](const Value& v) { *ptr = std::get<T>(v); };
+        entry.info = { key, std::string(group), std::string(name), typeOf<T>(), min, max, hasRange };
+        entry.get = [ptr]() -> Value { return valueMake(*ptr); };
+        entry.set = [ptr](const Value& v) { *ptr = valueCast<T>(v); };
         entries_[key] = std::move(entry);
     }
 
-    // перегрузка для float. Setting всегда использует Double 
-    void bind(std::string_view group, std::string_view name, float* ptr,
-              double min = 0, double max = 0, bool hasRange = false) {
+    template<typename T, typename F>
+    void bind(std::string_view group, std::string_view name, T* ptr, F&& onChange) {
         const std::string key = makeKey(group, name);
         Entry entry;
-        entry.info = { key, std::string(group), std::string(name),
-                ParamType::Double, min, max, hasRange };
-        entry.get = [ptr]() -> Value {
-            return Value{ static_cast<double>(*ptr) };
-        };
-        entry.set = [ptr](const Value& v) {
-            *ptr = static_cast<float>(std::get<double>(v));
-        };
+        entry.info = { key, std::string(group), std::string(name), typeOf<T>() };
+        entry.get = [ptr]() -> Value { return valueMake(*ptr); };
+        entry.set = makeSetter(ptr, std::forward<F>(onChange));
         entries_[key] = std::move(entry);
     }
 
@@ -111,14 +102,18 @@ public:
                 out.push_back(entry.info);
         return out;
     }
-
+    
 private:
+    template<typename>
+    inline static constexpr bool always_false = false;
+
     template<typename T>
     static ParamType typeOf() {
         if constexpr (std::is_same_v<T, bool>) return ParamType::Bool;
         else if constexpr (std::is_integral_v<T>) return ParamType::Int;
         else if constexpr (std::is_floating_point_v<T>) return ParamType::Double;
-        else return ParamType::String;
+        else if constexpr (std::is_same_v<T, std::string>) return ParamType::String;
+        else static_assert(always_false<T>, "Unsupported Settings type");
     }
 
     static std::string makeKey(std::string_view group, std::string_view name) {
@@ -134,6 +129,48 @@ private:
 
     const Entry& find(const std::string& key) const {
         return const_cast<Settings*>(this)->find(key);
+    }
+
+    template<typename T, typename F>
+    static std::function<void(const Value&)>
+    makeSetter(T* ptr, F&& onChange) {
+        return [ptr, onChange = std::forward<F>(onChange)](const Value& v) mutable {
+            T value = valueCast<T>(v);
+            *ptr = value;
+            onChange(value);
+        };
+    }
+
+    template<typename T>
+    static T valueCast(const Value& value) {
+        if constexpr (std::is_same_v<T, float> || std::is_same_v<T, double>) {
+            return static_cast<T>(std::get<double>(value));
+        }
+        else if constexpr (std::is_same_v<T, bool>) {
+            return std::get<bool>(value);
+        }
+        else if constexpr (std::is_integral_v<T>) {
+            return static_cast<T>(std::get<int64_t>(value));
+        }
+        else {
+            return std::get<T>(value);
+        }
+    }
+
+    template<typename T>
+    static Value valueMake(T value) {
+        if constexpr (std::is_same_v<T, bool>) {
+            return Value{value};
+        }
+        else if constexpr (std::is_integral_v<T>) {
+            return Value{static_cast<int64_t>(value)};
+        }
+        else if constexpr (std::is_floating_point_v<T>) {
+            return Value{static_cast<double>(value)};
+        }
+        else {
+            return Value{std::move(value)};
+        }
     }
 };
 }

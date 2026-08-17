@@ -3,7 +3,7 @@
 #include <vector>
 #include <glm/vec3.hpp>
 
-#include "DynamicSoALib.hpp"
+#include "Plugins/ParticleDynamics/src/DynamicSoALib.hpp"
 
 struct Pos {
     struct X { using type = float; };
@@ -184,4 +184,4 @@ private:
 
 };
 
-} // namespace ClassicMD
+}

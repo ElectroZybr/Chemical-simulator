@@ -3,7 +3,7 @@
 #include <Lattice/Kernel/ModelAPI.hpp>
 
 // Plugin dependences
-#include <Plugins/ParticleDynamics/src/ParticleAPI.hpp>
+#include <Plugins/ParticleDynamics/api/ParticleAPI.hpp>
 
 // Source
 #include "src/ClassicMD.hpp"
