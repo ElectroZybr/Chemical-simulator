@@ -199,6 +199,10 @@ public:
         }
     }
 
+    size_t size() {
+        return size_;
+    }
+
 private:
     struct Column {
         size_t offset      = 0;

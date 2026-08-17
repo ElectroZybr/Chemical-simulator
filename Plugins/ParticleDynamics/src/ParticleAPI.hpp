@@ -1,12 +1,10 @@
 #pragma once
 
-namespace Lattice {
-class Universe;
-}
+#include "Lattice/Engine/physics/Atom/AtomData.h"
+
 namespace ParticleDynamics {
-    
 struct IntegratorAPI {
-    virtual void step(float dt) = 0;
+    virtual void step() = 0;
 };
 
 }

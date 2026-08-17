@@ -8,19 +8,21 @@
 #include "Lattice/Kernel/ModelAPI.hpp"
 #include "Lattice/Kernel/PluginManager.hpp"
 #include "Lattice/Kernel/Component.hpp"
-
-using id = size_t;
+#include "Lattice/Kernel/Settings.hpp"
 
 namespace Lattice {
 class Runtime {
 public:
     Runtime()
         : root(&globalRegistry)
-    {}
-
-    bool loadPlugins(std::filesystem::path path) {
+    {
+        // // базовый компонент - реестр shared настроек
+        // root.add<Settings>();
         // регистрация интерфейсов ядра
         globalRegistry.registerAPI<ModelAPI>();
+    }
+
+    bool loadPlugins(std::filesystem::path path) {
         // загрузка внешних плагинов
         pluginManager.scanDirectory(path);
         pluginManager.checkCandidates();
@@ -29,16 +31,23 @@ public:
     }
 
     Component<ModelAPI> start(std::string_view modelId, std::string_view instanceName = "default") {
-        auto slot = root.add<ModelAPI>(instanceName);
-        auto created = root.use<ModelAPI>(modelId, instanceName);
+        LogScope scope(moduleName, "Start modelAPI '{}' with name '{}'", modelId, instanceName);
+        scope.step("create new branch");
+        Component branch = root.add<Components>(instanceName);
+        scope.step("adding setting component");
+        Component settings = branch->add<Settings>();
+        scope.step("adding modelAPI");
+        Component model = branch->add<ModelAPI>(instanceName);
+        scope.step("create model '{}'", modelId);
+        Component created = branch->use<ModelAPI>(modelId, instanceName);
         if (!created)
             throw std::runtime_error("Failed to start model: " + std::string(modelId));
 
         models[std::string(instanceName)] = created;
+        scope.finish("Configure '{}' done", instanceName);
         return created;
     }
 
-    // Остановить и удалить
     void stop(std::string_view instanceName = "default") {
         models.erase(std::string(instanceName));
         // опционально: root_.remove<ModelAPI>(instanceName);
@@ -61,8 +70,8 @@ public:
 
     // Обновить одну
     void update(std::string_view instanceName) {
-        if (auto m = get(instanceName))
-            m->update();
+        if (Component<ModelAPI> model = get(instanceName))
+            model->update();
     }
 
     ModuleRegistry& registry() noexcept { return globalRegistry; }

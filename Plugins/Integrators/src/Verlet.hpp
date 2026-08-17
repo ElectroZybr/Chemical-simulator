@@ -5,9 +5,10 @@
 #include <Lattice/Log.hpp>
 
 #include <Plugins/ParticleDynamics/src/ParticleAPI.hpp>
-#include <Plugins/ClassicMD/src/AtomStorage.hpp>
+#include <Plugins/ParticleDynamics/src/ParticleStorage.hpp>
 
 #include <Lattice/Kernel/Component.hpp>
+#include <Lattice/Kernel/Settings.hpp>
 
 namespace Integrators {
 
@@ -19,27 +20,33 @@ public:
 
     Verlet(Lattice::Components& components) 
         // интегратор требует для работы буфер. Если нет - исключение
-        : atoms(components.require<ClassicMD::AtomStorage>())
+        : particles(components.require<ParticleDynamics::ParticleStorage>())
     {
         // дополнительные поля для работы интегратора
-        atoms->add<PrevForceX>();
-        atoms->add<PrevForceY>();
-        atoms->add<PrevForceZ>();
+        particles->addCol<PrevForceX>();
+        particles->addCol<PrevForceY>();
+        particles->addCol<PrevForceZ>();
+
+        Lattice::Component settings = components.require<Lattice::Settings>();
+        settings->bind("verlet", "dt", &dt, 0, 0.1, true);
     }
 
-    void step(float dt) override { Log::ok("Verlet", "step dt: {}", dt); }
+    void step() override { pipeline(); }
 
     ~Verlet () {
-        atoms->remove<PrevForceX>();
-        atoms->remove<PrevForceY>();
-        atoms->remove<PrevForceZ>();
+        Log::info("Verlet", "destroying object");
+        particles->removeCol<PrevForceX>();
+        particles->removeCol<PrevForceY>();
+        particles->removeCol<PrevForceZ>();
     }
 
 private:
-    void pipeline() const;
-    static void predict();
-    static void correct();
+    void pipeline();
+    void predict();
+    void correct();
 
-    Lattice::Component<ClassicMD::AtomStorage> atoms;
+    float dt = 0.01;
+
+    Lattice::Component<ParticleDynamics::ParticleStorage> particles;
 };
 }

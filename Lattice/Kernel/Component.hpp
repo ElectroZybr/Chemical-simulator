@@ -65,7 +65,9 @@ class Components {
         }
     };
 
-    std::unordered_map<ComponentKey, std::unique_ptr<ComponentData>, ComponentKeyHash> components;
+    std::unordered_map<ComponentKey, ComponentData*, ComponentKeyHash> lookup;
+    // владеет объектами, нужна для уничтожения в правильном порядке
+    std::vector<std::unique_ptr<ComponentData>> storage;
 
 public:
     explicit Components(ModuleRegistry* registry)
@@ -75,35 +77,37 @@ public:
     template<typename API>
     Component<API> add(std::string_view instanceName = "default") {
         ComponentKey key{std::string(typeName<API>()), std::string(instanceName)};
-        auto& slot = components[key];
-
-        if (!slot) {
-            slot = std::make_unique<ComponentData>();
-
-            if constexpr (std::is_same_v<API, Components>) {
-                auto* obj = new Components(registry);
-                slot->instance = obj;
-                slot->api = obj;
-                slot->destroy = [](void* p) { delete static_cast<Components*>(p); };
-            }
-            else if constexpr (std::is_default_constructible_v<API> && !std::is_abstract_v<API>) {
-                auto* obj = new API();
-                slot->instance = obj;
-                slot->api = obj;
-                slot->destroy = [](void* p) { delete static_cast<API*>(p); };
-            }
+        if (auto it = lookup.find(key); it != lookup.end()) {
+            return Component<API>{it->second};
         }
+        auto component = std::make_unique<ComponentData>();
 
-        return Component<API>{slot.get()};
+        if constexpr (std::is_same_v<API, Components>) {
+            auto* obj = new Components(registry);
+            component->instance = obj;
+            component->api = obj;
+            component->destroy = [](void* p) { delete static_cast<Components*>(p); };
+        }
+        else if constexpr (std::is_default_constructible_v<API> && !std::is_abstract_v<API>) {
+            auto* obj = new API();
+            component->instance = obj;
+            component->api = obj;
+            component->destroy = [](void* p) { delete static_cast<API*>(p); };
+        }
+        ComponentData* ptr = component.get();
+        storage.push_back(std::move(component));
+        lookup.emplace(std::move(key), ptr);
+
+        return Component<API>{ptr};
     }
 
     template<typename API>
     Component<API> get(std::string_view instanceName = "default") {
         ComponentKey key{std::string(typeName<API>()), std::string(instanceName)};
-        auto it = components.find(key);
-        if (it == components.end() || !it->second)
+        auto it = lookup.find(key);
+        if (it == lookup.end() || !it->second)
             return {};
-        return Component<API>{it->second.get()};
+        return Component<API>{it->second};
     }
 
     template<typename API>

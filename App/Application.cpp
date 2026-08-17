@@ -50,7 +50,7 @@ int Application::run() {
     
     Lattice::Runtime runtime;
     runtime.loadPlugins("Plugins");
-    runtime.start("ClassicMD");
+    runtime.start("ClassicMD", "Universe 1");
     runtime.updateAll();
     // Lattice::Universe& universe = runtime.createUniverse();
     // universe.configure("ClassicMD");

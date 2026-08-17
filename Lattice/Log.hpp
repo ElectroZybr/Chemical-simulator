@@ -79,31 +79,29 @@ private:
 
 class LogScope {
 public:
-    LogScope(std::string_view tag, std::string_view startMessage, std::string_view finishMessage = "Initialized")
-        : tag_(tag),
-          finishMessage_(finishMessage),
-          startTime_(Clock::now()),
-          active_(true) {
-        Log::action(tag_, "{}", startMessage);
+    template <typename... TArgs>
+    LogScope(std::string_view tag,
+             std::format_string<TArgs...> startFormat,
+             TArgs&&... args)
+        : tag_(tag)
+        , finishMessage_("Initialized")
+        , startTime_(Clock::now())
+        , active_(true)
+    {
+        Log::action(tag_, startFormat, std::forward<TArgs>(args)...);
     }
 
-    LogScope(const LogScope&) = delete;
-    LogScope& operator=(const LogScope&) = delete;
-
-    LogScope(LogScope&& other) noexcept
-        : tag_(other.tag_),
-          finishMessage_(other.finishMessage_),
-          startTime_(other.startTime_),
-          active_(other.active_) {
-        other.active_ = false;
-    }
-
-    LogScope& operator=(LogScope&&) = delete;
-
-    ~LogScope() {
-        if (active_) {
-            finish();
-        }
+    template <typename... TArgs>
+    LogScope(std::string_view tag,
+             std::string_view finishMessage,
+             std::format_string<TArgs...> startFormat,
+             TArgs&&... args)
+        : tag_(tag)
+        , finishMessage_(finishMessage)
+        , startTime_(Clock::now())
+        , active_(true)
+    {
+        Log::action(tag_, startFormat, std::forward<TArgs>(args)...);
     }
 
     template <typename... TArgs>
@@ -112,20 +110,33 @@ public:
     }
 
     void finish() noexcept {
-        if (!active_) {
-            return;
-        }
-
-        const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - startTime_).count();
+        if (!active_) return;
+        const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+            Clock::now() - startTime_).count();
         Log::ok(tag_, "{} ({} ms)", finishMessage_, elapsed);
+        active_ = false;
+    }
+
+    template <typename... TArgs>
+    void finish(std::format_string<TArgs...> format, TArgs&&... args) {
+        if (!active_) return;
+        const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+            Clock::now() - startTime_).count();
+        Log::ok(tag_, "{} ({} ms)", std::format(format, std::forward<TArgs>(args)...), elapsed);
         active_ = false;
     }
 
     void cancel() noexcept { active_ = false; }
 
+    ~LogScope() {
+        if (active_) {
+            finish();
+        }
+    }
+
+
 private:
     using Clock = std::chrono::steady_clock;
-
     std::string tag_;
     std::string finishMessage_;
     Clock::time_point startTime_;
