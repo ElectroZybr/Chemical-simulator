@@ -7,7 +7,7 @@
 #include <Plugins/ParticleDynamics/api/ParticleAPI.hpp>
 #include <Plugins/ParticleDynamics/api/ParticleStorage.hpp>
 
-#include <Lattice/Kernel/Component.hpp>
+#include <Lattice/Kernel/Components.hpp>
 #include <Lattice/Kernel/Settings.hpp>
 
 namespace Integrators {

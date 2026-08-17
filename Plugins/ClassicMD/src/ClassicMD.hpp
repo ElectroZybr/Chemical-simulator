@@ -1,9 +1,11 @@
 #pragma once
 
+#include <glm/vec3.hpp>
+
 // Kernel dependences
 #include <Lattice/Kernel/PluginAPI.hpp>
 #include <Lattice/Kernel/ModelAPI.hpp>
-#include <Lattice/Kernel/Component.hpp>
+#include <Lattice/Kernel/Components.hpp>
 #include <Lattice/Kernel/Settings.hpp>
 
 // Plugin dependences
@@ -28,9 +30,9 @@ public:
 
     explicit ClassicMD(Lattice::Components& universe) {
         settings = universe.require<Lattice::Settings>();
-        integrator = universe.add<ParticleDynamics::IntegratorAPI>();
-        atoms = universe.add<ParticleDynamics::ParticleStorage>();
-        spatialGrid = universe.add<ParticleDynamics::SpatialGrid>();
+        integrator = universe.addInterfaceSlot<ParticleDynamics::IntegratorAPI>();
+        atoms = universe.addComponent<ParticleDynamics::ParticleStorage>();
+        spatialGrid = universe.addComponent<ParticleDynamics::SpatialGrid>();
 
         atoms->addCol<Energy>();
         atoms->addCol<Charge>();
@@ -39,13 +41,14 @@ public:
         atoms->addCol<Hybridization>();
         atoms->addCol<Id>();
 
-        universe.use<ParticleDynamics::IntegratorAPI>("Verlet");
+        universe.useInterface<ParticleDynamics::IntegratorAPI>("Verlet");
     }
 
     void update() override {
         integrator->step();
         // atoms->get<PosX>();
         // atoms->at<PosX>(0);
+        settings->set("SpatialGrid", "size", glm::vec3(10, 10, 10));
     }
 
     ~ClassicMD() {
@@ -59,7 +62,6 @@ public:
     }
 
 private:
-    // Lattice::Component<Lattice::Components> universe;
     Lattice::Component<Lattice::Settings> settings;
     Lattice::Component<ParticleDynamics::IntegratorAPI> integrator;
     Lattice::Component<ParticleDynamics::ParticleStorage> atoms;

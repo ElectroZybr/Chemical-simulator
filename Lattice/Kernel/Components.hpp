@@ -50,6 +50,14 @@ struct Component {
     API* get() const {
         return data ? static_cast<API*>(data->api) : nullptr;
     }
+
+    bool exists() const {
+        return data != nullptr;
+    }
+
+    bool ready() const {
+        return data && data->api;
+    }
 };
 
 class Components {
@@ -74,31 +82,84 @@ public:
         : registry(registry)
     {}
 
+    Component<Components> addBranch(std::string_view name = "default") {
+        return addComponent<Components>(name);
+    }
+
+    template<typename T>
+    Component<T> addComponent(std::string_view instanceName = "default") {
+        ComponentKey key{std::string(typeName<T>()), std::string(instanceName)};
+        if (auto it = lookup.find(key); it != lookup.end()) {
+            return Component<T>{it->second};
+        }
+
+        static_assert(
+            !std::is_abstract_v<T>,
+            "addComponent<T>: T must not be abstract"
+        );
+
+        auto component = std::make_unique<ComponentData>();
+        T* obj;
+
+        if constexpr (std::is_same_v<T, Components>) {
+            obj = new Components(registry);
+        }
+        else if constexpr (std::is_constructible_v<T, Components&>) {
+            obj = new T(*this);
+        }
+        else if constexpr (std::is_default_constructible_v<T>) {
+            obj = new T();
+        }
+        else {
+            static_assert(
+                std::is_constructible_v<T, Components&> ||
+                std::is_default_constructible_v<T>,
+                "Component must be constructible with Components& or default constructible"
+            );
+        }
+
+        component->instance = obj;
+        component->api = obj;
+        component->destroy = [](void* p) { delete static_cast<T*>(p); };
+
+        ComponentData* ptr = component.get();
+        storage.push_back(std::move(component));
+        lookup.emplace(std::move(key), ptr);
+
+        return Component<T>{ptr};
+    }
+
     template<typename API>
-    Component<API> add(std::string_view instanceName = "default") {
+    Component<API> addInterfaceSlot(std::string_view instanceName = "default") {
         ComponentKey key{std::string(typeName<API>()), std::string(instanceName)};
         if (auto it = lookup.find(key); it != lookup.end()) {
             return Component<API>{it->second};
         }
         auto component = std::make_unique<ComponentData>();
-
-        if constexpr (std::is_same_v<API, Components>) {
-            auto* obj = new Components(registry);
-            component->instance = obj;
-            component->api = obj;
-            component->destroy = [](void* p) { delete static_cast<Components*>(p); };
-        }
-        else if constexpr (std::is_default_constructible_v<API> && !std::is_abstract_v<API>) {
-            auto* obj = new API();
-            component->instance = obj;
-            component->api = obj;
-            component->destroy = [](void* p) { delete static_cast<API*>(p); };
-        }
         ComponentData* ptr = component.get();
         storage.push_back(std::move(component));
         lookup.emplace(std::move(key), ptr);
 
         return Component<API>{ptr};
+    } 
+
+    template<typename API, typename Impl>
+    Component<API> useInterface(std::string_view instanceName = "default") {
+        return useInterface<API>(typeName<Impl>(), instanceName);
+    }
+
+    template<typename API>
+    Component<API> useInterface(std::string_view implName, std::string_view instanceName = "default") {
+        const auto& implementation = registry->requireImpl<API>(implName);
+        auto component = require<API>(instanceName);
+        void* instance = implementation.create(this);
+
+        component.data->reset(
+            instance,
+            implementation.getAPI(instance),
+            implementation.destroy
+        );
+        return component;
     }
 
     template<typename API>
@@ -113,31 +174,12 @@ public:
     template<typename API>
     Component<API> require(std::string_view instanceName = "default") {
         auto c = get<API>(instanceName);
-        if (!c) {
+        if (!c.exists()) {
             throw std::runtime_error(std::format(
                 "Component '{}' with instance '{}' not found",
                 typeName<API>(), instanceName));
         }
         return c;
-    }
-
-    template<typename API, typename Impl>
-    Component<API> use(std::string_view instanceName = "default") {
-        return use<API>(typeName<Impl>(), instanceName);
-    }
-
-    template<typename API>
-    Component<API> use(std::string_view implName, std::string_view instanceName = "default") {
-        const auto& implementation = registry->requireImpl<API>(implName);
-        auto component = add<API>(instanceName);
-        void* instance = implementation.create(this);
-
-        component.data->reset(
-            instance,
-            implementation.getAPI(instance),
-            implementation.destroy
-        );
-        return component;
     }
 };
 

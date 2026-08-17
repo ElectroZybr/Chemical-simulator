@@ -13,9 +13,10 @@
 
 // Kernel dependences
 #include <Lattice/Kernel/PluginAPI.hpp>
-#include <Lattice/Kernel/Component.hpp>
+#include <Lattice/Kernel/Components.hpp>
 #include <Lattice/Kernel/Settings.hpp>
 #include <Lattice/Kernel/Restrict.hpp>
+#include <Lattice/Log.hpp>
 
 // Plugin dependences
 #include "Plugins/ParticleDynamics/api/ParticleAPI.hpp"
@@ -29,12 +30,11 @@ class SpatialGrid final : public SpatialIndexAPI {
 public:
     explicit SpatialGrid(Lattice::Components& components) {
         Lattice::Component settings = components.require<Lattice::Settings>();
-        // settings->bind("SpatialGrid", "size", &size);
-        settings->bind("SpatialGrid", "cell_size", &cellSize, [this](float value) {
-            setCellSize(value);
-        });
+        settings->bind("SpatialGrid", "size", &size, [this](glm::vec3 newSize) { setSize(newSize); });
+        settings->bind("SpatialGrid", "cell_size", &cellSize, [this](float value) { setCellSize(value); });
 
         particles = components.require<ParticleStorage>();
+        Log::info("SpatialGrid", "initialized");
     }
 
     void rebuild() override {
@@ -82,33 +82,6 @@ public:
         }
     }
 
-    void setCellSize(float newCellSize) {
-        if (newCellSize <= 0) {
-            throw std::invalid_argument("SpatialGrid::resize: newCellSize must be > 0");
-        }
-
-        invCellSize = 1.0f / newCellSize;
-
-        buffer_.clear();
-        rebuildNeighborOffsets();
-    }
-
-    void setSize(glm::vec3 newSize) {
-        auto calculateCells = [this](float worldDim) -> uint32_t {
-            float num = std::ceil(worldDim * invCellSize);
-            return static_cast<uint32_t>(std::max(1.0f, num));
-        };
-
-        uint32_t ghostPadding = ghostLayers * 2;
-        size.x = calculateCells(newSize.x) + ghostPadding;
-        size.y = calculateCells(newSize.y) + ghostPadding;
-        size.z = calculateCells(newSize.z) + ghostPadding;
-        countCells = size.x * size.y * size.z;
-
-        buffer_.clear();
-        rebuildNeighborOffsets();
-    }
-
     [[nodiscard]] std::span<uint32_t> particlesInCell(uint32_t x, uint32_t y, uint32_t z) {
         return particlesInCell((z * size.y + y) * size.x + x);
     }
@@ -135,13 +108,13 @@ public:
     }
 
     ~SpatialGrid() {
-        
+
     }
 
 private:
     Lattice::Component<ParticleStorage> particles;
 
-    glm::uvec3 size{};
+    glm::vec3 size{};
     float cellSize = 5.0f;
     float invCellSize = 0.2f;
     uint32_t ghostLayers = 1;
@@ -154,5 +127,32 @@ private:
 
     std::vector<uint32_t> cellIndices_;
     std::vector<uint32_t> counts_;
+
+    void setCellSize(float newCellSize) {
+        if (newCellSize <= 0) {
+            throw std::invalid_argument("SpatialGrid::resize: newCellSize must be > 0");
+        }
+
+        invCellSize = 1.0f / newCellSize;
+
+        buffer_.clear();
+        rebuildNeighborOffsets();
+    }
+
+    void setSize(glm::vec3 newSize) {
+        auto calculateCells = [this](float worldDim) -> uint32_t {
+            float num = std::ceil(worldDim * invCellSize);
+            return static_cast<uint32_t>(std::max(1.0f, num));
+        };
+
+        uint32_t ghostPadding = ghostLayers * 2;
+        size.x = calculateCells(newSize.x) + ghostPadding;
+        size.y = calculateCells(newSize.y) + ghostPadding;
+        size.z = calculateCells(newSize.z) + ghostPadding;
+        countCells = size.x * size.y * size.z;
+
+        buffer_.clear();
+        rebuildNeighborOffsets();
+    }
 };
 }

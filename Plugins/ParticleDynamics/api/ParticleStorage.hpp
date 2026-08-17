@@ -30,7 +30,7 @@ namespace ParticleDynamics {
     
 class ParticleStorage {
 public:
-    ParticleStorage() {
+    explicit ParticleStorage() {
     // стандартный набор колонок для физических частиц
         buffer_.add<Pos::X>();
         buffer_.add<Pos::Y>();

@@ -9,14 +9,18 @@
 #include <stdexcept>
 #include <vector>
 
+#include <glm/vec2.hpp>
+#include <glm/vec3.hpp>
+#include <glm/vec4.hpp>
+
 namespace Lattice {
 
-enum class ParamType { Bool, Int, Double, String };
+enum class ParamType { Bool, Int, Double, Vec2, Vec3, Vec4, String };
 
 struct ParamInfo {
-    std::string key;        // "Verlet.dt"
-    std::string group;      // "Verlet"
-    std::string name;       // "dt"
+    std::string key;
+    std::string group;
+    std::string name;
     ParamType   type{};
 
     double min = 0, max = 0;
@@ -25,7 +29,7 @@ struct ParamInfo {
 
 class Settings {
 public:
-    using Value = std::variant<bool, int64_t, double, std::string>;
+    using Value = std::variant<bool, int64_t, double, glm::vec2, glm::vec3, glm::vec4, std::string>;
 private:
     struct Entry {
         ParamInfo info;
@@ -107,15 +111,6 @@ private:
     template<typename>
     inline static constexpr bool always_false = false;
 
-    template<typename T>
-    static ParamType typeOf() {
-        if constexpr (std::is_same_v<T, bool>) return ParamType::Bool;
-        else if constexpr (std::is_integral_v<T>) return ParamType::Int;
-        else if constexpr (std::is_floating_point_v<T>) return ParamType::Double;
-        else if constexpr (std::is_same_v<T, std::string>) return ParamType::String;
-        else static_assert(always_false<T>, "Unsupported Settings type");
-    }
-
     static std::string makeKey(std::string_view group, std::string_view name) {
         return std::string(group) + "." + std::string(name);
     }
@@ -142,6 +137,38 @@ private:
     }
 
     template<typename T>
+    static ParamType typeOf() {
+        if constexpr (std::is_same_v<T, bool>)
+            return ParamType::Bool;
+        else if constexpr (std::is_integral_v<T>)
+            return ParamType::Int;
+        else if constexpr (std::is_floating_point_v<T>)
+            return ParamType::Double;
+        else if constexpr (std::is_same_v<T, glm::vec2>)
+            return ParamType::Vec2;
+        else if constexpr (std::is_same_v<T, glm::vec3>)
+            return ParamType::Vec3;
+        else if constexpr (std::is_same_v<T, glm::vec4>)
+            return ParamType::Vec4;
+        else if constexpr (std::is_same_v<T, std::string>)
+            return ParamType::String;
+        else
+            static_assert(always_false<T>, "Unsupported Settings type");
+    }
+
+    template<typename T>
+    static Value valueMake(T value) {
+        if constexpr (std::is_same_v<T, bool>)
+            return value;
+        else if constexpr (std::is_integral_v<T>)
+            return static_cast<int64_t>(value);
+        else if constexpr (std::is_floating_point_v<T>)
+            return static_cast<double>(value);
+        else
+            return value;
+    }
+
+    template<typename T>
     static T valueCast(const Value& value) {
         if constexpr (std::is_same_v<T, float> || std::is_same_v<T, double>) {
             return static_cast<T>(std::get<double>(value));
@@ -154,22 +181,6 @@ private:
         }
         else {
             return std::get<T>(value);
-        }
-    }
-
-    template<typename T>
-    static Value valueMake(T value) {
-        if constexpr (std::is_same_v<T, bool>) {
-            return Value{value};
-        }
-        else if constexpr (std::is_integral_v<T>) {
-            return Value{static_cast<int64_t>(value)};
-        }
-        else if constexpr (std::is_floating_point_v<T>) {
-            return Value{static_cast<double>(value)};
-        }
-        else {
-            return Value{std::move(value)};
         }
     }
 };
