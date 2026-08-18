@@ -19,7 +19,6 @@ extern "C" bool plugin_register(Lattice::PluginRegister& reg) {
 }
 
 extern "C" bool plugin_init(Lattice::KernelAPI& kernel) {
-    kernel.log("Hello from ParticleDynamics!");
     return true;
 }
 

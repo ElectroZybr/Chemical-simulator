@@ -7,7 +7,7 @@
 
 #include "Lattice/Kernel/DynamicLibrary.hpp"
 #include "Lattice/Engine/PluginHost.hpp"
-#include "Lattice/Log.hpp"
+#include <Lattice/Tools/Logger.hpp>
 #include "Lattice/Engine/physics/IForceField.h"
 #include "Lattice/Engine/physics/IIntegrator.h"
 #include "Lattice/Engine/physics/IThermostat.h"
@@ -25,11 +25,11 @@ public:
         int loadedCount = 0;
 
         if (!std::filesystem::exists(pluginsDir) || !std::filesystem::is_directory(pluginsDir)) {
-            Log::warning("PluginLoader", "Plugins directory is missing or not a directory: {}", pluginsDir.string());
+            Logger::warning("PluginLoader", "Plugins directory is missing or not a directory: {}", pluginsDir.string());
             return 0;
         }
 
-        Log::action("PluginLoader", "Scanning {}...", pluginsDir.string());
+        Logger::action("PluginLoader", "Scanning {}...", pluginsDir.string());
 
         for (const std::filesystem::directory_entry& entry : std::filesystem::directory_iterator(pluginsDir)) {
             if (entry.path().filename() == "libLatticeRandomTestPlugin.so") {
@@ -45,26 +45,26 @@ public:
                 continue;
             }
 
-            Log::action("PluginLoader", "Loading {}", libraryPath.string());
+            Logger::action("PluginLoader", "Loading {}", libraryPath.string());
 
             DynamicLibrary library;
             if (!library.open(libraryPath)) {
-                Log::error("PluginLoader", "Failed to open '{}': {}", libraryPath.string(), library.lastError());
+                Logger::error("PluginLoader", "Failed to open '{}': {}", libraryPath.string(), library.lastError());
                 continue;
             }
 
             PluginInitFn init = library.symbol<PluginInitFn>("plugin_init");
             if (init == nullptr) {
-                Log::error("PluginLoader", "Missing symbol 'plugin_init' in '{}': {}", libraryPath.string(), library.lastError());
+                Logger::error("PluginLoader", "Missing symbol 'plugin_init' in '{}': {}", libraryPath.string(), library.lastError());
                 continue;
             }
 
             if (!init(host_, library.info)) {
-                Log::error("PluginLoader", "plugin_init failed for '{}'", libraryPath.string());
+                Logger::error("PluginLoader", "plugin_init failed for '{}'", libraryPath.string());
                 continue;
             }
 
-            Log::info(
+            Logger::info(
                 "PluginLoader",
                 "Registry state after {}: forceFields={} integrators={} thermostats={}",
                 library.info.id != nullptr && library.info.id[0] != '\0' ? library.info.id : libraryPath.filename().string(),
@@ -73,10 +73,10 @@ public:
                 host_.thermostats.items().size());
 
             if (library.info.id != nullptr && std::string_view(library.info.id) == "classic_md" && host_.forceFields.find("classic_md") == nullptr) {
-                Log::warning("PluginLoader", "Plugin classic_md loaded, but force field 'classic_md' is not registered");
+                Logger::warning("PluginLoader", "Plugin classic_md loaded, but force field 'classic_md' is not registered");
             }
 
-            Log::info(
+            Logger::info(
                 "PluginLoader",
                 "Loaded \"{}\" id={} version={}",
                 library.info.name != nullptr && library.info.name[0] != '\0' ? library.info.name : "<unnamed>",
@@ -88,9 +88,9 @@ public:
         }
 
         if (loadedCount == 0) {
-            Log::warning("PluginLoader", "No plugins were loaded from {}", pluginsDir.string());
+            Logger::warning("PluginLoader", "No plugins were loaded from {}", pluginsDir.string());
         } else {
-            Log::ok("PluginLoader", "Plugins loaded: {}", loadedCount);
+            Logger::ok("PluginLoader", "Plugins loaded: {}", loadedCount);
         }
         return loadedCount;
     }

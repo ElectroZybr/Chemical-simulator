@@ -16,7 +16,7 @@
 #include <Lattice/Kernel/Components.hpp>
 #include <Lattice/Kernel/Settings.hpp>
 #include <Lattice/Kernel/Restrict.hpp>
-#include <Lattice/Log.hpp>
+#include <Lattice/Tools/Logger.hpp>
 
 // Plugin dependences
 #include "Plugins/ParticleDynamics/api/ParticleAPI.hpp"
@@ -34,7 +34,7 @@ public:
         settings->bind("SpatialGrid", "cell_size", &cellSize, [this](float value) { setCellSize(value); });
 
         particles = components.require<ParticleStorage>();
-        Log::info("SpatialGrid", "initialized");
+        Logger::info("SpatialGrid", "initialized");
     }
 
     void rebuild() override {

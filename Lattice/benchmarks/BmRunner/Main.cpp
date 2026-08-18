@@ -8,10 +8,10 @@
 #include "BmRunner/Support.h"
 #include "Fixture.h"
 #include "Lattice/Engine/pluginLoader.hpp"
-#include "Lattice/Log.hpp"
+#include "Lattice/Logger.hpp"
 
 int main(int argc, char** argv) {
-    Log::setConsoleMode(Log::ConsoleMode::Quiet);
+    Logger::setConsoleMode(Logger::ConsoleMode::Quiet);
 
     const std::filesystem::path benchmarksRoot = Benchmarks::BmRunner::benchmarksRootFromExecutable(argv[0]);
     const std::filesystem::path repoRoot = benchmarksRoot.parent_path().parent_path();

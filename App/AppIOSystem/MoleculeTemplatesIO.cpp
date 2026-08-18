@@ -1,14 +1,14 @@
 #include "MoleculeTemplatesIO.h"
 
 #include "Lattice/Engine/Simulation.h"
-#include "Lattice/Log.hpp"
+#include <Lattice/Tools/Logger.hpp>
 
 namespace MoleculeTemplatesIO {
 void loadFromDirectory(Lattice::Simulation& simulation, const std::filesystem::path& directory) {
     size_t loadedCount = 0;
 
     if (!std::filesystem::exists(directory) || !std::filesystem::is_directory(directory)) {
-        Log::warning("Application", "Molecule templates directory is missing: {}", directory.string());
+        Logger::warning("Application", "Molecule templates directory is missing: {}", directory.string());
         return;
     }
 
@@ -27,10 +27,10 @@ void loadFromDirectory(Lattice::Simulation& simulation, const std::filesystem::p
             ++loadedCount;
         }
         catch (const std::exception& e) {
-            Log::warning("Application", "Failed to load molecule template '{}': {}", entry.path().string(), e.what());
+            Logger::warning("Application", "Failed to load molecule template '{}': {}", entry.path().string(), e.what());
         }
     }
 
-    Log::info("Application", "Loaded {} molecule template(s)", loadedCount);
+    Logger::info("Application", "Loaded {} molecule template(s)", loadedCount);
 }
 }

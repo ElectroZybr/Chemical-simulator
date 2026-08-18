@@ -1,4 +1,4 @@
-#include "Lattice/Log.hpp"
+#include <Lattice/Tools/Logger.hpp>
 
 #include <atomic>
 #include <chrono>
@@ -6,15 +6,16 @@
 #include <fstream>
 #include <iomanip>
 #include <sstream>
+#include <format>
 
 namespace {
-std::atomic<Log::ConsoleMode> gConsoleMode = Log::ConsoleMode::Default;
+std::atomic<Logger::ConsoleMode> gConsoleMode = Logger::ConsoleMode::Default;
 
 struct LevelStyle {
     std::string_view label;
     std::string_view status;
     std::string_view color;
-    Log::ConsoleMode consoleMode;
+    Logger::ConsoleMode consoleMode;
     bool useStdErr;
 };
 
@@ -42,27 +43,27 @@ std::ofstream& logFile() {
     return file;
 }
 
-LevelStyle levelStyle(Log::Level level) {
-    using Level = Log::Level;
+LevelStyle levelStyle(Logger::Level level) {
+    using Level = Logger::Level;
     switch (level) {
         case Level::Action:
-            return {"ACTION", "→", LogStyle::Color::header, Log::ConsoleMode::Default, false};
+            return {"ACTION", "→", LogStyle::Color::header, Logger::ConsoleMode::Default, false};
         case Level::Trace:
-            return {"TRACE", "·", LogStyle::Color::tree, Log::ConsoleMode::Trace, false};
+            return {"TRACE", "·", LogStyle::Color::tree, Logger::ConsoleMode::Trace, false};
         case Level::Debug:
-            return {"DEBUG", "→", LogStyle::Color::header, Log::ConsoleMode::Verbose, false};
+            return {"DEBUG", "→", LogStyle::Color::header, Logger::ConsoleMode::Verbose, false};
         case Level::Info:
-            return {"INFO", "•", LogStyle::Color::value, Log::ConsoleMode::Verbose, false};
+            return {"INFO", "•", LogStyle::Color::value, Logger::ConsoleMode::Verbose, false};
         case Level::Warning:
-            return {"WARN", "⚠", LogStyle::Color::warning, Log::ConsoleMode::Default, true};
+            return {"WARN", "⚠", LogStyle::Color::warning, Logger::ConsoleMode::Default, true};
         case Level::Error:
-            return {"ERROR", "✗", LogStyle::Color::error, Log::ConsoleMode::Default, true};
+            return {"ERROR", "✗", LogStyle::Color::error, Logger::ConsoleMode::Default, true};
         case Level::Fatal:
-            return {"FATAL", "✗", LogStyle::Color::error, Log::ConsoleMode::Default, true};
+            return {"FATAL", "✗", LogStyle::Color::error, Logger::ConsoleMode::Default, true};
         case Level::Ok:
-            return {"OK", "✓", LogStyle::Color::ok, Log::ConsoleMode::Default, false};
+            return {"OK", "✓", LogStyle::Color::ok, Logger::ConsoleMode::Default, false};
     }
-    return {"INFO", "•", LogStyle::Color::value, Log::ConsoleMode::Verbose, false};
+    return {"INFO", "•", LogStyle::Color::value, Logger::ConsoleMode::Verbose, false};
 }
 
 std::string makePlainLine(std::string_view label, std::string_view tag, std::string_view message) {
@@ -84,20 +85,20 @@ std::string makeConsoleLine(std::string_view status, std::string_view color, std
 }
 }
 
-void Log::setConsoleMode(ConsoleMode mode) noexcept {
+void Logger::setConsoleMode(ConsoleMode mode) noexcept {
     gConsoleMode.store(mode, std::memory_order_relaxed);
 }
 
-Log::ConsoleMode Log::consoleMode() noexcept {
+Logger::ConsoleMode Logger::consoleMode() noexcept {
     return gConsoleMode.load(std::memory_order_relaxed);
 }
 
-std::mutex& Log::mutex() {
+std::mutex& Logger::mutex() {
     static std::mutex consoleMutex;
     return consoleMutex;
 }
 
-void Log::print(Level level, std::string_view tag, const std::string& message) {
+void Logger::print(Level level, std::string_view tag, const std::string& message) {
     std::lock_guard lock(mutex());
     const LevelStyle style = levelStyle(level);
     const std::string plainLine = makePlainLine(style.label, tag, message);

@@ -1,5 +1,5 @@
-#include "Lattice/CLI/SystemInfo.h"
-#include "Lattice/LogStyle.h"
+#include <Lattice/Tools/SystemInfo.hpp>
+#include <Lattice/Tools/LogStyle.hpp>
 
 #include <algorithm>
 #include <array>
@@ -903,6 +903,7 @@ namespace Lattice::CliSystemInfo {
             out << colorize(pipe.substr(0, pipe.size() - 3), kReset) << colorize(pipe.substr(pipe.size() - 3), kDim)
                 << colorize("└─", kDim) << ' ' << colorize("VRAM:", kLabel) << ' ' << colorize(formatVram(gpu.vramBytes), kValue) << '\n';
         }
+        out << '\n';
     }
 
     void printSystemInfo(std::ostream& out) {

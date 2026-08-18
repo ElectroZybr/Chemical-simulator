@@ -1,5 +1,5 @@
 #include "Lattice/Engine/ChemistryData/AngleTable.hpp"
-#include "Lattice/Log.hpp"
+#include <Lattice/Tools/Logger.hpp>
 
 void AngleTable::init() {
     using T = AtomData::Type;
@@ -50,5 +50,5 @@ void AngleTable::init() {
     // гидроксильная группа
     set(T::C, T::O, T::H, H::SP3, 104.5f, 450.0f); // C-O-H
 
-    Log::info("AngleTable", "angle table has been initialized");
+    Logger::info("AngleTable", "angle table has been initialized");
 }

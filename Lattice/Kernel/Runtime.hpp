@@ -9,11 +9,14 @@
 #include "Lattice/Kernel/PluginManager.hpp"
 #include "Lattice/Kernel/Components.hpp"
 #include "Lattice/Kernel/Settings.hpp"
+#include <Lattice/Tools/SystemInfo.hpp>
 
 namespace Lattice {
 class Runtime {
 public:
     Runtime() : root(&globalRegistry) {
+        Logger::action(moduleName, "System launching");
+        Lattice::CliSystemInfo::printSystemInfo(std::cout);
         // регистрация интерфейсов ядра
         globalRegistry.registerAPI<ModelAPI>();
     }
@@ -28,13 +31,9 @@ public:
 
     Component<ModelAPI> start(std::string_view modelId, std::string_view instanceName = "default") {
         LogScope scope(moduleName, "Start modelAPI '{}' with name '{}'", modelId, instanceName);
-        scope.step("create new branch");
         Component branch = root.addBranch(instanceName);
-        scope.step("adding setting component");
         Component settings = branch->addComponent<Settings>();
-        scope.step("adding modelAPI");
         Component model = branch->addInterfaceSlot<ModelAPI>();
-        scope.step("create model '{}'", modelId);
         Component created = branch->useInterface<ModelAPI>(modelId);
         if (!created)
             throw std::runtime_error("Failed to start model: " + std::string(modelId));

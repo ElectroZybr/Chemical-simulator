@@ -28,7 +28,7 @@
 #include "App/StbImage.h"
 #endif
 
-#include "Lattice/Log.hpp"
+#include <Lattice/Tools/Logger.hpp>
 #include "generated/AppVersion.h"
 
 namespace {
@@ -71,7 +71,7 @@ void setLinuxWindowIcon(GLFWwindow* window) {
 
 void logWindowState(const char* label, GLFWwindow* window, bool isFullscreen, bool windowedWasMaximized) {
     if (!window) {
-        Log::warning("WindowController", "{} window={}", label, "null");
+        Logger::warning("WindowController", "{} window={}", label, "null");
         return;
     }
 
@@ -82,7 +82,7 @@ void logWindowState(const char* label, GLFWwindow* window, bool isFullscreen, bo
     glfwGetWindowPos(window, &x, &y);
     glfwGetWindowSize(window, &width, &height);
 
-    Log::trace(
+    Logger::trace(
         "WindowController",
         "{} ptr={} fullscreen={} monitor={} decorated={} maximized={} focused={} iconified={} savedMaximized={} pos={} size={}",
         label,

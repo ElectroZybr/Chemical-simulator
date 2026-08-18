@@ -7,8 +7,8 @@
 
 #include <CLI/CLI.hpp>
 
-#include "Lattice/LogStyle.h"
-#include "Lattice/CLI/SystemInfo.h"
+#include <Lattice/Tools/LogStyle.hpp>
+#include "Lattice/Tools/SystemInfo.hpp"
 #include "Lattice/Engine/pluginLoader.hpp"
 #include "Engine/Simulation.h"
 #include "Engine/physics/Atom/AtomData.h"

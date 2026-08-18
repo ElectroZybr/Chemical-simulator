@@ -2,7 +2,7 @@
 #include "Plugins/Integrators/src/KDK.hpp"
 
 #include <Lattice/Kernel/PluginAPI.hpp>
-#include <Lattice/Log.hpp>
+#include <Lattice/Tools/Logger.hpp>
 
 #include <Plugins/ParticleDynamics/api/ParticleAPI.hpp>
 
@@ -15,7 +15,6 @@ extern "C" bool plugin_register(Lattice::PluginRegister& reg) {
 }
 
 extern "C" bool plugin_init(Lattice::KernelAPI& kernel) {
-    kernel.log("Hello from Integrators!");
     return true;
 }
 

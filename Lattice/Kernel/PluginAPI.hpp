@@ -6,7 +6,6 @@
 
 #include "Lattice/Kernel/TypeName.hpp"
 #include "Lattice/Kernel/ModuleRegistry.hpp"
-#include "Lattice/Log.hpp"
 
 namespace Lattice {
 struct Version {
@@ -85,10 +84,6 @@ public:
     explicit KernelAPI(ModuleRegistry registry)
         : sharedRegistry(std::move(registry)) {}
 
-    void log(std::string_view message) {
-        Log::info("Plugin", "{}", message);
-    }
-
 private:
     ModuleRegistry sharedRegistry;
 };
@@ -113,6 +108,9 @@ public:
     template<typename API, typename Impl>
     void registerImpl() {
         globalRegistry.registerImpl<API, Impl>();
+        if (providedAPIs) {
+            providedAPIs->emplace_back(typeName<Impl>());
+        }
     }
 
 private:

@@ -7,8 +7,9 @@
 #include <stdexcept>
 #include <type_traits>
 
-#include "Lattice/Kernel/TypeName.hpp"
-#include "Lattice/Kernel/ModuleRegistry.hpp"
+#include <Lattice/Kernel/TypeName.hpp>
+#include <Lattice/Kernel/ModuleRegistry.hpp>
+#include <Lattice/Tools/Logger.hpp>
 
 namespace Lattice {
 
@@ -78,12 +79,30 @@ class Components {
     std::vector<std::unique_ptr<ComponentData>> storage;
 
 public:
+    static constexpr std::string_view moduleName = "Components";
+
     explicit Components(ModuleRegistry* registry)
         : registry(registry)
     {}
 
-    Component<Components> addBranch(std::string_view name = "default") {
-        return addComponent<Components>(name);
+    Component<Components> addBranch(std::string_view instanceName = "default") {
+        ComponentKey key{std::string(typeName<Components>()), std::string(instanceName)};
+        if (auto it = lookup.find(key); it != lookup.end()) {
+            return Component<Components>{it->second};
+        }
+        auto component = std::make_unique<ComponentData>();
+        Components* obj;
+        obj = new Components(registry);
+
+        component->instance = obj;
+        component->api = obj;
+        component->destroy = [](void* p) { delete static_cast<Components*>(p); };
+
+        ComponentData* ptr = component.get();
+        storage.push_back(std::move(component));
+        lookup.emplace(std::move(key), ptr);
+        Logger::info(moduleName, "+ branch     '{}'", instanceName);
+        return Component<Components>{ptr};
     }
 
     template<typename T>
@@ -93,10 +112,7 @@ public:
             return Component<T>{it->second};
         }
 
-        static_assert(
-            !std::is_abstract_v<T>,
-            "addComponent<T>: T must not be abstract"
-        );
+        static_assert(!std::is_abstract_v<T>, "addComponent<T>: T must not be abstract");
 
         auto component = std::make_unique<ComponentData>();
         T* obj;
@@ -126,6 +142,8 @@ public:
         storage.push_back(std::move(component));
         lookup.emplace(std::move(key), ptr);
 
+        Logger::info(moduleName, "+ component  '{}'", typeName<T>());
+
         return Component<T>{ptr};
     }
 
@@ -139,6 +157,8 @@ public:
         ComponentData* ptr = component.get();
         storage.push_back(std::move(component));
         lookup.emplace(std::move(key), ptr);
+
+        Logger::info(moduleName, "+ interface  '{}'", typeName<API>());
 
         return Component<API>{ptr};
     } 
@@ -159,6 +179,9 @@ public:
             implementation.getAPI(instance),
             implementation.destroy
         );
+
+        Logger::info(moduleName, "> use  '{}' = '{}'", typeName<API>(), implName);
+
         return component;
     }
 

@@ -46,7 +46,7 @@ void Verlet::predict() {
         z[i] += (vz[i] + fz[i] * invMass[i] * 0.5f * dt) * dt;
     }
 
-    Log::ok("Verlet", "step dt: {}", dt);
+    Logger::ok("Verlet", "step dt: {}", dt);
 }
 
 void Verlet::correct() {

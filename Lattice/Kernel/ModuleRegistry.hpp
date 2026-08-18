@@ -8,7 +8,8 @@
 #include <format>
 #include <vector>
 
-#include "Lattice/Kernel/TypeName.hpp"
+#include <Lattice/Kernel/TypeName.hpp>
+#include <Lattice/Tools/Logger.hpp>
 
 namespace Lattice {
 
@@ -46,6 +47,7 @@ public:
         auto [it, inserted] = modules.emplace(typeName<API>(), ModuleEntry{});
         if (!inserted)
             throw std::runtime_error(std::format("API '{}' already registered", typeName<API>()));
+        Logger::info("Registry", "+ {}", typeName<API>());
     }
 
     template<typename API, typename Impl>
@@ -75,6 +77,7 @@ public:
         auto [it, inserted] = module.implementations.emplace(impl.id, impl);
         if (!inserted)
             throw std::runtime_error(std::format("Implementation '{}' already registered", typeName<API>()));
+        Logger::info("Registry", "+ {}", typeName<Impl>());
     }
 
     template<typename API>

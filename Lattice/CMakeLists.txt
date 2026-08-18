@@ -66,10 +66,10 @@ CPMAddPackage(
 )
 
 add_executable(Lattice-cli
-    LogStyle.h
     CLI/main.cpp
-    CLI/SystemInfo.cpp
-    CLI/SystemInfo.h
+    Tools/LogStyle.hpp
+    Tools/SystemInfo.cpp
+    Tools/SystemInfo.hpp
 )
 
 set_target_properties(Lattice-cli PROPERTIES

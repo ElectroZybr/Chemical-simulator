@@ -58,7 +58,7 @@ public:
         atoms->removeCol<Valence>();
         atoms->removeCol<Hybridization>();
         atoms->removeCol<Id>();
-        Log::info("ClassicMD", "destroying object");
+        Logger::info("ClassicMD", "destroying object");
     }
 
 private:

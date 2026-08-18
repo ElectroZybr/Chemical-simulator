@@ -18,7 +18,7 @@
 #include "App/AppIOSystem/AppSaveState.h"
 #include "Lattice/Engine/Simulation.h"
 #include "Lattice/Engine/io/SimulationStateIO.h"
-#include "Lattice/Log.hpp"
+#include <Lattice/Tools/Logger.hpp>
 #include "Lattice/Scripting/LuaState.h"
 #include "GUI/interface/UiState.h"
 #include "Rendering/BaseRenderer.h"
@@ -264,7 +264,7 @@ namespace {
 
 void AppStateIO::save(CaptureController& captureController, const PreviewFrameRect& previewRect, const Lattice::Simulation& simulation,
                       const BaseRenderer& renderer, std::string_view path) {
-    Log::action("SceneIO", "Saving {}", path);
+    Logger::action("SceneIO", "Saving {}", path);
     if (path.ends_with(".lat")) {
         AppStateIO::saveText(captureController, previewRect, simulation, renderer, path);
     }
@@ -272,15 +272,15 @@ void AppStateIO::save(CaptureController& captureController, const PreviewFrameRe
         AppStateIO::saveBinary(captureController, previewRect, simulation, renderer, path);
     }
     else {
-        Log::warning("SceneIO", "Unsupported scene format for save: {}", path);
+        Logger::warning("SceneIO", "Unsupported scene format for save: {}", path);
         return;
     }
 
-    Log::ok("SceneIO", "Scene save started: {}", path);
+    Logger::ok("SceneIO", "Scene save started: {}", path);
 }
 
 void AppStateIO::load(Lattice::Simulation& simulation, BaseRenderer& renderer, std::string_view path) {
-    Log::action("SceneIO", "Loading {}", path);
+    Logger::action("SceneIO", "Loading {}", path);
     try {
         const std::string extension = lowercaseExtension(path);
         if (extension == ".lat" || extension == ".sim" || extension == ".xyz") {
@@ -293,14 +293,14 @@ void AppStateIO::load(Lattice::Simulation& simulation, BaseRenderer& renderer, s
             AppStateIO::loadLuaScene(simulation, path);
         }
         else {
-            Log::warning("SceneIO", "Unsupported scene format for load: {}", path);
+            Logger::warning("SceneIO", "Unsupported scene format for load: {}", path);
             return;
         }
 
-        Log::ok("SceneIO", "Scene loaded: {}", path);
+        Logger::ok("SceneIO", "Scene loaded: {}", path);
     }
     catch (const std::exception& e) {
-        Log::error("SceneIO", "Failed to load scene '{}': {}", path, e.what());
+        Logger::error("SceneIO", "Failed to load scene '{}': {}", path, e.what());
         std::cerr << "Failed to load scene '" << path << "': " << e.what() << "\n";
     }
 }
@@ -387,7 +387,7 @@ void AppStateIO::saveBinary(CaptureController& captureController, const PreviewF
             out(appState).or_throw();
         }
         catch (const std::exception& e) {
-            Log::error("SceneIO", "Failed to serialize scene '{}': {}", filePath, e.what());
+            Logger::error("SceneIO", "Failed to serialize scene '{}': {}", filePath, e.what());
             std::cerr << "Failed to serialize app state: " << e.what() << "\n";
             return;
         }
@@ -396,20 +396,20 @@ void AppStateIO::saveBinary(CaptureController& captureController, const PreviewF
         std::vector<std::byte> compressed(maxCompressedSize);
         const size_t compressedSize = ZSTD_compress(compressed.data(), compressed.size(), bytes.data(), bytes.size(), 3);
         if (ZSTD_isError(compressedSize)) {
-            Log::error("SceneIO", "Failed to compress scene '{}': {}", filePath, ZSTD_getErrorName(compressedSize));
+            Logger::error("SceneIO", "Failed to compress scene '{}': {}", filePath, ZSTD_getErrorName(compressedSize));
             std::cerr << "Failed to compress: " << ZSTD_getErrorName(compressedSize) << "\n";
             return;
         }
 
         std::ofstream file(filePath, std::ios::binary);
         if (!file.is_open()) {
-            Log::error("SceneIO", "Failed to open '{}' for writing", filePath);
+            Logger::error("SceneIO", "Failed to open '{}' for writing", filePath);
             return;
         }
         uint32_t originalSize = static_cast<uint32_t>(bytes.size());
         file.write(reinterpret_cast<const char*>(&originalSize), sizeof(originalSize));
         file.write(reinterpret_cast<const char*>(compressed.data()), compressedSize);
-        Log::ok("SceneIO", "Scene saved: {}", filePath);
+        Logger::ok("SceneIO", "Scene saved: {}", filePath);
     });
 }
 
@@ -456,7 +456,7 @@ void AppStateIO::loadBinary(Lattice::Simulation& simulation, BaseRenderer& rende
         in(appState).or_throw();
     }
     catch (const std::exception& e) {
-        Log::error("SceneIO", "Failed to deserialize scene '{}': {}", path, e.what());
+        Logger::error("SceneIO", "Failed to deserialize scene '{}': {}", path, e.what());
         std::cerr << "Failed to deserialize save file: " << e.what() << std::endl;
         return;
     }

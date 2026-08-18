@@ -7,9 +7,9 @@
 #include <string>
 #include <string_view>
 
-#include "Lattice/LogStyle.h"
+#include <Lattice/Tools/LogStyle.hpp>
 
-class Log {
+class Logger {
 public:
     enum class ConsoleMode {
         Quiet,
@@ -88,7 +88,7 @@ public:
         , startTime_(Clock::now())
         , active_(true)
     {
-        Log::action(tag_, startFormat, std::forward<TArgs>(args)...);
+        Logger::action(tag_, startFormat, std::forward<TArgs>(args)...);
     }
 
     template <typename... TArgs>
@@ -101,28 +101,28 @@ public:
         , startTime_(Clock::now())
         , active_(true)
     {
-        Log::action(tag_, startFormat, std::forward<TArgs>(args)...);
+        Logger::action(tag_, startFormat, std::forward<TArgs>(args)...);
     }
 
     template <typename... TArgs>
     void step(std::format_string<TArgs...> format, TArgs&&... args) const {
-        Log::info(tag_, format, std::forward<TArgs>(args)...);
+        Logger::info(tag_, format, std::forward<TArgs>(args)...);
     }
 
     void finish() noexcept {
         if (!active_) return;
-        const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+        const auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(
             Clock::now() - startTime_).count();
-        Log::ok(tag_, "{} ({} ms)", finishMessage_, elapsed);
+        Logger::ok(tag_, "{} ({} us)", finishMessage_, elapsed);
         active_ = false;
     }
 
     template <typename... TArgs>
     void finish(std::format_string<TArgs...> format, TArgs&&... args) {
         if (!active_) return;
-        const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+        const auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(
             Clock::now() - startTime_).count();
-        Log::ok(tag_, "{} ({} ms)", std::format(format, std::forward<TArgs>(args)...), elapsed);
+        Logger::ok(tag_, "{} ({} us)", std::format(format, std::forward<TArgs>(args)...), elapsed);
         active_ = false;
     }
 

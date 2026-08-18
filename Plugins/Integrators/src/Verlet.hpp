@@ -2,7 +2,7 @@
 
 #include <string>
 
-#include <Lattice/Log.hpp>
+#include <Lattice/Tools/Logger.hpp>
 
 #include <Plugins/ParticleDynamics/api/ParticleAPI.hpp>
 #include <Plugins/ParticleDynamics/api/ParticleStorage.hpp>
@@ -34,7 +34,7 @@ public:
     void step() override { pipeline(); }
 
     ~Verlet () {
-        Log::info("Verlet", "destroying object");
+        Logger::info("Verlet", "destroying object");
         particles->removeCol<PrevForceX>();
         particles->removeCol<PrevForceY>();
         particles->removeCol<PrevForceZ>();

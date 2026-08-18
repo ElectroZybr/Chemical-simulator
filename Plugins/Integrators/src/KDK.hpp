@@ -1,6 +1,6 @@
 #pragma once
 
-#include <Lattice/Log.hpp>
+#include <Lattice/Tools/Logger.hpp>
 
 #include <Plugins/ParticleDynamics/api/ParticleAPI.hpp>
 

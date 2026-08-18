@@ -1,5 +1,5 @@
 #include "BondTable.h"
-#include "Lattice/Log.hpp"
+#include <Lattice/Tools/Logger.hpp>
 
 void BondTable::init() {
     using T = AtomData::Type;
@@ -42,5 +42,5 @@ void BondTable::init() {
     set(T::Cl, T::Cl, O::Single, BondParams{1.990f, 150.0f}); // Cl-Cl
     set(T::Br, T::Br, O::Single, BondParams{2.280f, 120.0f}); // Br-Br
 
-    Log::info("BondTable", "bond table has been initialized");
+    Logger::info("BondTable", "bond table has been initialized");
 }

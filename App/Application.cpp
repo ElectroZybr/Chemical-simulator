@@ -11,7 +11,7 @@
 // #include "App/AppIOSystem/UserSettings.h"
 // #include "App/WindowController.h"
 // #include "Lattice/Scripting/LuaState.h"
-// #include "Lattice/Log.hpp"
+// #include "Lattice/Logger.hpp"
 // #include "App/viewport/SceneViewport.h"
 // #include "App/interaction/ToolsManager.h"
 // #include "Lattice/Engine/Simulation.h"
@@ -26,7 +26,7 @@
 // #include "debug/DebugRuntime.h"
 // #include "Lattice/Engine/pluginLoader.hpp"
 
-#include "Lattice/Kernel/Runtime.hpp"
+#include <Lattice/Kernel/Runtime.hpp>
 
 using Clock = std::chrono::high_resolution_clock;
 
@@ -67,7 +67,7 @@ int Application::run() {
     //         window = WindowController::create(userSettings.windowState);
     //         if (!window) {
     //             applicationScope.cancel();
-    //             Log::fatal("Window", "Failed to create main window");
+    //             Logger::fatal("Window", "Failed to create main window");
     //             return EXIT_FAILURE;
     //         }
     //     }
@@ -105,7 +105,7 @@ int Application::run() {
     //         if (appInterface.init() != EXIT_SUCCESS) {
     //             interfaceScope.cancel();
     //             applicationScope.cancel();
-    //             Log::fatal("Interface", "Failed to initialize application interface");
+    //             Logger::fatal("Interface", "Failed to initialize application interface");
     //             return EXIT_FAILURE;
     //         }
     //     }
@@ -194,7 +194,7 @@ int Application::run() {
     //             const uint64_t advancedSteps = currentStep - lastStatusStep;
     //             const double averageUps = advancedSteps / statusAccum;
 
-    //             Log::info(
+    //             Logger::info(
     //                 "Simulation",
     //                 "Status: step={} atoms={} paused={} speed={} UPS={:.1f}",
     //                 currentStep,
@@ -208,7 +208,7 @@ int Application::run() {
     //         }
     //     }
 
-    //     Log::action("Application", "Shutting down...");
+    //     Logger::action("Application", "Shutting down...");
     //     captureController.stop();
     //     const UserSettings::WindowState windowState = WindowController::snapshot();
     //     UserSettings userSettings;
@@ -219,7 +219,7 @@ int Application::run() {
     //     userSettings.captureFrom(windowState);
     //     UserSettingsIO::save(userSettings);
     //     appInterface.shutdown();
-    //     Log::ok("Application", "Shutdown complete");
+    //     Logger::ok("Application", "Shutdown complete");
         return 0;
     // }
 }
