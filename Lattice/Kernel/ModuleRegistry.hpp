@@ -47,7 +47,7 @@ public:
         auto [it, inserted] = modules.emplace(typeName<API>(), ModuleEntry{});
         if (!inserted)
             throw std::runtime_error(std::format("API '{}' already registered", typeName<API>()));
-        Logger::info("Registry", "+ {}", typeName<API>());
+        Logger::info("Registry", "+ api  {}", typeName<API>());
     }
 
     template<typename API, typename Impl>
@@ -77,7 +77,7 @@ public:
         auto [it, inserted] = module.implementations.emplace(impl.id, impl);
         if (!inserted)
             throw std::runtime_error(std::format("Implementation '{}' already registered", typeName<API>()));
-        Logger::info("Registry", "+ {}", typeName<Impl>());
+        Logger::info("Registry", "+ impl {}", typeName<Impl>());
     }
 
     template<typename API>

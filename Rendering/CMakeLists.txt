@@ -20,7 +20,7 @@ if(APPLE)
     list(APPEND RENDERING_SOURCES ${RENDERING_OBJCXX_SOURCES})
 endif()
 
-add_library(latticelab_rendering STATIC
+add_library(latticelab_rendering STATIC 
     ${RENDERING_SOURCES}
     ${RENDERING_PUBLIC_HEADERS}
 )

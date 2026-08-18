@@ -59,29 +59,29 @@ public:
                 continue;
             }
 
-            if (!init(host_, library.info)) {
-                Logger::error("PluginLoader", "plugin_init failed for '{}'", libraryPath.string());
-                continue;
-            }
+            // if (!init(host_, library.info)) {
+            //     Logger::error("PluginLoader", "plugin_init failed for '{}'", libraryPath.string());
+            //     continue;
+            // }
 
-            Logger::info(
-                "PluginLoader",
-                "Registry state after {}: forceFields={} integrators={} thermostats={}",
-                library.info.id != nullptr && library.info.id[0] != '\0' ? library.info.id : libraryPath.filename().string(),
-                host_.forceFields.items().size(),
-                host_.integrators.items().size(),
-                host_.thermostats.items().size());
+            // Logger::info(
+            //     "PluginLoader",
+            //     "Registry state after {}: forceFields={} integrators={} thermostats={}",
+            //     library.info.id != nullptr && library.info.id[0] != '\0' ? library.info.id : libraryPath.filename().string(),
+            //     host_.forceFields.items().size(),
+            //     host_.integrators.items().size(),
+            //     host_.thermostats.items().size());
 
-            if (library.info.id != nullptr && std::string_view(library.info.id) == "classic_md" && host_.forceFields.find("classic_md") == nullptr) {
-                Logger::warning("PluginLoader", "Plugin classic_md loaded, but force field 'classic_md' is not registered");
-            }
+            // if (library.info.id != nullptr && std::string_view(library.info.id) == "classic_md" && host_.forceFields.find("classic_md") == nullptr) {
+            //     Logger::warning("PluginLoader", "Plugin classic_md loaded, but force field 'classic_md' is not registered");
+            // }
 
-            Logger::info(
-                "PluginLoader",
-                "Loaded \"{}\" id={} version={}",
-                library.info.name != nullptr && library.info.name[0] != '\0' ? library.info.name : "<unnamed>",
-                library.info.id != nullptr && library.info.id[0] != '\0' ? library.info.id : "<none>",
-                library.info.version != nullptr && library.info.version[0] != '\0' ? library.info.version : "<none>");
+            // Logger::info(
+            //     "PluginLoader",
+            //     "Loaded \"{}\" id={} version={}",
+            //     library.info.name != nullptr && library.info.name[0] != '\0' ? library.info.name : "<unnamed>",
+            //     library.info.id != nullptr && library.info.id[0] != '\0' ? library.info.id : "<none>",
+            //     library.info.version != nullptr && library.info.version[0] != '\0' ? library.info.version : "<none>");
 
             loadedPlugins_.push_back(std::move(library));
             ++loadedCount;
