@@ -19,8 +19,8 @@
 #include <Lattice/Tools/Logger.hpp>
 
 // Plugin dependences
-#include "Plugins/ParticleDynamics/api/ParticleAPI.hpp"
-#include "Plugins/ParticleDynamics/api/ParticleStorage.hpp"
+#include "ParticleDynamics/api/ParticleAPI.hpp"
+#include "ParticleDynamics/api/ParticleStorage.hpp"
 
 #include "CSR.hpp"
 
@@ -64,11 +64,11 @@ public:
 
         buffer_.resize(n, countCells + 1);
         uint32_t running = 0;
-        size_t nonEmptyCellCount = 0;
+        // size_t nonEmptyCellCount = 0;
         uint32_t maxAtomsPerCell = 0;
         for (size_t cell = 0; cell < countCells; ++cell) {
             const uint32_t cnt = counts_[cell];
-            nonEmptyCellCount += (cnt > 0);
+            // nonEmptyCellCount += (cnt > 0);
             maxAtomsPerCell = std::max(counts_[cell], maxAtomsPerCell);
             counts_[cell] = running;
             buffer_.offsets()[cell] = running;

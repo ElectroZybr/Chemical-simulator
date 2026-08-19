@@ -1,6 +1,5 @@
-﻿#include "App/Application.h"
+﻿#include <Lattice/Kernel/Runtime.hpp>
 #include <Lattice/Tools/Logger.hpp>
-
 #include <string_view>
 
 int runApplication(int argc, char** argv) {
@@ -17,8 +16,11 @@ int runApplication(int argc, char** argv) {
     }
 
     Logger::setConsoleMode(consoleMode);
-    Application application;
-    return application.run();
+    Lattice::Runtime runtime;
+    runtime.loadPlugins("Plugins");
+    runtime.start("ClassicMD", "Universe 1");
+    runtime.updateAll();
+    return 0;
 }
 
 int main(int argc, char** argv) { return runApplication(argc, argv); }

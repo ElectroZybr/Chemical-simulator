@@ -5,6 +5,7 @@
 /Debug/
 /Release/
 /legacy/
+/.xmake/
 
 # Obsidian
 **/.obsidian/
@@ -27,6 +28,7 @@ cmake-build-*/
 
 # VS Code
 .vscode/
+.command-buttons.json
 
 # Runtime / logs
 *.log

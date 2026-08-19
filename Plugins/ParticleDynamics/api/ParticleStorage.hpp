@@ -3,7 +3,7 @@
 #include <vector>
 #include <glm/vec3.hpp>
 
-#include "Plugins/ParticleDynamics/src/DynamicSoALib.hpp"
+#include "ParticleDynamics/src/DynamicSoALib.hpp"
 
 struct Pos {
     struct X { using type = float; };

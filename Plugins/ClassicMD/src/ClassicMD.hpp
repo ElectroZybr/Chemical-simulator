@@ -9,12 +9,13 @@
 #include <Lattice/Kernel/Settings.hpp>
 
 // Plugin dependences
-#include <Plugins/ParticleDynamics/api/ParticleAPI.hpp>
-#include <Plugins/ParticleDynamics/api/ParticleStorage.hpp>
-#include <Plugins/ParticleDynamics/src/SpatialGrid.hpp>
+#include <ParticleDynamics/api/ParticleAPI.hpp>
+#include <ParticleDynamics/api/ParticleStorage.hpp>
+#include <ParticleDynamics/src/SpatialGrid.hpp>
 
 // Source
 // #include "AtomStorage.hpp"
+#include <Lattice/Engine/physics/Atom/AtomData.h>
 
 namespace ClassicMD {
 

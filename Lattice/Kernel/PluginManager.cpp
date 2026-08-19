@@ -173,7 +173,13 @@ namespace Lattice {
         } 
         
         if (pluginPath.empty()) {
-            Logger::error(moduleName, "No regular file to: {}", pluginPath.string());
+            Logger::error(
+                moduleName,
+                "No dynamic library found for plugin '{}': {}",
+                pluginCandidate->manifest.id,
+                pluginCandidate->path.string()
+            );
+
             pluginCandidate->status = LoadStatus::Failed;
             return false;
         }

@@ -276,7 +276,6 @@ private:
         const size_t oldColumnCount = columns_.size();
         std::vector<Column> oldColumns = columns_;
         std::byte* oldStorage = storage_;
-        const size_t oldBytes = storageBytes_;
 
         size_t totalBytes = 0;
         for (Column& col : columns_) {
