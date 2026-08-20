@@ -1,9 +1,7 @@
 #pragma once
 
-#include <cstdint>
 #include <filesystem>
 #include <string>
-#include <vector>
 
 #include "Lattice/Kernel/ModelAPI.hpp"
 #include "Lattice/Kernel/PluginManager.hpp"
@@ -11,14 +9,16 @@
 #include "Lattice/Kernel/Settings.hpp"
 #include <Lattice/Tools/SystemInfo.hpp>
 
+
 namespace Lattice {
 class Runtime {
 public:
-    Runtime() : root(&globalRegistry) {
+    Runtime() : root(&globalRegistry, nullptr) {
         Logger::action(moduleName, "System launching");
         Lattice::CliSystemInfo::printSystemInfo(std::cout);
         // регистрация интерфейсов ядра
         globalRegistry.registerAPI<ModelAPI>();
+        globalRegistry.registerComponent<Settings>();
     }
 
     bool loadPlugins(std::filesystem::path path) {
@@ -26,6 +26,18 @@ public:
         pluginManager.scanDirectory(path);
         pluginManager.checkCandidates();
         pluginManager.loadCandidates(globalRegistry);
+        return true;
+    }
+
+    bool check(std::string_view modelId, std::string_view instanceName = "default") {
+        Logger::action(moduleName, "Check requires {}:", modelId);
+        Components branch(&globalRegistry, nullptr, Mode::Check);
+
+        Component settings = branch.addComponent<Settings>();
+        Component model = branch.addInterfaceSlot<ModelAPI>();
+        Component created = branch.useInterface<ModelAPI>(modelId);
+        branch.printRequirementTree();
+        branch.printRequirements();
         return true;
     }
 
@@ -69,11 +81,11 @@ public:
             model->update();
     }
 
-    ModuleRegistry& registry() noexcept { return globalRegistry; }
+    Registry& registry() noexcept { return globalRegistry; }
 
 private:
     static constexpr std::string_view moduleName = "Runtime";
-    ModuleRegistry globalRegistry;
+    Registry globalRegistry;
     PluginManager pluginManager;
     Components root;
 

@@ -5,7 +5,7 @@
 
 namespace Integrators {
 
-void Verlet::pipeline() {
+void Verlet::step() {
     // Расчет новых позиций
     predict();
     // // Расчет сил

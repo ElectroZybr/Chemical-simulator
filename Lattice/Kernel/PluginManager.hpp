@@ -3,16 +3,14 @@
 #include <filesystem>
 #include <vector>
 
-#include "Lattice/Kernel/ModuleRegistry.hpp"
+#include "Lattice/Kernel/Registry.hpp"
 #include "Lattice/Kernel/DynamicLibrary.hpp"
 #include "Lattice/Kernel/PluginAPI.hpp"
-#include "toml++/toml.hpp"
 
 namespace Lattice {
 struct LoadedPlugin {
     DynamicLibrary library;
     PluginManifest info;
-    KernelAPI kernel;
     PluginShutdownFn shutdown;
 };
 
@@ -41,7 +39,7 @@ public:
  * Использует очередь загрузки, сформированную во время проверки.
  * Плагины загружаются в порядке, учитывающем их зависимости.
  */
-    void loadCandidates(ModuleRegistry& globalRegistry);
+    void loadCandidates(Registry& globalRegistry);
 
     ~PluginManager();
 private:
@@ -93,7 +91,7 @@ private:
  *
  * @return true, если загрузка прошла успешно.
  */
-    bool loadPlugin(PluginCandidate* pluginCandidate, ModuleRegistry& globalRegistry);
+    bool loadPlugin(PluginCandidate* pluginCandidate, Registry& globalRegistry);
 private:
     static constexpr std::string_view moduleName = "PluginManager";
     std::vector<LoadedPlugin> plugins;

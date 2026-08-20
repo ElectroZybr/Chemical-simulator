@@ -18,6 +18,7 @@ int runApplication(int argc, char** argv) {
     Logger::setConsoleMode(consoleMode);
     Lattice::Runtime runtime;
     runtime.loadPlugins("Plugins");
+    runtime.check("ClassicMD", "Universe 1");
     runtime.start("ClassicMD", "Universe 1");
     runtime.updateAll();
     return 0;

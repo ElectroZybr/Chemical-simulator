@@ -4,8 +4,7 @@
 #include <string>
 #include <filesystem>
 
-#include "Lattice/Kernel/TypeName.hpp"
-#include "Lattice/Kernel/ModuleRegistry.hpp"
+#include "Lattice/Kernel/Registry.hpp"
 
 namespace Lattice {
 struct Version {
@@ -79,45 +78,6 @@ struct PluginDependency {
     VersionRange requirement;
 };
 
-class KernelAPI {
-public:
-    explicit KernelAPI(ModuleRegistry registry)
-        : sharedRegistry(std::move(registry)) {}
-
-private:
-    ModuleRegistry sharedRegistry;
-};
-
-class PluginRegister : public KernelAPI {
-public:
-    PluginRegister(ModuleRegistry& registry,
-                const std::vector<std::string>& allowedModules,
-                std::vector<std::string>* providedOut = nullptr)
-        : KernelAPI(ModuleRegistry(registry, allowedModules)),
-          globalRegistry(registry),
-          providedAPIs(providedOut) {}
-
-    template<typename API>
-    void registerAPI() {
-        globalRegistry.registerAPI<API>();
-        if (providedAPIs) {
-            providedAPIs->emplace_back(typeName<API>());
-        }
-    }
-
-    template<typename API, typename Impl>
-    void registerImpl() {
-        globalRegistry.registerImpl<API, Impl>();
-        if (providedAPIs) {
-            providedAPIs->emplace_back(typeName<Impl>());
-        }
-    }
-
-private:
-    ModuleRegistry& globalRegistry;
-    std::vector<std::string>* providedAPIs = nullptr;
-};
-
 struct PluginManifest {
     std::string id;
     std::string name;
@@ -147,7 +107,6 @@ struct PluginCandidate {
     std::vector<std::string> providedAPIs;
 };
 
-using PluginRegisterFn = bool(*)(PluginRegister*);
-using PluginInitFn = bool(*)(KernelAPI*);
-using PluginShutdownFn = void(*)(KernelAPI*);
+using PluginRegisterFn = bool(*)(Registry*);
+using PluginShutdownFn = void(*)();
 }

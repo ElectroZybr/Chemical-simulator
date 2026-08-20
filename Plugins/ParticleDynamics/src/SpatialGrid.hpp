@@ -37,6 +37,10 @@ public:
         Logger::info("SpatialGrid", "initialized");
     }
 
+    void configure() {
+        
+    }
+
     void rebuild() override {
         const size_t n = particles->size();
 

@@ -13,6 +13,8 @@
 #include <ParticleDynamics/api/ParticleStorage.hpp>
 #include <ParticleDynamics/src/SpatialGrid.hpp>
 
+#include <Integrators/src/Verlet.hpp>
+
 // Source
 // #include "AtomStorage.hpp"
 #include <Lattice/Engine/physics/Atom/AtomData.h>
@@ -34,31 +36,32 @@ public:
         integrator = universe.addInterfaceSlot<ParticleDynamics::IntegratorAPI>();
         atoms = universe.addComponent<ParticleDynamics::ParticleStorage>();
         spatialGrid = universe.addComponent<ParticleDynamics::SpatialGrid>();
+        // universe.useInterface<ParticleDynamics::IntegratorAPI>("Verlet");
 
+        universe.addComponent<Integrators::Verlet>();
+    }
+
+    void configure() {
         atoms->addCol<Energy>();
         atoms->addCol<Charge>();
         atoms->addCol<Type>();
         atoms->addCol<Valence>();
         atoms->addCol<Hybridization>();
         atoms->addCol<Id>();
-
-        universe.useInterface<ParticleDynamics::IntegratorAPI>("Verlet");
     }
 
     void update() override {
         integrator->step();
-        // atoms->get<PosX>();
-        // atoms->at<PosX>(0);
         settings->set("SpatialGrid", "size", glm::vec3(10, 10, 10));
     }
 
     ~ClassicMD() {
-        atoms->removeCol<Energy>();
-        atoms->removeCol<Charge>();
-        atoms->removeCol<Type>();
-        atoms->removeCol<Valence>();
-        atoms->removeCol<Hybridization>();
-        atoms->removeCol<Id>();
+        // atoms->removeCol<Energy>();
+        // atoms->removeCol<Charge>();
+        // atoms->removeCol<Type>();
+        // atoms->removeCol<Valence>();
+        // atoms->removeCol<Hybridization>();
+        // atoms->removeCol<Id>();
         Logger::info("ClassicMD", "destroying object");
     }
 

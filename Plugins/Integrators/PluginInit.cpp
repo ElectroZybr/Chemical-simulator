@@ -8,17 +8,11 @@
 
 namespace Integrators {
 
-extern "C" bool plugin_register(Lattice::PluginRegister& reg) {
+extern "C" bool plugin_register(Lattice::Registry& reg) {
     reg.registerImpl<ParticleDynamics::IntegratorAPI, Verlet>();
     reg.registerImpl<ParticleDynamics::IntegratorAPI, KDK>();
     return true;
 }
 
-extern "C" bool plugin_init(Lattice::KernelAPI& kernel) {
-    return true;
-}
-
-extern "C" void plugin_shutdown(Lattice::KernelAPI& kernel) {
-}
-
+extern "C" void plugin_shutdown() {}
 }

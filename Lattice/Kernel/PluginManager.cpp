@@ -1,5 +1,6 @@
 #include <Lattice/Kernel/PluginManager.hpp>
 #include <Lattice/Tools/Logger.hpp>
+#include <toml++/toml.h>
 
 namespace Lattice {
     void PluginManager::scanDirectory(std::filesystem::path path) {
@@ -20,7 +21,7 @@ namespace Lattice {
                     Logger::error(moduleName, "Duplicate plugin id '{}': {}", candidate.manifest.id, entry.path().string());
                 }
 
-                Logger::info(moduleName, "Found plugin: {} v{}", candidate.manifest.id, candidate.manifest.version.str());
+                Logger::info(moduleName, "Found plugin manifest: {} v{}", candidate.manifest.id, candidate.manifest.version.str());
             }
             catch (const std::exception& e) {
                 Logger::error(moduleName, "Failed to parse {}: {}", entry.path().string(), e.what());
@@ -36,7 +37,7 @@ namespace Lattice {
         }
     }
 
-    void PluginManager::loadCandidates(ModuleRegistry& globalRegistry) {
+    void PluginManager::loadCandidates(Registry& globalRegistry) {
         uint16_t loadedPlugins = 0; 
         for (PluginCandidate* plugin : loadQueue) {
             if (loadPlugin(plugin, globalRegistry)) {
@@ -160,7 +161,7 @@ namespace Lattice {
         return true;
     }
 
-    bool PluginManager::loadPlugin(PluginCandidate* pluginCandidate, ModuleRegistry& globalRegistry) {
+    bool PluginManager::loadPlugin(PluginCandidate* pluginCandidate, Registry& globalRegistry) {
         std::filesystem::path pluginPath;
         for (const auto& entry : std::filesystem::directory_iterator(pluginCandidate->path)) {
             if (!entry.is_regular_file())
@@ -193,37 +194,9 @@ namespace Lattice {
             return false;
         }
 
-        PluginInitFn init = library.symbol<PluginInitFn>("plugin_init");
-        if (init == nullptr) {
-            Logger::error(moduleName, "Missing symbol 'plugin_init' in '{}': {}", pluginPath.string(), library.lastError());
-            pluginCandidate->status = LoadStatus::Failed;
-            return false;
-        }
-
-        std::vector<std::string> allowedAPIs;
-
-        for (const PluginDependency& dep : pluginCandidate->manifest.dependencies) {
-            auto it = candidates.find(dep.id);
-            if (it == candidates.end()) {
-                Logger::error(moduleName, "Missing dependency '{}'", dep.id);
-                pluginCandidate->status = LoadStatus::Failed;
-                return false;
-            }
-            PluginCandidate& provider = it->second;
-            allowedAPIs.insert(allowedAPIs.end(), provider.providedAPIs.begin(), provider.providedAPIs.end());
-        }
-
-        PluginRegister reg(globalRegistry, allowedAPIs, &pluginCandidate->providedAPIs);
         PluginRegisterFn regFn = library.symbol<PluginRegisterFn>("plugin_register");
-        if (!regFn(&reg)) {
+        if (!regFn(&globalRegistry)) {
             Logger::error(moduleName, "plugin_register failed for '{}'", pluginPath.string());
-            pluginCandidate->status = LoadStatus::Failed;
-            return false;
-        }
-
-        KernelAPI kernel(reg);
-        if (!init(&kernel)) {
-            Logger::error(moduleName, "plugin_init failed for '{}'", pluginPath.string());
             pluginCandidate->status = LoadStatus::Failed;
             return false;
         }
@@ -233,7 +206,7 @@ namespace Lattice {
         }
 
         PluginShutdownFn shutdown = library.symbol<PluginShutdownFn>("plugin_shutdown");
-        plugins.push_back(LoadedPlugin{std::move(library), pluginCandidate->manifest, std::move(kernel), shutdown});
+        plugins.push_back(LoadedPlugin{std::move(library), pluginCandidate->manifest, shutdown});
         pluginCandidate->status = LoadStatus::Loaded;
 
         return true;
@@ -242,7 +215,7 @@ namespace Lattice {
     PluginManager::~PluginManager() {
         for (LoadedPlugin& plugin : plugins) {
             if (plugin.shutdown)
-                plugin.shutdown(&plugin.kernel);
+                plugin.shutdown();
         }
         plugins.clear();
     }

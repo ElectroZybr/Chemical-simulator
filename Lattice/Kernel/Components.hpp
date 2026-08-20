@@ -1,4 +1,5 @@
 #pragma once
+
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -6,12 +7,29 @@
 #include <format>
 #include <stdexcept>
 #include <type_traits>
+#include <vector>
 
 #include <Lattice/Kernel/TypeName.hpp>
-#include <Lattice/Kernel/ModuleRegistry.hpp>
+#include <Lattice/Kernel/Registry.hpp>
 #include <Lattice/Tools/Logger.hpp>
 
 namespace Lattice {
+
+enum class Mode {
+    Normal,
+    Check
+};
+
+template<typename T>
+concept HasConfigure = requires(T& t) {
+    t.configure();
+};
+
+struct Requirement {
+    std::string type;
+    std::string instance;
+    int depth = 0;
+};
 
 struct ComponentData {
     void* instance = nullptr;
@@ -42,12 +60,15 @@ struct Component {
     API* operator->() const {
         return data ? static_cast<API*>(data->api) : nullptr;
     }
+
     API& operator*() const {
         return *static_cast<API*>(data->api);
     }
+
     explicit operator bool() const {
         return data && data->api;
     }
+
     API* get() const {
         return data ? static_cast<API*>(data->api) : nullptr;
     }
@@ -62,9 +83,14 @@ struct Component {
 };
 
 class Components {
-    ModuleRegistry* registry = nullptr;
+private:
+    Registry* registry = nullptr;
+    Components* parent = nullptr;
+    std::vector<Requirement> reqs;
+    Mode mode = Mode::Normal;
+    int depth = 0;
 
-    using ComponentKey = std::pair<std::string, std::string>; // {typeName, instanceName}
+    using ComponentKey = std::pair<std::string, std::string>;
 
     struct ComponentKeyHash {
         size_t operator()(const ComponentKey& k) const noexcept {
@@ -81,19 +107,30 @@ class Components {
 public:
     static constexpr std::string_view moduleName = "Components";
 
-    explicit Components(ModuleRegistry* registry)
-        : registry(registry)
-    {}
+    explicit Components(Registry* registry, Components* parent = nullptr, Mode mode = Mode::Normal)
+        : registry(registry), parent(parent), mode(mode) {
+
+        if (mode == Mode::Check) {
+            reqs.push_back({"Branch", "Root", depth});
+            ++depth;
+        }
+    }
+
+    // -------------------------------------------------------------------------
 
     Component<Components> addBranch(std::string_view instanceName = "default") {
         ComponentKey key{std::string(typeName<Components>()), std::string(instanceName)};
         if (auto it = lookup.find(key); it != lookup.end()) {
             return Component<Components>{it->second};
         }
-        auto component = std::make_unique<ComponentData>();
-        Components* obj;
-        obj = new Components(registry);
 
+        if (mode == Mode::Check) {
+            reqs.push_back({std::string(instanceName), std::string(instanceName), depth});
+            ++depth;
+        }
+
+        auto component = std::make_unique<ComponentData>();
+        Components* obj = new Components(registry, this, mode);
         component->instance = obj;
         component->api = obj;
         component->destroy = [](void* p) { delete static_cast<Components*>(p); };
@@ -101,9 +138,15 @@ public:
         ComponentData* ptr = component.get();
         storage.push_back(std::move(component));
         lookup.emplace(std::move(key), ptr);
-        Logger::info(moduleName, "+ branch     '{}'", instanceName);
+
+        if (mode == Mode::Normal) {
+            Logger::info(moduleName, "+ branch '{}'", instanceName);
+        }
+
         return Component<Components>{ptr};
     }
+
+    // -------------------------------------------------------------------------
 
     template<typename T>
     Component<T> addComponent(std::string_view instanceName = "default") {
@@ -112,13 +155,29 @@ public:
             return Component<T>{it->second};
         }
 
-        static_assert(!std::is_abstract_v<T>, "addComponent<T>: T must not be abstract");
+        // В Check-режиме всегда записываем зависимость
+        if (mode == Mode::Check) {
+            reqs.push_back({std::string(typeName<T>()), std::string(instanceName), depth});
+        }
+
+        // Если типа нет в реестре
+        if (!registry->has(std::string(typeName<T>()))) {
+            if (mode == Mode::Check) {
+                return Component<T>{nullptr};
+            }
+            throw std::runtime_error(std::format(
+                "Component '{}' not found", typeName<T>()));
+        }
+
+        if (mode == Mode::Check) {
+            ++depth;
+        }
 
         auto component = std::make_unique<ComponentData>();
-        T* obj;
+        T* obj = nullptr;
 
         if constexpr (std::is_same_v<T, Components>) {
-            obj = new Components(registry);
+            obj = new Components(registry, this, mode);
         }
         else if constexpr (std::is_constructible_v<T, Components&>) {
             obj = new T(*this);
@@ -128,10 +187,20 @@ public:
         }
         else {
             static_assert(
-                std::is_constructible_v<T, Components&> ||
-                std::is_default_constructible_v<T>,
+                std::is_constructible_v<T, Components&> || std::is_default_constructible_v<T>,
                 "Component must be constructible with Components& or default constructible"
             );
+        }
+
+        if (mode == Mode::Check) {
+            --depth;
+        }
+
+        if (mode == Mode::Normal) {
+            if constexpr (HasConfigure<T>) {
+                obj->configure();
+            }
+            Logger::info(moduleName, "+ component '{}'", typeName<T>());
         }
 
         component->instance = obj;
@@ -142,10 +211,10 @@ public:
         storage.push_back(std::move(component));
         lookup.emplace(std::move(key), ptr);
 
-        Logger::info(moduleName, "+ component  '{}'", typeName<T>());
-
         return Component<T>{ptr};
     }
+
+    // -------------------------------------------------------------------------
 
     template<typename API>
     Component<API> addInterfaceSlot(std::string_view instanceName = "default") {
@@ -153,15 +222,22 @@ public:
         if (auto it = lookup.find(key); it != lookup.end()) {
             return Component<API>{it->second};
         }
+
+        if (mode == Mode::Check) {
+            reqs.push_back({std::string(typeName<API>()), std::string(instanceName), depth});
+            return Component<API>{nullptr};
+        }
+
         auto component = std::make_unique<ComponentData>();
         ComponentData* ptr = component.get();
         storage.push_back(std::move(component));
         lookup.emplace(std::move(key), ptr);
 
-        Logger::info(moduleName, "+ interface  '{}'", typeName<API>());
-
+        Logger::info(moduleName, "+ interface '{}'", typeName<API>());
         return Component<API>{ptr};
-    } 
+    }
+
+    // -------------------------------------------------------------------------
 
     template<typename API, typename Impl>
     Component<API> useInterface(std::string_view instanceName = "default") {
@@ -170,20 +246,33 @@ public:
 
     template<typename API>
     Component<API> useInterface(std::string_view implName, std::string_view instanceName = "default") {
+        if (mode == Mode::Check) {
+            reqs.push_back({std::string(typeName<API>()), std::string(instanceName), depth});
+            if (!registry->hasImpl<API>(implName)) {
+                Logger::error(moduleName, "unknown implementation '{}' for '{}'", implName, typeName<API>());
+                return Component<API>{nullptr};
+            }
+            const auto& implementation = registry->requireImpl<API>(implName);
+            void* instance = implementation.create(this);
+            implementation.destroy(instance);
+            return Component<API>{nullptr};
+        }
+
         const auto& implementation = registry->requireImpl<API>(implName);
         auto component = require<API>(instanceName);
-        void* instance = implementation.create(this);
 
+        void* instance = implementation.create(this);
         component.data->reset(
             instance,
             implementation.getAPI(instance),
             implementation.destroy
         );
 
-        Logger::info(moduleName, "> use  '{}' = '{}'", typeName<API>(), implName);
-
+        Logger::info(moduleName, "> use '{}' = '{}'", typeName<API>(), implName);
         return component;
     }
+
+    // -------------------------------------------------------------------------
 
     template<typename API>
     Component<API> get(std::string_view instanceName = "default") {
@@ -197,12 +286,67 @@ public:
     template<typename API>
     Component<API> require(std::string_view instanceName = "default") {
         auto c = get<API>(instanceName);
+        if (mode == Mode::Check) {
+            reqs.push_back({std::string(typeName<API>()), std::string(instanceName), depth});
+            if (c.exists()) {
+                return c;
+            }
+            return Component<API>{nullptr};
+        }
         if (!c.exists()) {
             throw std::runtime_error(std::format(
                 "Component '{}' with instance '{}' not found",
                 typeName<API>(), instanceName));
         }
         return c;
+    }
+
+    // -------------------------------------------------------------------------
+
+    std::vector<Requirement> getUniqueRequirements() const {
+        std::vector<Requirement> result;
+
+        for (const auto& r : reqs) {
+            const bool exists = std::any_of(
+                result.begin(),
+                result.end(),
+                [&](const Requirement& existing) {
+                    return existing.type == r.type &&
+                        existing.instance == r.instance;
+                }
+            );
+
+            if (!exists)
+                result.push_back(r);
+        }
+
+        return result;
+    }
+
+    void printRequirements() const {
+        for (const auto& r : getUniqueRequirements()) {
+            if (registry->has(r.type)) {
+                Logger::ok("root", "{} ({})", r.type, r.instance);
+            } else {
+                Logger::error("root", "{} ({})", r.type, r.instance);
+            }
+        }
+    }
+
+    void printRequirementTree() const {
+        for (const auto& r : reqs) {
+            std::string pad(r.depth * 2, ' ');
+
+            if (registry->has(r.type)) {
+                Logger::ok("root", "{}{} ({})", pad, r.type, r.instance);
+            } else {
+                Logger::error("root", "{}{} ({})", pad, r.type, r.instance);
+            }
+        }
+    }
+
+    const std::vector<Requirement>& getRequirementTree() const {
+        return reqs;
     }
 };
 

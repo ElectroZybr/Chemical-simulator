@@ -9,21 +9,15 @@
 
 namespace ParticleDynamics {
 
-extern "C" bool plugin_register(Lattice::PluginRegister& reg) {
+extern "C" bool plugin_register(Lattice::Registry& reg) {
     reg.registerAPI<IntegratorAPI>();
     reg.registerAPI<ForceFieldAPI>();
     reg.registerAPI<SpatialIndexAPI>();
 
     reg.registerImpl<SpatialIndexAPI, SpatialGrid>();
+    reg.registerComponent<ParticleStorage>();
     return true;
 }
 
-extern "C" bool plugin_init(Lattice::KernelAPI& kernel) {
-    return true;
-}
-
-extern "C" void plugin_shutdown(Lattice::KernelAPI& kernel) {
-
-}
-
+extern "C" void plugin_shutdown() {}
 } // ParticleDynamics

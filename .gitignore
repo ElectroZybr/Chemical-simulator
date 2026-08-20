@@ -29,6 +29,7 @@ cmake-build-*/
 # VS Code
 .vscode/
 .command-buttons.json
+.compile_commands.json
 
 # Runtime / logs
 *.log
