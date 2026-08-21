@@ -1,5 +1,6 @@
 #include <Lattice/Tools/SystemInfo.hpp>
 #include <Lattice/Tools/LogStyle.hpp>
+#include <Lattice/Tools/Logger.hpp>
 
 #include <algorithm>
 #include <array>
@@ -14,6 +15,7 @@
 #include <sstream>
 #include <thread>
 #include <unordered_map>
+#include <format>
 
 #if defined(_WIN32)
 #include <intrin.h>
@@ -32,28 +34,20 @@
 namespace fs = std::filesystem;
 
 namespace Lattice::CliSystemInfo {
-    namespace {
-#ifndef LL_CLI_ENGINE_VERSION
-#define LL_CLI_ENGINE_VERSION "unknown"
+namespace {
+#ifndef BUILD_VERSION
+#define BUILD_VERSION "unknown"
 #endif
 
-#ifndef LL_CLI_BUILD_TYPE
-#define LL_CLI_BUILD_TYPE "unknown"
-#endif
-
-#ifndef LL_CLI_COMPILER
-#define LL_CLI_COMPILER "unknown"
-#endif
-
-        constexpr std::string_view kReset = LogStyle::Color::reset;
-        constexpr std::string_view kDim = LogStyle::Color::tree;
-        constexpr std::string_view kTitle = LogStyle::Color::header;
-        constexpr std::string_view kLabel = LogStyle::Color::key;
-        constexpr std::string_view kValue = LogStyle::Color::value;
-        constexpr std::string_view kDevice = LogStyle::Color::device;
+        constexpr std::string_view kReset = Color::reset;
+        constexpr std::string_view kDim = Color::tree;
+        constexpr std::string_view kTitle = Color::header;
+        constexpr std::string_view kLabel = Color::key;
+        constexpr std::string_view kValue = Color::value;
+        constexpr std::string_view kDevice = Color::device;
 
         std::string colorize(std::string_view text, std::string_view color) {
-            return LogStyle::paint(text, color);
+            return Color::paint(text, color);
         }
 
         std::string trim(std::string text) {
@@ -165,58 +159,65 @@ namespace Lattice::CliSystemInfo {
                 osName += ")";
             }
             return osName;
-#else
+        #else
             return "Unknown OS";
-#endif
+        #endif
         }
 
         std::string detectArchName() {
-#if defined(__x86_64__) || defined(_M_X64)
+        #if defined(__x86_64__) || defined(_M_X64)
             return "x86_64";
-#elif defined(__aarch64__) || defined(_M_ARM64)
+        #elif defined(__aarch64__) || defined(_M_ARM64)
             return "arm64";
-#elif defined(__i386__) || defined(_M_IX86)
+        #elif defined(__i386__) || defined(_M_IX86)
             return "x86";
-#elif defined(__arm__) || defined(_M_ARM)
+        #elif defined(__arm__) || defined(_M_ARM)
             return "arm";
-#else
+        #else
             return "unknown";
-#endif
+        #endif
         }
 
-        std::string normalizeCompilerName(std::string compiler) {
-            if (compiler.starts_with("GNU ")) {
-                compiler.replace(0, 4, "GCC ");
-            } else if (compiler.starts_with("Clang ")) {
-                compiler.replace(0, 6, "Clang ");
-            } else if (compiler.starts_with("AppleClang ")) {
-                compiler.replace(0, 11, "Apple Clang ");
-            } else if (compiler.starts_with("MSVC ")) {
-                compiler.replace(0, 5, "MSVC ");
-            }
-            return compiler;
+        constexpr std::string detectCompilerName() {
+        #if defined(__clang__)
+            return std::format("Clang {}", __clang_version__);
+        #elif defined(__GNUC__)
+            return std::format("GCC {}.{}.{}", __GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__);
+        #elif defined(_MSC_VER)
+            return std::format("MSVC {}", _MSC_VER);
+        #else
+            return "unknown";
+        #endif
+        }
+
+        std::string detectBuildType() {
+        #if defined(NDEBUG)
+            return "release";
+        #else
+            return "debug";
+        #endif
         }
 
         EngineInfo detectEngineInfo() {
             return EngineInfo{
-                .version = LL_CLI_ENGINE_VERSION,
-                .build = LL_CLI_BUILD_TYPE,
-                .compiler = normalizeCompilerName(LL_CLI_COMPILER),
+                .version = BUILD_VERSION,
+                .build = detectBuildType(),
+                .compiler = detectCompilerName(),
             };
         }
 
-#if defined(__x86_64__) || defined(__i386__) || defined(_M_X64) || defined(_M_IX86)
+        #if defined(__x86_64__) || defined(__i386__) || defined(_M_X64) || defined(_M_IX86)
         uint64_t readXcr0() {
-#if defined(_MSC_VER)
+        #if defined(_MSC_VER)
             return static_cast<uint64_t>(_xgetbv(0));
-#elif defined(__GNUC__) || defined(__clang__)
+        #elif defined(__GNUC__) || defined(__clang__)
             uint32_t eax = 0;
             uint32_t edx = 0;
             __asm__ volatile("xgetbv" : "=a"(eax), "=d"(edx) : "c"(0));
             return (static_cast<uint64_t>(edx) << 32) | eax;
-#else
+        #else
             return 0;
-#endif
+        #endif
         }
 
         std::string detectCpuBrandX86() {
@@ -855,55 +856,42 @@ namespace Lattice::CliSystemInfo {
     }
 
     void printSystemInfo(std::ostream& out, const SystemInfo& info) {
-        out << colorize("System", kTitle) << '\n';
-        out << colorize("├─", kDim) << ' ' << colorize("OS:", kLabel) << ' ' << colorize(info.os, kValue) << '\n';
-        out << colorize("├─", kDim) << ' ' << colorize("Arch:", kLabel) << ' ' << colorize(info.arch, kValue) << '\n';
-        out << colorize("├─", kDim) << ' ' << colorize("RAM:", kLabel) << ' ' << colorize(formatBytes(info.totalRamBytes), kValue) << '\n';
-        out << colorize("├─", kDim) << ' ' << colorize("Engine", kTitle) << '\n';
-        out << colorize("│", kDim) << "  " << colorize("├─", kDim) << ' ' << colorize("Version:", kLabel) << ' '
-            << colorize(info.engine.version, kValue) << '\n';
-        out << colorize("│", kDim) << "  " << colorize("├─", kDim) << ' ' << colorize("Build:", kLabel) << ' '
-            << colorize(info.engine.build, kValue) << '\n';
-        out << colorize("│", kDim) << "  " << colorize("└─", kDim) << ' ' << colorize("Compiler:", kLabel) << ' '
-            << colorize(info.engine.compiler, kValue) << '\n';
-        out << colorize("└─", kDim) << ' ' << colorize("Devices", kTitle) << '\n';
-        out << "   " << colorize("├─", kDim) << ' ' << colorize("CPU[0]:", kDevice) << ' ' << colorize(info.cpu.name, kValue) << '\n';
-        out << "   " << colorize("│", kDim) << "  " << colorize("├─", kDim) << ' ' << colorize("Cores:", kLabel) << ' '
-            << colorize(info.cpu.cores == 0 ? std::string("unknown") : std::to_string(info.cpu.cores), kValue) << '\n';
-        out << "   " << colorize("│", kDim) << "  " << colorize("├─", kDim) << ' ' << colorize("Threads:", kLabel) << ' '
-            << colorize(info.cpu.threads == 0 ? std::string("unknown") : std::to_string(info.cpu.threads), kValue) << '\n';
-        out << "   " << colorize("│", kDim) << "  " << colorize("└─", kDim) << ' ' << colorize("SIMD:", kLabel) << ' '
-            << colorize(info.cpu.simd, kValue) << '\n';
+        Logger::Tree tree("System");
+
+        tree.node(std::format("{} {}", Color::paint("OS:", Color::key), Color::paint(info.os, Color::value)), 0);
+        tree.node(std::format("{} {}", Color::paint("Arch:", Color::key), Color::paint(info.arch, Color::value)), 0);
+        tree.node(std::format("{} {}", Color::paint("RAM:", Color::key), Color::paint(formatBytes(info.totalRamBytes), Color::value)), 0);
+
+        tree.node(Color::paint("Build", Color::header), 0);
+        tree.node(std::format("{} {}", Color::paint("Version:", Color::key), Color::paint(info.engine.version, Color::value)), 1);
+        tree.node(std::format("{} {}", Color::paint("Build:", Color::key), Color::paint(info.engine.build, Color::value)), 1);
+        tree.node(std::format("{} {}", Color::paint("Compiler:", Color::key), Color::paint(info.engine.compiler, Color::value)), 1);
+
+        tree.node(Color::paint("Devices", Color::header), 0);
+        tree.node(std::format("{} {}", Color::paint("CPU[0]:", Color::device), Color::paint(info.cpu.name, Color::value)), 1);
+        tree.node(std::format("{} {}", Color::paint("Cores:", Color::key), Color::paint(info.cpu.cores ? std::to_string(info.cpu.cores) : "unknown", Color::value)), 2);
+        tree.node(std::format("{} {}", Color::paint("Threads:", Color::key), Color::paint(info.cpu.threads ? std::to_string(info.cpu.threads) : "unknown", Color::value)), 2);
+        tree.node(std::format("{} {}", Color::paint("SIMD:", Color::key), Color::paint(info.cpu.simd, Color::value)), 2);
 
         if (info.gpus.empty()) {
-            out << "   " << colorize("└─", kDim) << ' ' << colorize("GPU[0]:", kDevice) << ' ' << colorize("unknown", kValue) << '\n';
-            return;
+            tree.node(std::format("{} {}", Color::paint("GPU[0]:", Color::device), Color::paint("unknown", Color::value)), 1);
+        } else {
+            for (std::size_t i = 0; i < info.gpus.size(); ++i) {
+                const auto& gpu = info.gpus[i];
+
+                tree.node(std::format("{} {}", Color::paint(std::format("GPU[{}]:", i), Color::device), Color::paint(gpu.name, Color::value)), 1);
+                if (!gpu.pciAddress.empty())
+                    tree.node(std::format("{} {}", Color::paint("PCI:", Color::key), Color::paint(gpu.pciAddress, Color::value)), 2);
+                if (!gpu.driver.empty())
+                    tree.node(std::format("{} {}", Color::paint("Driver:", Color::key), Color::paint(gpu.driver, Color::value)), 2);
+                if (!gpu.computeInfo.empty())
+                    tree.node(std::format("{} {}", Color::paint("Compute:", Color::key), Color::paint(gpu.computeInfo, Color::value)), 2);
+
+                tree.node(std::format("{} {}", Color::paint("VRAM:", Color::key), Color::paint(formatVram(gpu.vramBytes), Color::value)), 2);
+            }
         }
 
-        for (std::size_t i = 0; i < info.gpus.size(); ++i) {
-            const bool lastGpu = i + 1 == info.gpus.size();
-            const std::string branch = lastGpu ? "   └─ " : "   ├─ ";
-            const std::string pipe = lastGpu ? "      " : "   │  ";
-            const GpuInfo& gpu = info.gpus[i];
-
-            out << colorize(branch.substr(0, 3), kReset) << colorize(branch.substr(3), kDim) << colorize("GPU[" + std::to_string(i) + "]:", kDevice) << ' '
-                << colorize(gpu.name, kValue) << '\n';
-            if (!gpu.pciAddress.empty()) {
-                out << colorize(pipe.substr(0, pipe.size() - 3), kReset) << colorize(pipe.substr(pipe.size() - 3), kDim)
-                    << colorize("├─", kDim) << ' ' << colorize("PCI:", kLabel) << ' ' << colorize(gpu.pciAddress, kValue) << '\n';
-            }
-            if (!gpu.driver.empty()) {
-                out << colorize(pipe.substr(0, pipe.size() - 3), kReset) << colorize(pipe.substr(pipe.size() - 3), kDim)
-                    << colorize("├─", kDim) << ' ' << colorize("Driver:", kLabel) << ' ' << colorize(gpu.driver, kValue) << '\n';
-            }
-            if (!gpu.computeInfo.empty()) {
-                out << colorize(pipe.substr(0, pipe.size() - 3), kReset) << colorize(pipe.substr(pipe.size() - 3), kDim)
-                    << colorize("├─", kDim) << ' ' << colorize("Compute:", kLabel) << ' ' << colorize(gpu.computeInfo, kValue) << '\n';
-            }
-            out << colorize(pipe.substr(0, pipe.size() - 3), kReset) << colorize(pipe.substr(pipe.size() - 3), kDim)
-                << colorize("└─", kDim) << ' ' << colorize("VRAM:", kLabel) << ' ' << colorize(formatVram(gpu.vramBytes), kValue) << '\n';
-        }
-        out << '\n';
+        tree.print();
     }
 
     void printSystemInfo(std::ostream& out) {

@@ -2,11 +2,13 @@
 
 #include <filesystem>
 #include <string>
+#include <iostream>
 
 #include "Lattice/Kernel/ModelAPI.hpp"
 #include "Lattice/Kernel/PluginManager.hpp"
 #include "Lattice/Kernel/Components.hpp"
 #include "Lattice/Kernel/Settings.hpp"
+#include "Lattice/Tools/Logger.hpp"
 #include <Lattice/Tools/SystemInfo.hpp>
 
 
@@ -31,18 +33,24 @@ public:
 
     bool check(std::string_view modelId, std::string_view instanceName = "default") {
         Logger::action(moduleName, "Check requires {}:", modelId);
-        Components branch(&globalRegistry, nullptr, Mode::Check);
+        Components branch(&globalRegistry, nullptr, Mode::Check, modelId);
 
         Component settings = branch.addComponent<Settings>();
         Component model = branch.addInterfaceSlot<ModelAPI>();
         Component created = branch.useInterface<ModelAPI>(modelId);
         branch.printRequirementTree();
         branch.printRequirements();
+        for (const auto& r : branch.getUniqueRequirements()) {
+            if (!globalRegistry.has(r.type)) {
+                Logger::error(moduleName, "dependency check failed");
+                return false;
+            }
+        }
         return true;
     }
 
     Component<ModelAPI> start(std::string_view modelId, std::string_view instanceName = "default") {
-        LogScope scope(moduleName, "Start modelAPI '{}' with name '{}'", modelId, instanceName);
+        Logger::Scope scope(moduleName, "Start modelAPI '{}' with name '{}'", modelId, instanceName);
         Component branch = root.addBranch(instanceName);
         Component settings = branch->addComponent<Settings>();
         Component model = branch->addInterfaceSlot<ModelAPI>();

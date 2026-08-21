@@ -1,11 +1,14 @@
 set_project("LatticeLab")
-set_version("0.1.4")
+local version = "0.1.4"
+set_version(version)
 set_languages("c++20")
 
 add_rules("mode.debug", "mode.release")
 set_policy("build.compile_commands", true)
 
-add_rules("mode.debug", "mode.release")
+add_defines(
+    'BUILD_VERSION="' .. version .. '"'
+)
 
 if is_mode("release") then
     add_cxxflags(

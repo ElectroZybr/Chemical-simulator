@@ -68,7 +68,7 @@ public:
                 return false;
             }
         #else
-            handle = ::dlopen(path.c_str(), RTLD_NOW | RTLD_GLOBAL);
+            handle = ::dlopen(path.c_str(), RTLD_LAZY | RTLD_GLOBAL);
             if (handle == nullptr) {
                 const char* error = ::dlerror();
                 lastError_ = error != nullptr ? error : "dlopen failed";

@@ -72,73 +72,181 @@ public:
         print(Level::Ok, tag, std::format(format, std::forward<TArgs>(args)...));
     }
 
+    static void treeLine(std::string_view message) {
+        std::lock_guard lock(mutex());
+
+        std::cout
+            << Color::tree
+            << message
+            << Color::reset
+            << '\n';
+    }
+
+    template <typename... TArgs>
+    static void tree(std::format_string<TArgs...> format, TArgs&&... args) {
+        treeLine(std::format(format, std::forward<TArgs>(args)...));
+    }
+
 private:
+    // static void printTree(const std::string& message);
     static void print(Level level, std::string_view tag, const std::string& message);
     static std::mutex& mutex();
-};
 
-class LogScope {
 public:
-    template <typename... TArgs>
-    LogScope(std::string_view tag,
-             std::format_string<TArgs...> startFormat,
-             TArgs&&... args)
-        : tag_(tag)
-        , finishMessage_("Initialized")
-        , startTime_(Clock::now())
-        , active_(true)
-    {
-        Logger::action(tag_, startFormat, std::forward<TArgs>(args)...);
-    }
+    class Tree {
+    public:
+        class Node {
+        public:
+            explicit Node(std::string name)
+                : name_(std::move(name)) {}
 
-    template <typename... TArgs>
-    LogScope(std::string_view tag,
-             std::string_view finishMessage,
-             std::format_string<TArgs...> startFormat,
-             TArgs&&... args)
-        : tag_(tag)
-        , finishMessage_(finishMessage)
-        , startTime_(Clock::now())
-        , active_(true)
-    {
-        Logger::action(tag_, startFormat, std::forward<TArgs>(args)...);
-    }
+            Node& branch(std::string_view name) {
+                children_.push_back(
+                    std::make_unique<Node>(std::string(name))
+                );
 
-    template <typename... TArgs>
-    void step(std::format_string<TArgs...> format, TArgs&&... args) const {
-        Logger::info(tag_, format, std::forward<TArgs>(args)...);
-    }
+                return *children_.back();
+            }
 
-    void finish() noexcept {
-        if (!active_) return;
-        const auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(
-            Clock::now() - startTime_).count();
-        Logger::ok(tag_, "{} ({} us)", finishMessage_, elapsed);
-        active_ = false;
-    }
+            void node(std::string_view name) {
+                children_.push_back(
+                    std::make_unique<Node>(std::string(name))
+                );
+            }
 
-    template <typename... TArgs>
-    void finish(std::format_string<TArgs...> format, TArgs&&... args) {
-        if (!active_) return;
-        const auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(
-            Clock::now() - startTime_).count();
-        Logger::ok(tag_, "{} ({} us)", std::format(format, std::forward<TArgs>(args)...), elapsed);
-        active_ = false;
-    }
+        private:
+            friend class Tree;
 
-    void cancel() noexcept { active_ = false; }
+            std::string name_;
+            std::vector<std::unique_ptr<Node>> children_;
+        };
 
-    ~LogScope() {
-        if (active_) {
-            finish();
+        explicit Tree(std::string_view name)
+            : root_(std::string(name)) {}
+
+        Node& branch(std::string_view name) {
+            return root_.branch(name);
         }
-    }
+
+        void node(std::string_view name) {
+            root_.node(name);
+        }
+
+        void node(std::string_view name, size_t depth) {
+            while (parents_.size() > depth) {
+                parents_.pop_back();
+            }
+
+            Node* parent;
+
+            if (parents_.empty()) {
+                parent = &root_;
+            } else {
+                parent = parents_.back();
+            }
+
+            Node& node = parent->branch(name);
+
+            parents_.push_back(&node);
+        }
+
+        void print() const {
+            Logger::treeLine(root_.name_);
+            printNode(root_, "");
+        }
+
+    private:
+        static void printNode(
+            const Node& node,
+            const std::string& prefix)
+        {
+            for (size_t i = 0; i < node.children_.size(); ++i) {
+                const auto& child = node.children_[i];
+                const bool last = i + 1 == node.children_.size();
+
+                Logger::tree(
+                    "{}{}─ {}",
+                    prefix,
+                    last ? "└" : "├",
+                    child->name_
+                );
+
+                printNode(
+                    *child,
+                    prefix + (last ? "   " : "│  ")
+                );
+            }
+        }
+
+        Node root_;
+
+        // Только для построения.
+        std::vector<Node*> parents_;
+    };
+
+    class Scope {
+    public:
+        template <typename... TArgs>
+        Scope(std::string_view tag,
+                std::format_string<TArgs...> startFormat,
+                TArgs&&... args)
+            : tag_(tag)
+            , finishMessage_("Initialized")
+            , startTime_(Clock::now())
+            , active_(true)
+        {
+            Logger::action(tag_, startFormat, std::forward<TArgs>(args)...);
+        }
+
+        template <typename... TArgs>
+        Scope(std::string_view tag,
+                std::string_view finishMessage,
+                std::format_string<TArgs...> startFormat,
+                TArgs&&... args)
+            : tag_(tag)
+            , finishMessage_(finishMessage)
+            , startTime_(Clock::now())
+            , active_(true)
+        {
+            Logger::action(tag_, startFormat, std::forward<TArgs>(args)...);
+        }
+
+        template <typename... TArgs>
+        void step(std::format_string<TArgs...> format, TArgs&&... args) const {
+            Logger::info(tag_, format, std::forward<TArgs>(args)...);
+        }
+
+        void finish() noexcept {
+            if (!active_) return;
+            const auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(
+                Clock::now() - startTime_).count();
+            Logger::ok(tag_, "{} ({} us)", finishMessage_, elapsed);
+            active_ = false;
+        }
+
+        template <typename... TArgs>
+        void finish(std::format_string<TArgs...> format, TArgs&&... args) {
+            if (!active_) return;
+            const auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(
+                Clock::now() - startTime_).count();
+            Logger::ok(tag_, "{} ({} us)", std::format(format, std::forward<TArgs>(args)...), elapsed);
+            active_ = false;
+        }
+
+        void cancel() noexcept { active_ = false; }
+
+        ~Scope() {
+            if (active_) {
+                finish();
+            }
+        }
 
 
-private:
-    using Clock = std::chrono::steady_clock;
-    std::string tag_;
-    std::string finishMessage_;
-    Clock::time_point startTime_;
-    bool active_;
+    private:
+        using Clock = std::chrono::steady_clock;
+        std::string tag_;
+        std::string finishMessage_;
+        Clock::time_point startTime_;
+        bool active_;
+    };
 };

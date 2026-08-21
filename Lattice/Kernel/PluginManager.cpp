@@ -195,13 +195,23 @@ namespace Lattice {
         }
 
         PluginRegisterFn regFn = library.symbol<PluginRegisterFn>("plugin_register");
+        if (!regFn) {
+            Logger::error(moduleName, "plugin_register symbol not found in '{}'", pluginPath.string());
+            pluginCandidate->status = LoadStatus::Failed;
+            return false;
+        }
+
+        // Сверим, что registry меняется: запомним текущее состояние, вызовем регистрацию и посмотрим на разницу
+        auto before = globalRegistry.listProvided();
         if (!regFn(&globalRegistry)) {
             Logger::error(moduleName, "plugin_register failed for '{}'", pluginPath.string());
             pluginCandidate->status = LoadStatus::Failed;
             return false;
         }
 
-        if (pluginCandidate->providedAPIs.empty()) {
+        auto after = globalRegistry.listProvided();
+        // Если ничего не добавилось — предупреждение
+        if (after.size() == before.size()) {
             Logger::warning(moduleName, "Plugin '{}' does not provide anything", pluginCandidate->manifest.id);
         }
 

@@ -3,21 +3,44 @@
 #include <string>
 #include <string_view>
 
-namespace LogStyle {
+
 namespace Color {
+
 inline constexpr std::string_view reset = "\033[0m";
-inline constexpr std::string_view bold = "\033[1m";
-inline constexpr std::string_view tree = "\033[90m";
-inline constexpr std::string_view logo = "\033[96m";
-inline constexpr std::string_view header = "\033[96m";
-inline constexpr std::string_view key = "\033[94m";
-inline constexpr std::string_view value = "\033[97m";
-inline constexpr std::string_view device = "\033[93m";
-inline constexpr std::string_view error = "\033[91m";
-inline constexpr std::string_view ok = "\033[92m";
-inline constexpr std::string_view warning = "\033[93m";
-inline constexpr std::string_view prompt = "\033[95m";
-} // namespace Color
+inline constexpr std::string_view bold  = "\033[1m";
+
+// Base colors
+inline constexpr std::string_view black   = "\033[30m";
+inline constexpr std::string_view red     = "\033[31m";
+inline constexpr std::string_view green   = "\033[32m";
+inline constexpr std::string_view yellow  = "\033[33m";
+inline constexpr std::string_view blue    = "\033[34m";
+inline constexpr std::string_view magenta = "\033[35m";
+inline constexpr std::string_view cyan    = "\033[36m";
+inline constexpr std::string_view white   = "\033[37m";
+
+// Bright colors
+inline constexpr std::string_view gray          = "\033[90m";
+inline constexpr std::string_view brightRed     = "\033[91m";
+inline constexpr std::string_view brightGreen   = "\033[92m";
+inline constexpr std::string_view brightYellow  = "\033[93m";
+inline constexpr std::string_view brightBlue    = "\033[94m";
+inline constexpr std::string_view brightMagenta = "\033[95m";
+inline constexpr std::string_view brightCyan    = "\033[96m";
+inline constexpr std::string_view brightWhite   = "\033[97m";
+
+// Semantic styles
+inline constexpr std::string_view tree    = gray;
+inline constexpr std::string_view logo    = brightCyan;
+inline constexpr std::string_view header  = brightCyan;
+inline constexpr std::string_view key     = brightBlue;
+inline constexpr std::string_view value   = brightWhite;
+inline constexpr std::string_view device  = brightYellow;
+inline constexpr std::string_view error   = brightRed;
+inline constexpr std::string_view ok      = brightGreen;
+inline constexpr std::string_view warning = brightYellow;
+inline constexpr std::string_view prompt  = brightMagenta;
+
 
 inline std::string paint(std::string_view text, std::string_view color) {
     std::string out;
@@ -28,3 +51,4 @@ inline std::string paint(std::string_view text, std::string_view color) {
     return out;
 }
 }
+

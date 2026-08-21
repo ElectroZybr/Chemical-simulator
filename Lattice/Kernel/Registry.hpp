@@ -157,6 +157,19 @@ public:
         return it->second;
     }
 
+    // Возвращает список всех зарегистрированных имён типов и API
+    std::vector<std::string> listProvided() const {
+        std::vector<std::string> out;
+        out.reserve(types.size() + apiToImpls.size());
+        for (const auto& [name, entry] : types) {
+            out.push_back(name);
+        }
+        for (const auto& [api, impls] : apiToImpls) {
+            out.push_back(api);
+        }
+        return out;
+    }
+
     template<typename T>
     TypeEntry& require() {
         auto it = types.find(std::string(typeName<T>()));

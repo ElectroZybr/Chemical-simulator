@@ -3,6 +3,7 @@
 #include <string>
 #include <string_view>
 #include <unordered_map>
+#include <unordered_set>
 #include <memory>
 #include <format>
 #include <stdexcept>
@@ -12,6 +13,7 @@
 #include <Lattice/Kernel/TypeName.hpp>
 #include <Lattice/Kernel/Registry.hpp>
 #include <Lattice/Tools/Logger.hpp>
+#include "Lattice/Tools/LogStyle.hpp"
 
 namespace Lattice {
 
@@ -88,6 +90,7 @@ private:
     Components* parent = nullptr;
     std::vector<Requirement> reqs;
     Mode mode = Mode::Normal;
+    std::string name;
     int depth = 0;
 
     using ComponentKey = std::pair<std::string, std::string>;
@@ -107,11 +110,11 @@ private:
 public:
     static constexpr std::string_view moduleName = "Components";
 
-    explicit Components(Registry* registry, Components* parent = nullptr, Mode mode = Mode::Normal)
-        : registry(registry), parent(parent), mode(mode) {
+    explicit Components(Registry* registry, Components* parent = nullptr, Mode mode = Mode::Normal, std::string_view name = "Root")
+        : registry(registry), parent(parent), mode(mode), name(name) {
 
         if (mode == Mode::Check) {
-            reqs.push_back({"Branch", "Root", depth});
+            reqs.push_back({std::string(name), std::string(name), depth});
             ++depth;
         }
     }
@@ -130,7 +133,7 @@ public:
         }
 
         auto component = std::make_unique<ComponentData>();
-        Components* obj = new Components(registry, this, mode);
+        Components* obj = new Components(registry, this, mode, instanceName);
         component->instance = obj;
         component->api = obj;
         component->destroy = [](void* p) { delete static_cast<Components*>(p); };
@@ -177,7 +180,7 @@ public:
         T* obj = nullptr;
 
         if constexpr (std::is_same_v<T, Components>) {
-            obj = new Components(registry, this, mode);
+            obj = new Components(registry, this, mode, instanceName);
         }
         else if constexpr (std::is_constructible_v<T, Components&>) {
             obj = new T(*this);
@@ -304,45 +307,44 @@ public:
     // -------------------------------------------------------------------------
 
     std::vector<Requirement> getUniqueRequirements() const {
+        // Возвращаем уникальные требования по всему дереву (без дублей), сохраняя порядок
         std::vector<Requirement> result;
+        std::unordered_set<std::string> seen;
 
         for (const auto& r : reqs) {
-            const bool exists = std::any_of(
-                result.begin(),
-                result.end(),
-                [&](const Requirement& existing) {
-                    return existing.type == r.type &&
-                        existing.instance == r.instance;
-                }
-            );
-
-            if (!exists)
-                result.push_back(r);
+            std::string key = r.type + "::" + r.instance;
+            if (seen.find(key) != seen.end())
+                continue;
+            seen.insert(key);
+            result.push_back(r);
         }
 
         return result;
     }
 
     void printRequirements() const {
+        Logger::Tree tree("Requirements");
         for (const auto& r : getUniqueRequirements()) {
-            if (registry->has(r.type)) {
-                Logger::ok("root", "{} ({})", r.type, r.instance);
-            } else {
-                Logger::error("root", "{} ({})", r.type, r.instance);
-            }
+            tree.node(std::format("{}{}", registry->has(r.type)
+                ? Color::paint("✓ ", Color::ok)
+                : Color::paint("✗ ", Color::error), r.type),
+                0
+            );
         }
+        tree.print();
     }
 
     void printRequirementTree() const {
-        for (const auto& r : reqs) {
-            std::string pad(r.depth * 2, ' ');
+        Logger::Tree tree("Requirements");
 
-            if (registry->has(r.type)) {
-                Logger::ok("root", "{}{} ({})", pad, r.type, r.instance);
-            } else {
-                Logger::error("root", "{}{} ({})", pad, r.type, r.instance);
-            }
+        for (const auto& r : reqs) {
+            tree.node(std::format("{}{}", registry->has(r.type)
+                ? Color::paint("✓ ", Color::ok) 
+                : Color::paint("✗ ", Color::error), r.type),
+                r.depth
+            );
         }
+        tree.print();
     }
 
     const std::vector<Requirement>& getRequirementTree() const {

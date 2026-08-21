@@ -5,12 +5,14 @@
 #include <cstdint>
 #include <string_view>
 
+namespace name {
 union Color {
     uint32_t rgba;
     struct {
         uint8_t r, g, b, a;
     };
 };
+}
 
 enum class AtomCategory : uint8_t {
     Custom,
@@ -37,7 +39,7 @@ struct StaticAtomicData {
     const float radius;
     const char maxValence;
     const float defaultCharge;
-    const Color color;
+    const name::Color color;
     const float ljA0;
     const float ljEps;
     const AtomCategory category;

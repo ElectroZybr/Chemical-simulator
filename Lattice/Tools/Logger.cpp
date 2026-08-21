@@ -5,6 +5,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
+#include <iostream>
 #include <sstream>
 #include <format>
 
@@ -47,23 +48,23 @@ LevelStyle levelStyle(Logger::Level level) {
     using Level = Logger::Level;
     switch (level) {
         case Level::Action:
-            return {"ACTION", "→", LogStyle::Color::header, Logger::ConsoleMode::Default, false};
+            return {"ACTION", "→", Color::header, Logger::ConsoleMode::Default, false};
         case Level::Trace:
-            return {"TRACE", "·", LogStyle::Color::tree, Logger::ConsoleMode::Trace, false};
+            return {"TRACE", "·", Color::tree, Logger::ConsoleMode::Trace, false};
         case Level::Debug:
-            return {"DEBUG", "→", LogStyle::Color::header, Logger::ConsoleMode::Verbose, false};
+            return {"DEBUG", "→", Color::header, Logger::ConsoleMode::Verbose, false};
         case Level::Info:
-            return {"INFO", "•", LogStyle::Color::value, Logger::ConsoleMode::Verbose, false};
+            return {"INFO", "•", Color::value, Logger::ConsoleMode::Verbose, false};
         case Level::Warning:
-            return {"WARN", "⚠", LogStyle::Color::warning, Logger::ConsoleMode::Default, true};
+            return {"WARN", "⚠", Color::warning, Logger::ConsoleMode::Default, true};
         case Level::Error:
-            return {"ERROR", "✗", LogStyle::Color::error, Logger::ConsoleMode::Default, true};
+            return {"ERROR", "✗", Color::error, Logger::ConsoleMode::Default, true};
         case Level::Fatal:
-            return {"FATAL", "✗", LogStyle::Color::error, Logger::ConsoleMode::Default, true};
+            return {"FATAL", "✗", Color::error, Logger::ConsoleMode::Default, true};
         case Level::Ok:
-            return {"OK", "✓", LogStyle::Color::ok, Logger::ConsoleMode::Default, false};
+            return {"OK", "✓", Color::ok, Logger::ConsoleMode::Default, false};
     }
-    return {"INFO", "•", LogStyle::Color::value, Logger::ConsoleMode::Verbose, false};
+    return {"INFO", "•", Color::value, Logger::ConsoleMode::Verbose, false};
 }
 
 std::string makePlainLine(std::string_view label, std::string_view tag, std::string_view message) {
@@ -75,15 +76,16 @@ std::string makeConsoleLine(std::string_view status, std::string_view color, std
         "{}{}{} [{}{}{}] {}{}{}",
         color,
         status,
-        LogStyle::Color::reset,
-        LogStyle::Color::bold,
+        Color::reset,
+        Color::bold,
         tag,
-        LogStyle::Color::reset,
-        LogStyle::Color::tree,
+        Color::reset,
+        Color::tree,
         message,
-        LogStyle::Color::reset);
+        Color::reset);
 }
-}
+} // helpers
+
 
 void Logger::setConsoleMode(ConsoleMode mode) noexcept {
     gConsoleMode.store(mode, std::memory_order_relaxed);
