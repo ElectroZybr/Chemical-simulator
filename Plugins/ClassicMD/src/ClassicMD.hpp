@@ -4,7 +4,7 @@
 
 // Kernel dependences
 #include <Lattice/Kernel/PluginAPI.hpp>
-#include <Lattice/Kernel/ModelAPI.hpp>
+#include <Lattice/Kernel/ServiceAPI.hpp>
 #include <Lattice/Kernel/Components.hpp>
 #include <Lattice/Kernel/Settings.hpp>
 
@@ -21,7 +21,7 @@
 
 namespace ClassicMD {
 
-class ClassicMD final : public ModelAPI {
+class ClassicMD final : public ServiceAPI {
 public:
     struct Energy {using type = float;};
     struct Charge {using type = float;};
@@ -52,9 +52,13 @@ public:
 
     }
 
-    void update() override {
-        integrator->step();
-        settings->set("SpatialGrid", "size", glm::vec3(10, 10, 10));
+    void run() override {
+        while (!stopRequested()) {
+            Logger::info("ClassicMD", "looping");
+            integrator->step();
+            settings->set("SpatialGrid", "size", glm::vec3(10, 10, 10));
+            std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+        }
     }
 
     ~ClassicMD() {

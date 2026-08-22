@@ -1,10 +1,10 @@
-id = "Render"
-name = "Render"
+id = "Window"
+name = "Window"
 version = "1.0.0"
 
 [core]
 api = "1.0"
 
 [[dependencies]]
-id = "GPU"
+id = "Render"
 version = ">=1.0.0"

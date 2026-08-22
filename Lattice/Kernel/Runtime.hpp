@@ -3,8 +3,10 @@
 #include <filesystem>
 #include <string>
 #include <iostream>
+#include <thread>
 
-#include "Lattice/Kernel/ModelAPI.hpp"
+
+#include "Lattice/Kernel/ServiceAPI.hpp"
 #include "Lattice/Kernel/PluginManager.hpp"
 #include "Lattice/Kernel/Components.hpp"
 #include "Lattice/Kernel/Settings.hpp"
@@ -19,7 +21,7 @@ public:
         Logger::action(moduleName, "System launching");
         Lattice::CliSystemInfo::printSystemInfo(std::cout);
         // регистрация интерфейсов ядра
-        globalRegistry.registerAPI<ModelAPI>();
+        globalRegistry.registerAPI<ServiceAPI>();
         globalRegistry.registerComponent<Settings>();
     }
 
@@ -32,61 +34,53 @@ public:
     }
 
     bool check(std::string_view modelId, std::string_view instanceName = "default") {
-        Logger::action(moduleName, "Check requires {}:", modelId);
         Components branch(&globalRegistry, nullptr, Mode::Check, modelId);
 
-        Component settings = branch.addComponent<Settings>();
-        Component model = branch.addInterfaceSlot<ModelAPI>();
-        Component created = branch.useInterface<ModelAPI>(modelId);
-        branch.printRequirementTree();
-        branch.printRequirements();
+        branch.addComponent<Settings>();
+        branch.addInterfaceSlot<ServiceAPI>();
+        branch.useInterface<ServiceAPI>(modelId);
         for (const auto& r : branch.getUniqueRequirements()) {
             if (!globalRegistry.has(r.type)) {
-                Logger::error(moduleName, "dependency check failed");
+                Logger::error(moduleName, "{} check failed", modelId);
+                branch.printRequirements();
                 return false;
             }
         }
         return true;
     }
 
-    Component<ModelAPI> start(std::string_view modelId, std::string_view instanceName = "default") {
-        Logger::Scope scope(moduleName, "Start modelAPI '{}' with name '{}'", modelId, instanceName);
+    Component<ServiceAPI> start(std::string_view modelId, std::string_view instanceName = "default") {
+        Logger::Scope scope(moduleName, "Start ServiceAPI '{}' with name '{}'", modelId, instanceName);
         Component branch = root.addBranch(instanceName);
         Component settings = branch->addComponent<Settings>();
-        Component model = branch->addInterfaceSlot<ModelAPI>();
-        Component created = branch->useInterface<ModelAPI>(modelId);
-        if (!created)
-            throw std::runtime_error("Failed to start model: " + std::string(modelId));
+        branch->addInterfaceSlot<ServiceAPI>();
+        Component service = branch->useInterface<ServiceAPI>(modelId);
+        if (!service)
+            throw std::runtime_error("Failed to start service: " + std::string(modelId));
 
-        models[std::string(instanceName)] = created;
+        service->start();
+        services[std::string(instanceName)] = service;
         scope.finish("Configure '{}' done", instanceName);
-        return created;
+        return service;
     }
 
     void stop(std::string_view instanceName = "default") {
-        models.erase(std::string(instanceName));
-        // опционально: root_.remove<ModelAPI>(instanceName);
+        services.erase(std::string(instanceName));
+        // опционально: root_.remove<ServiceAPI>(instanceName);
     }
 
-    Component<ModelAPI> get(std::string_view instanceName = "default") {
-        auto it = models.find(std::string(instanceName));
-        if (it == models.end())
-            return {};
-        return it->second;
-    }
-
-    // Обновить все
-    void updateAll() {
-        for (auto& [name, model] : models) {
-            if (model)
-                model->update();
+    void run() {
+        while (running) {
+            Logger::info(moduleName, "looping");
+            std::this_thread::sleep_for(std::chrono::milliseconds(1000));
         }
     }
 
-    // Обновить одну
-    void update(std::string_view instanceName) {
-        if (Component<ModelAPI> model = get(instanceName))
-            model->update();
+    Component<ServiceAPI> get(std::string_view instanceName = "default") {
+        auto it = services.find(std::string(instanceName));
+        if (it == services.end())
+            return {};
+        return it->second;
     }
 
     Registry& registry() noexcept { return globalRegistry; }
@@ -97,6 +91,7 @@ private:
     PluginManager pluginManager;
     Components root;
 
-    std::unordered_map<std::string, Component<ModelAPI>> models;
+    bool running = true;
+    std::unordered_map<std::string, Component<ServiceAPI>> services;
 };
 }

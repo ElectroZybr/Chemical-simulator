@@ -1,257 +1,400 @@
 #include "WGPU.hpp"
 
-#if defined(__linux__)
-    #define GLFW_EXPOSE_NATIVE_X11
-#elif defined(_WIN32)
-    #define GLFW_EXPOSE_NATIVE_WIN32
-#elif defined(__APPLE__)
-    #define GLFW_EXPOSE_NATIVE_COCOA
-#endif
-
-#include <GLFW/glfw3.h>
-#include <GLFW/glfw3native.h>
+#include <stdexcept>
+#include <iostream>
+#include <cstring>
 
 namespace GPU {
-    void WGPU::init(GLFWwindow* window, uint32_t width, uint32_t height) {
-        if (initialized_) {
-            return;
+
+// ---------- helpers ----------
+static WGPUStringView toWGPUString(std::string_view s) {
+    return WGPUStringView{s.data(), static_cast<size_t>(s.size())};
+}
+
+// ---------- init ----------
+void WGPU::init(const NativeWindow& window, uint32_t width, uint32_t height) {
+    if (initialized_) return;
+
+    createInstance();
+    surface_ = createSurface(window);
+    if (!surface_)
+        throw std::runtime_error("wgpu: failed to create surface");
+
+    createDevice();
+    configureSurface(width, height);
+    createDepthTexture(width, height);
+
+    width_ = width;
+    height_ = height;
+    initialized_ = true;
+}
+
+// ---------- initHeadless ----------
+void WGPU::initHeadless(uint32_t width, uint32_t height) {
+    if (initialized_) return;
+
+    createInstance();
+    createDevice();
+
+    surfaceFormat_ = WGPUTextureFormat_RGBA8Unorm;
+    createDepthTexture(width, height);
+
+    width_ = width;
+    height_ = height;
+    initialized_ = true;
+}
+
+// ---------- resize ----------
+void WGPU::resize(uint32_t width, uint32_t height) {
+    if (!initialized_ || (width == width_ && height == height_))
+        return;
+
+    configureSurface(width, height);
+    createDepthTexture(width, height);
+
+    width_ = width;
+    height_ = height;
+}
+
+// ---------- createBuffer ----------
+WGPUBuffer WGPU::createBuffer(size_t bytes, WGPUBufferUsage usage,
+                              std::string_view label, bool mappedAtCreation)
+{
+    WGPUBufferDescriptor desc = {};
+    desc.nextInChain = nullptr;
+    desc.label = toWGPUString(label);
+    desc.usage = usage;
+    desc.size = bytes;
+    desc.mappedAtCreation = mappedAtCreation;
+
+    return wgpuDeviceCreateBuffer(device_, &desc);
+}
+
+// ---------- createBindGroupLayout ----------
+WGPUBindGroupLayout WGPU::createBindGroupLayout(
+    std::span<const WGPUBindGroupLayoutEntry> entries,
+    std::string_view label)
+{
+    WGPUBindGroupLayoutDescriptor desc = {};
+    desc.nextInChain = nullptr;
+    desc.label = toWGPUString(label);
+    desc.entryCount = static_cast<uint32_t>(entries.size());
+    desc.entries = entries.data();
+
+    return wgpuDeviceCreateBindGroupLayout(device_, &desc);
+}
+
+// ---------- createBindGroup ----------
+WGPUBindGroup WGPU::createBindGroup(WGPUBindGroupLayout layout,
+                                    std::span<const WGPUBindGroupEntry> entries,
+                                    std::string_view label)
+{
+    WGPUBindGroupDescriptor desc = {};
+    desc.nextInChain = nullptr;
+    desc.label = toWGPUString(label);
+    desc.layout = layout;
+    desc.entryCount = static_cast<uint32_t>(entries.size());
+    desc.entries = entries.data();
+
+    return wgpuDeviceCreateBindGroup(device_, &desc);
+}
+
+// ---------- choosePresentMode ----------
+WGPUPresentMode WGPU::choosePresentMode(const WGPUSurfaceCapabilities& caps) {
+    auto supports = [&](WGPUPresentMode mode) {
+        for (uint32_t i = 0; i < caps.presentModeCount; ++i) {
+            if (caps.presentModes[i] == mode)
+                return true;
         }
+        return false;
+    };
 
-        createInstance();
-        surface_ = createSurface(window);
-        if (!surface_)
-            throw std::runtime_error("wgpu: failed to create surface");
+    if (supports(WGPUPresentMode_Mailbox))     return WGPUPresentMode_Mailbox;
+    if (supports(WGPUPresentMode_FifoRelaxed)) return WGPUPresentMode_FifoRelaxed;
+    if (supports(WGPUPresentMode_Immediate))   return WGPUPresentMode_Immediate;
+    return WGPUPresentMode_Fifo;
+}
 
-        createDevice();
-        configureSurface(width, height);
-        createDepthTexture(width, height);
+// ---------- createSurface ----------
+WGPUSurface WGPU::createSurface(const NativeWindow& window) {
+    WGPUSurfaceDescriptor desc = {};
+    desc.label = toWGPUString("Surface");
 
-        width_ = width;
-        height_ = height;
-        initialized_ = true;
+    switch (window.kind) {
+#if defined(__linux__)
+    case NativeWindow::Kind::X11: {
+        WGPUSurfaceSourceXlibWindow xlibSrc = {};
+        xlibSrc.chain.sType = WGPUSType_SurfaceSourceXlibWindow;
+        xlibSrc.display = window.display;
+        xlibSrc.window  = static_cast<uint64_t>(reinterpret_cast<uintptr_t>(window.window));
+
+        desc.nextInChain = &xlibSrc.chain;
+        return wgpuInstanceCreateSurface(instance_, &desc);
+    }
+    case NativeWindow::Kind::Wayland: {
+        WGPUSurfaceSourceWaylandSurface src = {};
+        src.chain.next  = nullptr;
+        src.chain.sType = WGPUSType_SurfaceSourceWaylandSurface;
+        src.display = window.display;
+        src.surface = window.window;
+
+        WGPUSurfaceDescriptor desc = {};
+        desc.label = toWGPUString("Surface");
+        desc.nextInChain = &src.chain;
+
+        return wgpuInstanceCreateSurface(instance_, &desc);
+    }
+#endif
+
+#if defined(_WIN32)
+    case NativeWindow::Kind::Win32: {
+        WGPUSurfaceSourceWindowsHWND src = {};
+        src.chain.sType = WGPUSType_SurfaceSourceWindowsHWND;
+        src.hinstance = window.extra
+            ? window.extra
+            : GetModuleHandle(nullptr);
+        src.hwnd = static_cast<HWND>(window.window);
+
+        desc.nextInChain = &src.chain;
+        return wgpuInstanceCreateSurface(instance_, &desc);
+    }
+#endif
+
+#if defined(__APPLE__)
+    case NativeWindow::Kind::Metal: {
+        WGPUSurfaceSourceMetalLayer src = {};
+        src.chain.sType = WGPUSType_SurfaceSourceMetalLayer;
+        src.layer = window.extra;
+        desc.nextInChain = &src.chain;
+        return wgpuInstanceCreateSurface(instance_, &desc);
+    }
+#endif
+
+    case NativeWindow::Kind::Headless:
+    case NativeWindow::Kind::None:
+    default:
+        return nullptr;
     }
 
-    void WGPU::initHeadless(uint32_t width, uint32_t height) {
-        if (initialized_) {
-            return;
+    return nullptr;
+}
+
+// ---------- createDepthTexture ----------
+void WGPU::createDepthTexture(uint32_t width, uint32_t height) {
+    if (depthTextureView_) {
+        wgpuTextureViewRelease(depthTextureView_);
+        depthTextureView_ = nullptr;
+    }
+    if (depthTexture_) {
+        wgpuTextureDestroy(depthTexture_);
+        wgpuTextureRelease(depthTexture_);
+        depthTexture_ = nullptr;
+    }
+
+    WGPUTextureDescriptor depthDesc = {};
+    depthDesc.label = toWGPUString("Depth Texture");
+    depthDesc.dimension = WGPUTextureDimension_2D;
+    depthDesc.size = {width, height, 1};
+    depthDesc.format = WGPUTextureFormat_Depth24Plus;
+    depthDesc.mipLevelCount = 1;
+    depthDesc.sampleCount = 1;
+    depthDesc.usage = WGPUTextureUsage_RenderAttachment;
+
+    depthTexture_ = wgpuDeviceCreateTexture(device_, &depthDesc);
+
+    WGPUTextureViewDescriptor viewDesc = {};
+    viewDesc.label = toWGPUString("Depth Texture View");
+    viewDesc.format = WGPUTextureFormat_Depth24Plus;
+    viewDesc.dimension = WGPUTextureViewDimension_2D;
+    viewDesc.baseMipLevel = 0;
+    viewDesc.mipLevelCount = 1;
+    viewDesc.baseArrayLayer = 0;
+    viewDesc.arrayLayerCount = 1;
+    viewDesc.aspect = WGPUTextureAspect_DepthOnly;
+
+    depthTextureView_ = wgpuTextureCreateView(depthTexture_, &viewDesc);
+}
+
+// ---------- createInstance ----------
+void WGPU::createInstance() {
+    WGPUInstanceDescriptor desc = {};
+    desc.nextInChain = nullptr;
+
+#ifndef NDEBUG
+    WGPUInstanceExtras extras = {};
+    extras.chain.next = nullptr;
+    extras.chain.sType = (WGPUSType)WGPUSType_InstanceExtras;
+    extras.flags = WGPUInstanceFlag_Debug | WGPUInstanceFlag_Validation;
+    desc.nextInChain = &extras.chain;
+#endif
+
+    instance_ = wgpuCreateInstance(&desc);
+    if (!instance_)
+        throw std::runtime_error("wgpu: failed to create instance");
+}
+
+// ---------- createDevice ----------
+void WGPU::createDevice() {
+    // --- Request Adapter ---
+    WGPURequestAdapterOptions adapterOpts = {};
+    adapterOpts.powerPreference = WGPUPowerPreference_HighPerformance;
+    if (surface_)
+        adapterOpts.compatibleSurface = surface_;
+
+    struct AdapterUserData {
+        WGPUAdapter adapter = nullptr;
+        bool done = false;
+    } adapterData;
+
+    WGPURequestAdapterCallbackInfo adapterCb = {};
+    adapterCb.mode = WGPUCallbackMode_AllowSpontaneous;
+    adapterCb.callback = [](WGPURequestAdapterStatus status, WGPUAdapter adapter,
+                            WGPUStringView message, void* userdata1, void*) {
+        auto* data = static_cast<AdapterUserData*>(userdata1);
+        if (status == WGPURequestAdapterStatus_Success) {
+            data->adapter = adapter;
+        } else {
+            std::cerr << "wgpu requestAdapter failed: "
+                      << std::string_view(message.data, message.length) << '\n';
         }
+        data->done = true;
+    };
+    adapterCb.userdata1 = &adapterData;
 
-        createInstance();
-        createDevice();
-        surfaceFormat_ = wgpu::TextureFormat::RGBA8Unorm;
-        createDepthTexture(width, height);
+    wgpuInstanceRequestAdapter(instance_, &adapterOpts, adapterCb);
 
-        width_ = width;
-        height_ = height;
-        initialized_ = true;
+    while (!adapterData.done) {
+        wgpuInstanceProcessEvents(instance_);
     }
 
-    void WGPU::resize(uint32_t width, uint32_t height) {
-        if (!initialized_ ||
-            (width == width_ && height == height_)) {
-            return;
-        }
+    adapter_ = adapterData.adapter;
+    if (!adapter_)
+        throw std::runtime_error("wgpu: failed to get adapter");
 
-        configureSurface(width, height);
-        createDepthTexture(width, height);
+    // --- Request Device ---
+    WGPUDeviceDescriptor deviceDesc = {};
 
-        width_ = width;
-        height_ = height;
-    }
-
-    wgpu::Buffer WGPU::createBuffer(size_t bytes, wgpu::BufferUsage usage, std::string_view label, bool mappedAtCreation) {
-        wgpu::BufferDescriptor desc{};
-        desc.label = wgpu::StringView(label);
-        desc.size = bytes;
-        desc.usage = usage;
-        desc.mappedAtCreation = mappedAtCreation;
-        return device_->createBuffer(desc);
-    }
-
-    wgpu::BindGroupLayout WGPU::createBindGroupLayout(std::span<const wgpu::BindGroupLayoutEntry> entries, std::string_view label) {
-        wgpu::BindGroupLayoutDescriptor bglDesc{};
-        bglDesc.entryCount = entries.size();
-        bglDesc.entries = entries.data();
-        bglDesc.label = wgpu::StringView(label);
-        return device_->createBindGroupLayout(bglDesc);
-    }
-
-    wgpu::BindGroup WGPU::createBindGroup(wgpu::BindGroupLayout layout, std::span<const wgpu::BindGroupEntry> entries, std::string_view label) {
-        wgpu::BindGroupDescriptor bgDesc{};
-        bgDesc.layout = layout;
-        bgDesc.entryCount = entries.size();
-        bgDesc.entries = entries.data();
-        bgDesc.label = wgpu::StringView(label);
-        return device_->createBindGroup(bgDesc);
-    }
-
-    wgpu::PresentMode WGPU::choosePresentMode(const wgpu::SurfaceCapabilities& caps) {
-        auto supports = [&](wgpu::PresentMode mode) {
-            for (size_t i = 0; i < caps.presentModeCount; ++i) {
-                if (caps.presentModes[i] == mode) {
-                    return true;
-                }
-            }
-            return false;
+    // device lost callback
+    deviceDesc.deviceLostCallbackInfo.mode = WGPUCallbackMode_AllowSpontaneous;
+    deviceDesc.deviceLostCallbackInfo.callback =
+        [](WGPUDevice const*, WGPUDeviceLostReason reason, WGPUStringView message,
+           void*, void*) {
+            std::cerr << "wgpu device lost (" << static_cast<int>(reason) << "): "
+                      << std::string_view(message.data, message.length) << '\n';
         };
 
-        if (supports(wgpu::PresentMode::Mailbox)) {
-            return wgpu::PresentMode::Mailbox;
+    // uncaptured error callback
+    deviceDesc.uncapturedErrorCallbackInfo.callback =
+        [](WGPUDevice const*, WGPUErrorType type, WGPUStringView message,
+           void*, void*) {
+            std::cerr << "wgpu error (" << static_cast<int>(type) << "): "
+                      << std::string_view(message.data, message.length) << '\n';
+        };
+
+    struct DeviceUserData {
+        WGPUDevice device = nullptr;
+        bool done = false;
+    } deviceData;
+
+    WGPURequestDeviceCallbackInfo deviceCb = {};
+    deviceCb.mode = WGPUCallbackMode_AllowSpontaneous;
+    deviceCb.callback = [](WGPURequestDeviceStatus status, WGPUDevice device,
+                           WGPUStringView message, void* userdata1, void*) {
+        auto* data = static_cast<DeviceUserData*>(userdata1);
+        if (status == WGPURequestDeviceStatus_Success) {
+            data->device = device;
+        } else {
+            std::cerr << "wgpu requestDevice failed: "
+                      << std::string_view(message.data, message.length) << '\n';
         }
-        if (supports(wgpu::PresentMode::FifoRelaxed)) {
-            return wgpu::PresentMode::FifoRelaxed;
-        }
-        if (supports(wgpu::PresentMode::Immediate)) {
-            return wgpu::PresentMode::Immediate;
-        }
-        return wgpu::PresentMode::Fifo;
+        data->done = true;
+    };
+    deviceCb.userdata1 = &deviceData;
+
+    wgpuAdapterRequestDevice(adapter_, &deviceDesc, deviceCb);
+
+    while (!deviceData.done) {
+        wgpuInstanceProcessEvents(instance_);
     }
 
-    wgpu::Surface WGPU::createSurface(GLFWwindow* window) {
-    #if defined(__linux__)
-        wgpu::SurfaceSourceXlibWindow xlibSrc = wgpu::Default;
-        xlibSrc.display = glfwGetX11Display();
-        xlibSrc.window = glfwGetX11Window(window);
+    device_ = deviceData.device;
+    if (!device_)
+        throw std::runtime_error("wgpu: failed to get device");
 
-        wgpu::SurfaceDescriptor desc{};
-        desc.label = wgpu::StringView("Surface");
-        desc.nextInChain = &xlibSrc.chain;
-        return instance_->createSurface(desc);
-
-    #elif defined(_WIN32)
-        wgpu::SurfaceSourceWindowsHWND hwndSrc = wgpu::Default;
-        hwndSrc.hinstance = GetModuleHandle(nullptr);
-        hwndSrc.hwnd = glfwGetWin32Window(window);
-
-        wgpu::SurfaceDescriptor desc{};
-        desc.label = wgpu::StringView("Surface");
-        desc.nextInChain = &hwndSrc.chain;
-        return instance_->createSurface(desc);
-
-    #elif defined(__APPLE__)
-        wgpu::SurfaceSourceMetalLayer metalSrc = wgpu::Default;
-        metalSrc.layer = getMetalBackend(window);
-        wgpu::SurfaceDescriptor desc{};
-        desc.label = wgpu::StringView("Surface");
-        desc.nextInChain = &metalSrc.chain;
-        return instance_->createSurface(desc);
-    #endif
-    }
-
-    void WGPU::createDepthTexture(uint32_t width, uint32_t height) {
-        wgpu::TextureDescriptor depthDesc{};
-        depthDesc.label = wgpu::StringView("Depth Texture");
-        depthDesc.size = {width, height, 1};
-        depthDesc.format = wgpu::TextureFormat::Depth24Plus;
-        depthDesc.usage = wgpu::TextureUsage::RenderAttachment;
-        depthDesc.mipLevelCount = 1;
-        depthDesc.sampleCount = 1;
-        depthDesc.dimension = wgpu::TextureDimension::_2D;
-        depthTexture_ = device_->createTexture(depthDesc);
-
-        wgpu::TextureViewDescriptor viewDesc{};
-        viewDesc.label = wgpu::StringView("Depth Texture View");
-        viewDesc.format = wgpu::TextureFormat::Depth24Plus;
-        viewDesc.dimension = wgpu::TextureViewDimension::_2D;
-        viewDesc.mipLevelCount = 1;
-        viewDesc.arrayLayerCount = 1;
-        viewDesc.aspect = wgpu::TextureAspect::DepthOnly;
-        depthTextureView_ = depthTexture_->createView(viewDesc);
-    }
-
-    void WGPU::createInstance() {
-        wgpu::InstanceDescriptor instanceDesc{};
-
-        #ifndef NDEBUG
-            WGPUInstanceExtras extras{};
-            extras.chain.sType =
-                (WGPUSType)WGPUNativeSType::WGPUSType_InstanceExtras;
-            extras.flags =
-                WGPUInstanceFlag_Debug |
-                WGPUInstanceFlag_Validation;
-            instanceDesc.nextInChain = &extras.chain;
-        #endif
-
-        instance_ = wgpu::createInstance(instanceDesc);
-
-        if (!instance_) {
-            throw std::runtime_error("wgpu: failed to create instance");
-        }
-    }
-
-    void WGPU::createDevice() {
-        wgpu::RequestAdapterOptions adapterOpts = wgpu::Default;
-        adapterOpts.powerPreference = wgpu::PowerPreference::HighPerformance;
-
-        if (surface_) {
-            adapterOpts.compatibleSurface = *surface_;
-        }
-
-        adapter_ = instance_->requestAdapter(adapterOpts);
-        if (!adapter_) {
-            throw std::runtime_error("wgpu: failed to get adapter");
-        }
-
-        wgpu::DeviceDescriptor deviceDesc = wgpu::Default;
-        deviceDesc.deviceLostCallbackInfo.callback = [](WGPUDevice const*, WGPUDeviceLostReason reason, WGPUStringView msg, void*, void*) {
-                std::cerr << "wgpu device lost (" << reason << "): " << std::string_view(msg.data, msg.length) << '\n';
-            };
-
-        deviceDesc.uncapturedErrorCallbackInfo.callback = [](WGPUDevice const*, WGPUErrorType type, WGPUStringView msg, void*, void*) {
-                std::cerr << "wgpu error (" << type << "): " << std::string_view(msg.data, msg.length) << '\n';
-            };
-
-        device_ = adapter_->requestDevice(deviceDesc);
-        if (!device_) {
-            throw std::runtime_error("wgpu: failed to get device");
-        }
-
-        queue_ = device_->getQueue();
-    }
-
-    void WGPU::configureSurface(uint32_t width, uint32_t height) {
-        wgpu::SurfaceCapabilities caps{};
-        surface_->getCapabilities(*adapter_, &caps);
-
-        surfaceFormat_ = caps.formats[0];
-
-        for (size_t i = 0; i < caps.formatCount; ++i) {
-            if (caps.formats[i] == wgpu::TextureFormat::BGRA8Unorm ||
-                caps.formats[i] == wgpu::TextureFormat::RGBA8Unorm) {
-                surfaceFormat_ = caps.formats[i];
-                break;
-            }
-        }
-
-        wgpu::SurfaceConfiguration config{};
-        config.device = *device_;
-        config.format = surfaceFormat_;
-        config.usage =
-            wgpu::TextureUsage::RenderAttachment |
-            wgpu::TextureUsage::CopyDst;
-        config.width = width;
-        config.height = height;
-        config.presentMode = choosePresentMode(caps);
-
-        surface_->configure(config);
-        surfaceConfigured_ = true;
-    }
-
-    void WGPU::shutdown() {
-        if (!initialized_) {
-            return;
-        }
-        depthTextureView_ = wgpu::raii::TextureView{};
-        depthTexture_ = wgpu::raii::Texture{};
-        if (surface_ && surfaceConfigured_) {
-            surface_->unconfigure();
-        }
-        surfaceConfigured_ = false;
-        queue_ = wgpu::raii::Queue{};
-        device_ = wgpu::raii::Device{};
-        surface_ = wgpu::raii::Surface{};
-        adapter_ = wgpu::raii::Adapter{};
-        instance_ = wgpu::raii::Instance{};
-        initialized_ = false;
-    }
+    queue_ = wgpuDeviceGetQueue(device_);
 }
+
+// ---------- configureSurface ----------
+void WGPU::configureSurface(uint32_t width, uint32_t height) {
+    WGPUSurfaceCapabilities caps = {};
+    wgpuSurfaceGetCapabilities(surface_, adapter_, &caps);
+
+    surfaceFormat_ = caps.formats[0];
+    for (uint32_t i = 0; i < caps.formatCount; ++i) {
+        if (caps.formats[i] == WGPUTextureFormat_BGRA8Unorm ||
+            caps.formats[i] == WGPUTextureFormat_RGBA8Unorm) {
+            surfaceFormat_ = caps.formats[i];
+            break;
+        }
+    }
+
+    WGPUSurfaceConfiguration config = {};
+    config.device = device_;
+    config.format = surfaceFormat_;
+    config.usage = WGPUTextureUsage_RenderAttachment | WGPUTextureUsage_CopyDst;
+    config.width = width;
+    config.height = height;
+    config.presentMode = choosePresentMode(caps);
+    config.alphaMode = WGPUCompositeAlphaMode_Auto;
+
+    wgpuSurfaceConfigure(surface_, &config);
+    surfaceConfigured_ = true;
+
+    // caps нужно освободить
+    wgpuSurfaceCapabilitiesFreeMembers(caps);
+}
+
+// ---------- shutdown ----------
+void WGPU::shutdown() {
+    if (!initialized_) return;
+
+    if (depthTextureView_) {
+        wgpuTextureViewRelease(depthTextureView_);
+        depthTextureView_ = nullptr;
+    }
+    if (depthTexture_) {
+        wgpuTextureDestroy(depthTexture_);
+        wgpuTextureRelease(depthTexture_);
+        depthTexture_ = nullptr;
+    }
+
+    if (surface_ && surfaceConfigured_) {
+        wgpuSurfaceUnconfigure(surface_);
+    }
+    surfaceConfigured_ = false;
+
+    if (queue_) {
+        wgpuQueueRelease(queue_);
+        queue_ = nullptr;
+    }
+    if (device_) {
+        wgpuDeviceRelease(device_);
+        device_ = nullptr;
+    }
+    if (surface_) {
+        wgpuSurfaceRelease(surface_);
+        surface_ = nullptr;
+    }
+    if (adapter_) {
+        wgpuAdapterRelease(adapter_);
+        adapter_ = nullptr;
+    }
+    if (instance_) {
+        wgpuInstanceRelease(instance_);
+        instance_ = nullptr;
+    }
+
+    initialized_ = false;
+}
+
+} // namespace GPU

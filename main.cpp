@@ -20,7 +20,9 @@ int runApplication(int argc, char** argv) {
     runtime.loadPlugins("Plugins");
     if (runtime.check("ClassicMD", "Universe 1"))
         runtime.start("ClassicMD", "Universe 1");
-    runtime.updateAll();
+    if (runtime.check("Window", "Window"))
+        runtime.start("Window", "Window");
+    runtime.run();
     return 0;
 }
 

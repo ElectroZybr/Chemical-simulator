@@ -1,21 +1,17 @@
 set_project("LatticeLab")
 local version = "0.1.4"
 set_version(version)
+add_defines('BUILD_VERSION="' .. version .. '"')
 set_languages("c++20")
 
 add_rules("mode.debug", "mode.release")
-set_policy("build.compile_commands", true)
 
-add_defines(
-    'BUILD_VERSION="' .. version .. '"'
-)
+add_rules("plugin.compile_commands.autoupdate", {
+    outputdir = "."
+})
 
 if is_mode("release") then
-    add_cxxflags(
-        "-march=native",
-        "-fopt-info-vec-optimized",
-        "-fopt-info-vec-missed"
-    )
+    add_cxxflags("-march=native")
 end
 
 add_requires(
