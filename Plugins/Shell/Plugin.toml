@@ -1,5 +1,5 @@
-id = "Window"
-name = "Window"
+id = "Shell"
+name = "Shell"
 version = "1.0.0"
 
 [core]

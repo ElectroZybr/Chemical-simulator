@@ -1,7 +1,7 @@
 add_requires("stb")
 add_requires("glfw")
 
-target("Window")
+target("Shell")
     set_kind("shared")
     set_targetdir(".")
 

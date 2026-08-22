@@ -20,7 +20,7 @@ public:
         // интегратор требует для работы буфер. Если нет - исключение
         : particles(components.require<ParticleDynamics::ParticleStorage>())
     {
-        Lattice::Component settings = components.require<Lattice::Settings>();
+        Lattice::Settings* settings = components.require<Lattice::Settings>();
         settings->bind("verlet", "dt", &dt, 0, 0.1, true);
     }
 
@@ -46,6 +46,6 @@ private:
 
     float dt = 0.01;
 
-    Lattice::Component<ParticleDynamics::ParticleStorage> particles;
+    ParticleDynamics::ParticleStorage* particles = nullptr;
 };
 }

@@ -22,11 +22,6 @@ enum class Mode {
     Check
 };
 
-template<typename T>
-concept HasConfigure = requires(T& t) {
-    t.configure();
-};
-
 struct Requirement {
     std::string type;
     std::string instance;
@@ -52,12 +47,14 @@ struct ComponentData {
     }
 };
 
+// Хендл на слот в мешке: reset() меняет impl, все Slot<API> это видят.
+// Конкретные типы хранить как T* (add/require), интерфейсы — Slot<API> (use/get).
 template<typename API>
-struct Component {
+struct Slot {
     ComponentData* data = nullptr;
 
-    Component() = default;
-    explicit Component(ComponentData* d) : data(d) {}
+    Slot() = default;
+    explicit Slot(ComponentData* d) : data(d) {}
 
     API* operator->() const {
         return data ? static_cast<API*>(data->api) : nullptr;
@@ -119,12 +116,10 @@ public:
         }
     }
 
-    // -------------------------------------------------------------------------
-
-    Component<Components> addBranch(std::string_view instanceName = "default") {
+    Components* addBranch(std::string_view instanceName = "default") {
         ComponentKey key{std::string(typeName<Components>()), std::string(instanceName)};
         if (auto it = lookup.find(key); it != lookup.end()) {
-            return Component<Components>{it->second};
+            return static_cast<Components*>(it->second->api);
         }
 
         if (mode == Mode::Check) {
@@ -132,41 +127,38 @@ public:
             ++depth;
         }
 
-        auto component = std::make_unique<ComponentData>();
+        auto data = std::make_unique<ComponentData>();
         Components* obj = new Components(registry, this, mode, instanceName);
-        component->instance = obj;
-        component->api = obj;
-        component->destroy = [](void* p) { delete static_cast<Components*>(p); };
+        data->instance = obj;
+        data->api = obj;
+        data->destroy = [](void* p) { delete static_cast<Components*>(p); };
 
-        ComponentData* ptr = component.get();
-        storage.push_back(std::move(component));
+        ComponentData* ptr = data.get();
+        storage.push_back(std::move(data));
         lookup.emplace(std::move(key), ptr);
 
         if (mode == Mode::Normal) {
             Logger::info(moduleName, "+ branch '{}'", instanceName);
         }
 
-        return Component<Components>{ptr};
+        return obj;
     }
 
-    // -------------------------------------------------------------------------
-
     template<typename T>
-    Component<T> addComponent(std::string_view instanceName = "default") {
+    T* add(std::string_view instanceName = "default") {
         ComponentKey key{std::string(typeName<T>()), std::string(instanceName)};
         if (auto it = lookup.find(key); it != lookup.end()) {
-            return Component<T>{it->second};
+            return static_cast<T*>(it->second->api);
         }
 
-        // В Check-режиме всегда записываем зависимость
         if (mode == Mode::Check) {
             reqs.push_back({std::string(typeName<T>()), std::string(instanceName), depth});
         }
 
-        // Если типа нет в реестре
-        if (!registry->has(std::string(typeName<T>()))) {
+        const Registry::TypeEntry* entry = registry->find(std::string(typeName<T>()));
+        if (!entry || !entry->create) {
             if (mode == Mode::Check) {
-                return Component<T>{nullptr};
+                return nullptr;
             }
             throw std::runtime_error(std::format(
                 "Component '{}' not found", typeName<T>()));
@@ -176,132 +168,101 @@ public:
             ++depth;
         }
 
-        auto component = std::make_unique<ComponentData>();
-        T* obj = nullptr;
-
-        if constexpr (std::is_same_v<T, Components>) {
-            obj = new Components(registry, this, mode, instanceName);
-        }
-        else if constexpr (std::is_constructible_v<T, Components&>) {
-            obj = new T(*this);
-        }
-        else if constexpr (std::is_default_constructible_v<T>) {
-            obj = new T();
-        }
-        else {
-            static_assert(
-                std::is_constructible_v<T, Components&> || std::is_default_constructible_v<T>,
-                "Component must be constructible with Components& or default constructible"
-            );
-        }
+        auto data = std::make_unique<ComponentData>();
+        void* instance = entry->create(this);
+        T* obj = static_cast<T*>(instance);
 
         if (mode == Mode::Check) {
             --depth;
         }
 
         if (mode == Mode::Normal) {
-            if constexpr (HasConfigure<T>) {
-                obj->configure();
-            }
-            Logger::info(moduleName, "+ component '{}'", typeName<T>());
+            if (entry->configure)
+                entry->configure(obj);
+            Logger::info(moduleName, "+ {}", typeName<T>());
         }
 
-        component->instance = obj;
-        component->api = obj;
-        component->destroy = [](void* p) { delete static_cast<T*>(p); };
+        data->instance = instance;
+        data->api = instance;
+        data->destroy = entry->destroy;
 
-        ComponentData* ptr = component.get();
-        storage.push_back(std::move(component));
+        ComponentData* ptr = data.get();
+        storage.push_back(std::move(data));
         lookup.emplace(std::move(key), ptr);
 
-        return Component<T>{ptr};
+        return obj;
     }
-
-    // -------------------------------------------------------------------------
-
-    template<typename API>
-    Component<API> addInterfaceSlot(std::string_view instanceName = "default") {
-        ComponentKey key{std::string(typeName<API>()), std::string(instanceName)};
-        if (auto it = lookup.find(key); it != lookup.end()) {
-            return Component<API>{it->second};
-        }
-
-        if (mode == Mode::Check) {
-            reqs.push_back({std::string(typeName<API>()), std::string(instanceName), depth});
-            return Component<API>{nullptr};
-        }
-
-        auto component = std::make_unique<ComponentData>();
-        ComponentData* ptr = component.get();
-        storage.push_back(std::move(component));
-        lookup.emplace(std::move(key), ptr);
-
-        Logger::info(moduleName, "+ interface '{}'", typeName<API>());
-        return Component<API>{ptr};
-    }
-
-    // -------------------------------------------------------------------------
 
     template<typename API, typename Impl>
-    Component<API> useInterface(std::string_view instanceName = "default") {
-        return useInterface<API>(typeName<Impl>(), instanceName);
+    Slot<API> use(std::string_view instanceName = "default") {
+        return use<API>(typeName<Impl>(), instanceName);
     }
 
     template<typename API>
-    Component<API> useInterface(std::string_view implName, std::string_view instanceName = "default") {
+    Slot<API> use(std::string_view implName, std::string_view instanceName = "default") {
         if (mode == Mode::Check) {
             reqs.push_back({std::string(typeName<API>()), std::string(instanceName), depth});
             if (!registry->hasImpl<API>(implName)) {
                 Logger::error(moduleName, "unknown implementation '{}' for '{}'", implName, typeName<API>());
-                return Component<API>{nullptr};
+                return {};
             }
+            // TODO: Check не должен create/destroy настоящие объекты
             const auto& implementation = registry->requireImpl<API>(implName);
             void* instance = implementation.create(this);
             implementation.destroy(instance);
-            return Component<API>{nullptr};
+            return {};
         }
 
         const auto& implementation = registry->requireImpl<API>(implName);
-        auto component = require<API>(instanceName);
+        Slot<API> slot = get<API>(instanceName);
+        if (!slot.exists()) {
+            auto data = std::make_unique<ComponentData>();
+            ComponentData* ptr = data.get();
+            storage.push_back(std::move(data));
+            lookup.emplace(
+                ComponentKey{std::string(typeName<API>()), std::string(instanceName)},
+                ptr
+            );
+            slot = Slot<API>{ptr};
+            Logger::info(moduleName, "+ interface '{}'", typeName<API>());
+        }
 
         void* instance = implementation.create(this);
-        component.data->reset(
+        slot.data->reset(
             instance,
             implementation.getAPI(instance),
             implementation.destroy
         );
 
+        if (implementation.configure)
+            implementation.configure(instance);
+
         Logger::info(moduleName, "> use '{}' = '{}'", typeName<API>(), implName);
-        return component;
+        return slot;
     }
 
-    // -------------------------------------------------------------------------
-
     template<typename API>
-    Component<API> get(std::string_view instanceName = "default") {
+    Slot<API> get(std::string_view instanceName = "default") {
         ComponentKey key{std::string(typeName<API>()), std::string(instanceName)};
         auto it = lookup.find(key);
         if (it == lookup.end() || !it->second)
             return {};
-        return Component<API>{it->second};
+        return Slot<API>{it->second};
     }
 
-    template<typename API>
-    Component<API> require(std::string_view instanceName = "default") {
-        auto c = get<API>(instanceName);
+    template<typename T>
+    T* require(std::string_view instanceName = "default") {
+        Slot<T> slot = get<T>(instanceName);
         if (mode == Mode::Check) {
-            reqs.push_back({std::string(typeName<API>()), std::string(instanceName), depth});
-            if (c.exists()) {
-                return c;
-            }
-            return Component<API>{nullptr};
+            reqs.push_back({std::string(typeName<T>()), std::string(instanceName), depth});
+            return slot.get();
         }
-        if (!c.exists()) {
+        if (!slot.exists()) {
             throw std::runtime_error(std::format(
                 "Component '{}' with instance '{}' not found",
-                typeName<API>(), instanceName));
+                typeName<T>(), instanceName));
         }
-        return c;
+        return slot.get();
     }
 
     // -------------------------------------------------------------------------

@@ -6,6 +6,7 @@
 #include <vector>
 #include <stdexcept>
 #include <format>
+#include <type_traits>
 
 #include <Lattice/Kernel/TypeName.hpp>
 #include <Lattice/Tools/Logger.hpp>
@@ -14,17 +15,24 @@ namespace Lattice {
 
 class Components;
 
+template<typename T>
+concept HasConfigure = requires(T& t) {
+    t.configure();
+};
+
 class Registry {
 public:
-    using CreateFn  = void* (*)(Components*);
-    using DestroyFn = void  (*)(void*);
-    using GetAPIFn  = void* (*)(void*);
+    using CreateFn     = void* (*)(Components*);
+    using DestroyFn    = void  (*)(void*);
+    using GetAPIFn     = void* (*)(void*);
+    using ConfigureFn  = void  (*)(void*);
 
     struct TypeEntry {
         std::string name;
-        CreateFn    create  = nullptr;
-        DestroyFn   destroy = nullptr;
-        GetAPIFn    getAPI  = nullptr;
+        CreateFn    create    = nullptr;
+        DestroyFn   destroy   = nullptr;
+        GetAPIFn    getAPI    = nullptr;
+        ConfigureFn configure = nullptr;
         std::string implements; // имя API, который реализует (пустое = обычный компонент)
     };
 
@@ -51,6 +59,9 @@ public:
         };
 
         entry.destroy = [](void* p) { delete static_cast<T*>(p); };
+        if constexpr (HasConfigure<T>) {
+            entry.configure = [](void* p) { static_cast<T*>(p)->configure(); };
+        }
 
         auto [it, inserted] = types.emplace(entry.name, std::move(entry));
         if (!inserted)
@@ -83,6 +94,9 @@ public:
         entry.destroy = [](void* p) { delete static_cast<Impl*>(p); };
         entry.getAPI  = [](void* p) -> void* {
             return static_cast<API*>(static_cast<Impl*>(p));
+        };
+        if constexpr (HasConfigure<Impl>) {
+            entry.configure = [](void* p) { static_cast<Impl*>(p)->configure(); };
         };
 
         auto [it, inserted] = types.emplace(entry.name, std::move(entry));

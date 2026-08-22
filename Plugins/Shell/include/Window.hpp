@@ -10,15 +10,14 @@
 
 #include "WindowAPI.hpp"
 #include "Render/include/Render.hpp"
-#include "Window/src/glfwWindow/glfwWindow.hpp"
+#include "Shell/src/glfwWindow/glfwWindow.hpp"
 
 class Window final : public ServiceAPI {
 public:
     explicit Window(Lattice::Components& branch) {
         settings = branch.require<Lattice::Settings>();
-        window = branch.addInterfaceSlot<WindowAPI>();
-        branch.useInterface<WindowAPI, glfwWindow>();
-        render = branch.addComponent<Render>();
+        window = branch.use<WindowAPI, glfwWindow>();
+        render = branch.add<Render>();
         Logger::info("Window", "window created");
     }
 
@@ -28,14 +27,15 @@ public:
     }
 
     void run() override {
+        render->setup();
         while (!stopRequested()) {
             window->pollEvents();
             if (window->shouldClose()) {
                 requestStop();
                 break;
             }
+            render->frame();
             Logger::info("Window", "looping");
-            std::this_thread::sleep_for(std::chrono::milliseconds(1000));
         }
     }
 
@@ -45,8 +45,8 @@ public:
     }
 
 private:
-    Lattice::Component<Lattice::Settings> settings;
-    Lattice::Component<WindowAPI> window;
-    Lattice::Component<Render> render;
+    Lattice::Settings* settings = nullptr;
+    Lattice::Slot<WindowAPI> window;
+    Render* render = nullptr;
     uint32_t fps;
 };

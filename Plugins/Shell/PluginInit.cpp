@@ -4,9 +4,9 @@
 // Plugin dependences
 
 // Sources
-#include "Window/include/WindowAPI.hpp"
-#include "Window/include/Window.hpp"
-#include "Window/src/glfwWindow/glfwWindow.hpp"
+#include "WindowAPI.hpp"
+#include "Window.hpp"
+#include "Shell/src/glfwWindow/glfwWindow.hpp"
 
 extern "C" bool plugin_register(Lattice::Registry& reg) {
     reg.registerAPI<WindowAPI>();

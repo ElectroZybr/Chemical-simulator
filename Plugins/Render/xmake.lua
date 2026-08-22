@@ -13,5 +13,6 @@ target("Render")
     add_includedirs("..", {public = true})
     
     add_includedirs("../GPU/include")
+    add_includedirs("../Shell/include")
 
     add_deps("Lattice")

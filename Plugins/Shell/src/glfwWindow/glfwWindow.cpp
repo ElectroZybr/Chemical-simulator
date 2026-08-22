@@ -1,10 +1,13 @@
 #include "glfwWindow.hpp"
+#include <Lattice/Tools/Logger.hpp>
 
 #include <algorithm>
 #include <format>
 #include <stdexcept>
 #include <string>
 #include <utility>
+#include <filesystem>
+#include <unistd.h>
 
 #ifdef _WIN32
     #include <windows.h>
@@ -15,14 +18,11 @@
         #undef FAR
     #endif
     #define GLFW_EXPOSE_NATIVE_WIN32
-    #include <GLFW/glfw3native.h>
+#elif defined(__APPLE__)
+    #define GLFW_EXPOSE_NATIVE_COCOA
 #else
-    #include <limits.h>
-    #include <unistd.h>
-    #include <filesystem>
     #define GLFW_EXPOSE_NATIVE_X11
-    #include <GLFW/glfw3native.h>
-
+    #define GLFW_EXPOSE_NATIVE_WAYLAND
     #define STB_IMAGE_IMPLEMENTATION
     #if defined(__GNUC__) && !defined(__clang__)
         #pragma GCC diagnostic push
@@ -33,6 +33,7 @@
         #pragma GCC diagnostic pop
     #endif
 #endif
+    #include <GLFW/glfw3native.h>
 
 namespace {
 
@@ -257,16 +258,29 @@ NativeWindow glfwWindow::native() const {
     NativeWindow n{};
     if (!window_) return n;
 
-#ifdef _WIN32
+#if defined(_WIN32)
     n.kind = NativeWindow::Kind::Win32;
     n.window = glfwGetWin32Window(window_);
+
 #elif defined(__APPLE__)
-    n.kind = NativeWindow::Kind::Cocoa;
-    n.window = glfwGetCocoaWindow(window_);
+    n.kind = NativeWindow::Kind::Metal; // или Cocoa — как договоритесь для wgpu
+    n.extra = /* metal layer */;
+
 #else
-    n.kind = NativeWindow::Kind::X11;
-    n.display = glfwGetX11Display();
-    n.window  = reinterpret_cast<void*>(static_cast<uintptr_t>(glfwGetX11Window(window_)));
+    const int platform = glfwGetPlatform(); // GLFW ≥ 3.4
+
+    if (platform == GLFW_PLATFORM_WAYLAND) {
+        n.kind = NativeWindow::Kind::Wayland;
+        n.display = glfwGetWaylandDisplay();
+        n.window  = glfwGetWaylandWindow(window_); // wl_surface*
+    } else if (platform == GLFW_PLATFORM_X11) {
+        n.kind = NativeWindow::Kind::X11;
+        n.display = glfwGetX11Display();
+        n.window  = reinterpret_cast<void*>(
+            static_cast<uintptr_t>(glfwGetX11Window(window_)));
+    } else {
+        Logger::error("Window", "unsupported glfw platform {}", platform);
+    }
 #endif
     return n;
 }

@@ -9,7 +9,7 @@
 #include "Render.hpp"
 
 extern "C" bool plugin_register(Lattice::Registry& reg) {
-    reg.registerImpl<ServiceAPI, Render>();
+    reg.registerComponent<Render>();
     return true;
 }
 

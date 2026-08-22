@@ -36,9 +36,8 @@ public:
     bool check(std::string_view modelId, std::string_view instanceName = "default") {
         Components branch(&globalRegistry, nullptr, Mode::Check, modelId);
 
-        branch.addComponent<Settings>();
-        branch.addInterfaceSlot<ServiceAPI>();
-        branch.useInterface<ServiceAPI>(modelId);
+        branch.add<Settings>();
+        branch.use<ServiceAPI>(modelId);
         for (const auto& r : branch.getUniqueRequirements()) {
             if (!globalRegistry.has(r.type)) {
                 Logger::error(moduleName, "{} check failed", modelId);
@@ -49,12 +48,11 @@ public:
         return true;
     }
 
-    Component<ServiceAPI> start(std::string_view modelId, std::string_view instanceName = "default") {
+    Slot<ServiceAPI> start(std::string_view modelId, std::string_view instanceName = "default") {
         Logger::Scope scope(moduleName, "Start ServiceAPI '{}' with name '{}'", modelId, instanceName);
-        Component branch = root.addBranch(instanceName);
-        Component settings = branch->addComponent<Settings>();
-        branch->addInterfaceSlot<ServiceAPI>();
-        Component service = branch->useInterface<ServiceAPI>(modelId);
+        Components* branch = root.addBranch(instanceName);
+        branch->add<Settings>();
+        Slot<ServiceAPI> service = branch->use<ServiceAPI>(modelId);
         if (!service)
             throw std::runtime_error("Failed to start service: " + std::string(modelId));
 
@@ -76,7 +74,7 @@ public:
         }
     }
 
-    Component<ServiceAPI> get(std::string_view instanceName = "default") {
+    Slot<ServiceAPI> get(std::string_view instanceName = "default") {
         auto it = services.find(std::string(instanceName));
         if (it == services.end())
             return {};
@@ -92,6 +90,6 @@ private:
     Components root;
 
     bool running = true;
-    std::unordered_map<std::string, Component<ServiceAPI>> services;
+    std::unordered_map<std::string, Slot<ServiceAPI>> services;
 };
 }
