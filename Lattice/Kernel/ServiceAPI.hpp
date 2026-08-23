@@ -3,6 +3,11 @@
 #include <thread>
 #include <atomic>
 
+enum class ServiceLaunch {
+    Worker,
+    Host
+};
+
 struct ServiceAPI {
     ServiceAPI() = default;
     ServiceAPI(const ServiceAPI&) = delete;
@@ -19,10 +24,16 @@ struct ServiceAPI {
         });
     }
 
-    void stop() {
-        if (!running_ && !thread_.joinable())
+    // Цикл на вызывающем потоке. Для App/CLI/окна: GLFW и ввод живут здесь.
+    void enter() {
+        if (running_.exchange(true))
             return;
+        host_ = true;
+        run();
+        running_ = false;
+    }
 
+    void stop() {
         requestStop();
         if (thread_.joinable())
             thread_.join();
@@ -30,16 +41,15 @@ struct ServiceAPI {
     }
 
     bool running() const { return running_.load(); }
+    bool host() const { return host_; }
 
     virtual ~ServiceAPI() {
         stop();
     }
 
 protected:
-    // сервис реализует свой цикл
     virtual void run() = 0;
 
-    // прерывание блокирующих wait
     virtual void requestStop() {
         stopRequested_ = true;
     }
@@ -52,4 +62,5 @@ private:
     std::thread thread_;
     std::atomic<bool> running_{false};
     std::atomic<bool> stopRequested_{false};
+    bool host_ = false;
 };

@@ -21,7 +21,7 @@ int runApplication(int argc, char** argv) {
     if (runtime.check("ClassicMD", "Universe 1"))
         runtime.start("ClassicMD", "Universe 1");
     if (runtime.check("Window", "Window"))
-        runtime.start("Window", "Window");
+        runtime.start("Window", "Window", ServiceLaunch::Host);
     runtime.run();
     return 0;
 }

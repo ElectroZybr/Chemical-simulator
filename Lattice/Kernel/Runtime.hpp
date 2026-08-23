@@ -4,7 +4,8 @@
 #include <string>
 #include <iostream>
 #include <thread>
-
+#include <vector>
+#include <unordered_map>
 
 #include "Lattice/Kernel/ServiceAPI.hpp"
 #include "Lattice/Kernel/PluginManager.hpp"
@@ -23,6 +24,7 @@ public:
         // регистрация интерфейсов ядра
         globalRegistry.registerAPI<ServiceAPI>();
         globalRegistry.registerComponent<Settings>();
+        root.add<Settings>();
     }
 
     bool loadPlugins(std::filesystem::path path) {
@@ -38,40 +40,93 @@ public:
 
         branch.add<Settings>();
         branch.use<ServiceAPI>(modelId);
+        bool ok = true;
         for (const auto& r : branch.getUniqueRequirements()) {
             if (!globalRegistry.has(r.type)) {
-                Logger::error(moduleName, "{} check failed", modelId);
                 branch.printRequirements();
+                Logger::error(moduleName, "{} check failed: missing '{}'", modelId, r.type);
                 return false;
             }
-        }
+        }    
+        Logger::ok(moduleName, "{} check passed", modelId);
         return true;
     }
 
-    Slot<ServiceAPI> start(std::string_view modelId, std::string_view instanceName = "default") {
+    Slot<ServiceAPI> start(
+        std::string_view modelId,
+        std::string_view instanceName = "default",
+        ServiceLaunch launch = ServiceLaunch::Worker)
+    {
         Logger::Scope scope(moduleName, "Start ServiceAPI '{}' with name '{}'", modelId, instanceName);
-        Components* branch = root.addBranch(instanceName);
-        branch->add<Settings>();
-        Slot<ServiceAPI> service = branch->use<ServiceAPI>(modelId);
+        Slot<ServiceAPI> service = root.use<ServiceAPI>(modelId, instanceName);
         if (!service)
             throw std::runtime_error("Failed to start service: " + std::string(modelId));
 
-        service->start();
+        if (launch == ServiceLaunch::Host) {
+            if (host)
+                throw std::runtime_error("Runtime already has a host service");
+            host = service;
+            hostName = instanceName;
+            Logger::info(moduleName, "Host service '{}'", instanceName);
+        } else {
+            service->start();
+        }
+
         services[std::string(instanceName)] = service;
         scope.finish("Configure '{}' done", instanceName);
         return service;
     }
 
     void stop(std::string_view instanceName = "default") {
-        services.erase(std::string(instanceName));
-        // опционально: root_.remove<ServiceAPI>(instanceName);
+        const std::string key{instanceName};
+        auto it = services.find(key);
+        if (it == services.end()) {
+            root.remove<ServiceAPI>(instanceName);
+            return;
+        }
+
+        if (it->second)
+            it->second->stop();
+
+        const bool isHost = host && key == hostName;
+        if (isHost && host->running())
+            return;
+
+        if (isHost)
+            host = {};
+
+        services.erase(it);
+        root.remove<ServiceAPI>(instanceName);
     }
 
     void run() {
-        while (running) {
-            Logger::info(moduleName, "looping");
-            std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+        if (host) {
+            host->enter();
+            stopAll();
+            return;
         }
+
+        while (running) {
+            if (services.empty())
+                break;
+
+            bool allAlive = true;
+            for (auto& [_, service] : services) {
+                if (!service || !service->running()) {
+                    allAlive = false;
+                    break;
+                }
+            }
+            if (!allAlive)
+                break;
+
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        }
+        stopAll();
+    }
+
+    ~Runtime() {
+        stopAll();
     }
 
     Slot<ServiceAPI> get(std::string_view instanceName = "default") {
@@ -84,6 +139,16 @@ public:
     Registry& registry() noexcept { return globalRegistry; }
 
 private:
+    void stopAll() {
+        running = false;
+        std::vector<std::string> names;
+        names.reserve(services.size());
+        for (auto& [name, _] : services)
+            names.push_back(name);
+        for (const auto& name : names)
+            stop(name);
+    }
+
     static constexpr std::string_view moduleName = "Runtime";
     Registry globalRegistry;
     PluginManager pluginManager;
@@ -91,5 +156,7 @@ private:
 
     bool running = true;
     std::unordered_map<std::string, Slot<ServiceAPI>> services;
+    Slot<ServiceAPI> host;
+    std::string hostName;
 };
 }

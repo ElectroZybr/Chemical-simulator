@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -12,10 +13,13 @@
 
 #include <Lattice/Kernel/TypeName.hpp>
 #include <Lattice/Kernel/Registry.hpp>
+#include <Lattice/Kernel/ServiceAPI.hpp>
 #include <Lattice/Tools/Logger.hpp>
 #include "Lattice/Tools/LogStyle.hpp"
 
 namespace Lattice {
+
+class Components;
 
 enum class Mode {
     Normal,
@@ -29,6 +33,7 @@ struct Requirement {
 };
 
 struct ComponentData {
+    Components* owner = nullptr;
     void* instance = nullptr;
     void* api = nullptr;
     void (*destroy)(void*) = nullptr;
@@ -47,7 +52,7 @@ struct ComponentData {
     }
 };
 
-// Хендл на слот в мешке: reset() меняет impl, все Slot<API> это видят.
+// Хендл на слот узла. get/require идут вверх по дереву к корню.
 // Конкретные типы хранить как T* (add/require), интерфейсы — Slot<API> (use/get).
 template<typename API>
 struct Slot {
@@ -82,14 +87,6 @@ struct Slot {
 };
 
 class Components {
-private:
-    Registry* registry = nullptr;
-    Components* parent = nullptr;
-    std::vector<Requirement> reqs;
-    Mode mode = Mode::Normal;
-    std::string name;
-    int depth = 0;
-
     using ComponentKey = std::pair<std::string, std::string>;
 
     struct ComponentKeyHash {
@@ -100,97 +97,139 @@ private:
         }
     };
 
+    Registry* registry = nullptr;
+    Components* parent = nullptr;
+    std::vector<Requirement> reqs;
+    Mode mode = Mode::Normal;
+    std::string name;
+    std::string kind;
+    int depth = 0;
+
     std::unordered_map<ComponentKey, ComponentData*, ComponentKeyHash> lookup;
-    // владеет объектами, нужна для уничтожения в правильном порядке
-    std::vector<std::unique_ptr<ComponentData>> storage;
+    std::vector<std::unique_ptr<Components>> children;
+    ComponentData self;
+
+    template<typename API>
+    Slot<API> getLocal(std::string_view instanceName) {
+        auto it = lookup.find(ComponentKey{std::string(typeName<API>()), std::string(instanceName)});
+        if (it == lookup.end() || !it->second)
+            return {};
+        return Slot<API>{it->second};
+    }
+
+    Components* nodeOf(ComponentData* data) const {
+        return data ? data->owner : nullptr;
+    }
+
+    void index(const std::string& type, std::string_view instanceName, ComponentData* data) {
+        lookup.insert_or_assign(ComponentKey{type, std::string(instanceName)}, data);
+    }
+
+    void recordReq(std::string type, std::string instance) {
+        if (mode != Mode::Check)
+            return;
+        Components* root = this;
+        while (root->parent)
+            root = root->parent;
+        root->reqs.push_back({std::move(type), std::move(instance), depth});
+    }
+
+    Components* makeChild(std::string_view instanceName, std::string_view childKind = {}) {
+        auto node = std::make_unique<Components>(registry, this, mode, instanceName);
+        Components* raw = node.get();
+        raw->self.owner = raw;
+        raw->kind = childKind;
+        children.push_back(std::move(node));
+        return raw;
+    }
+
+    std::string label() const {
+        if (kind.empty())
+            return name.empty() ? "Root" : name;
+        if (name.empty() || name == "default")
+            return kind;
+        return std::format("{} '{}'", kind, name);
+    }
+
+    void appendTree(Logger::Tree& tree, size_t depth) const {
+        for (const auto& child : children) {
+            tree.node(child->label(), depth);
+            child->appendTree(tree, depth + 1);
+        }
+    }
+
+    void clearChildren() {
+        children.clear();
+    }
+
+    void stopServices() {
+        const std::string apiName{typeName<ServiceAPI>()};
+        for (auto& [key, data] : lookup) {
+            if (key.first != apiName || !data || !data->api)
+                continue;
+            static_cast<ServiceAPI*>(data->api)->stop();
+        }
+        for (auto& child : children)
+            child->stopServices();
+    }
 
 public:
     static constexpr std::string_view moduleName = "Components";
 
     explicit Components(Registry* registry, Components* parent = nullptr, Mode mode = Mode::Normal, std::string_view name = "Root")
-        : registry(registry), parent(parent), mode(mode), name(name) {
-
-        if (mode == Mode::Check) {
-            reqs.push_back({std::string(name), std::string(name), depth});
-            ++depth;
-        }
+        : registry(registry), parent(parent), mode(mode), name(name), depth(parent ? parent->depth + 1 : 0) {
+        self.owner = this;
     }
 
+    Components(const Components&) = delete;
+    Components& operator=(const Components&) = delete;
+    Components(Components&&) = delete;
+    Components& operator=(Components&&) = delete;
+
+    ~Components();
+
     Components* addBranch(std::string_view instanceName = "default") {
-        ComponentKey key{std::string(typeName<Components>()), std::string(instanceName)};
-        if (auto it = lookup.find(key); it != lookup.end()) {
-            return static_cast<Components*>(it->second->api);
-        }
+        if (auto existing = getLocal<Components>(instanceName); existing.exists())
+            return nodeOf(existing.data);
 
-        if (mode == Mode::Check) {
-            reqs.push_back({std::string(instanceName), std::string(instanceName), depth});
-            ++depth;
-        }
+        recordReq(std::string(typeName<Components>()), std::string(instanceName));
 
-        auto data = std::make_unique<ComponentData>();
-        Components* obj = new Components(registry, this, mode, instanceName);
-        data->instance = obj;
-        data->api = obj;
-        data->destroy = [](void* p) { delete static_cast<Components*>(p); };
+        Components* child = makeChild(instanceName, "branch");
+        index(std::string(typeName<Components>()), instanceName, &child->self);
 
-        ComponentData* ptr = data.get();
-        storage.push_back(std::move(data));
-        lookup.emplace(std::move(key), ptr);
-
-        if (mode == Mode::Normal) {
+        if (mode == Mode::Normal)
             Logger::info(moduleName, "+ branch '{}'", instanceName);
-        }
 
-        return obj;
+        return child;
     }
 
     template<typename T>
     T* add(std::string_view instanceName = "default") {
-        ComponentKey key{std::string(typeName<T>()), std::string(instanceName)};
-        if (auto it = lookup.find(key); it != lookup.end()) {
-            return static_cast<T*>(it->second->api);
-        }
+        if (auto existing = getLocal<T>(instanceName))
+            return existing.get();
 
-        if (mode == Mode::Check) {
-            reqs.push_back({std::string(typeName<T>()), std::string(instanceName), depth});
-        }
+        recordReq(std::string(typeName<T>()), std::string(instanceName));
 
         const Registry::TypeEntry* entry = registry->find(std::string(typeName<T>()));
         if (!entry || !entry->create) {
-            if (mode == Mode::Check) {
+            if (mode == Mode::Check)
                 return nullptr;
-            }
             throw std::runtime_error(std::format(
                 "Component '{}' not found", typeName<T>()));
         }
 
-        if (mode == Mode::Check) {
-            ++depth;
-        }
+        Components* child = makeChild(instanceName, typeName<T>());
+        void* instance = entry->create(child);
+        child->self.reset(instance, instance, entry->destroy);
+        index(std::string(typeName<T>()), instanceName, &child->self);
+        child->index(std::string(typeName<T>()), instanceName, &child->self);
 
-        auto data = std::make_unique<ComponentData>();
-        void* instance = entry->create(this);
-        T* obj = static_cast<T*>(instance);
+        if (mode == Mode::Normal && entry->configure)
+            entry->configure(instance);
 
-        if (mode == Mode::Check) {
-            --depth;
-        }
+        Logger::info(moduleName, "+ {}", typeName<T>());
 
-        if (mode == Mode::Normal) {
-            if (entry->configure)
-                entry->configure(obj);
-            Logger::info(moduleName, "+ {}", typeName<T>());
-        }
-
-        data->instance = instance;
-        data->api = instance;
-        data->destroy = entry->destroy;
-
-        ComponentData* ptr = data.get();
-        storage.push_back(std::move(data));
-        lookup.emplace(std::move(key), ptr);
-
-        return obj;
+        return static_cast<T*>(instance);
     }
 
     template<typename API, typename Impl>
@@ -200,63 +239,63 @@ public:
 
     template<typename API>
     Slot<API> use(std::string_view implName, std::string_view instanceName = "default") {
-        if (mode == Mode::Check) {
-            reqs.push_back({std::string(typeName<API>()), std::string(instanceName), depth});
-            if (!registry->hasImpl<API>(implName)) {
-                Logger::error(moduleName, "unknown implementation '{}' for '{}'", implName, typeName<API>());
+        recordReq(std::string(typeName<API>()), std::string(instanceName));
+
+        if (!registry->hasImpl<API>(implName)) {
+            Logger::error(moduleName, "unknown implementation '{}' for '{}'", implName, typeName<API>());
+            if (mode == Mode::Check)
                 return {};
-            }
-            // TODO: Check не должен create/destroy настоящие объекты
-            const auto& implementation = registry->requireImpl<API>(implName);
-            void* instance = implementation.create(this);
-            implementation.destroy(instance);
-            return {};
+            throw std::runtime_error(std::format(
+                "Implementation '{}' not found for '{}'", implName, typeName<API>()));
         }
 
         const auto& implementation = registry->requireImpl<API>(implName);
-        Slot<API> slot = get<API>(instanceName);
-        if (!slot.exists()) {
-            auto data = std::make_unique<ComponentData>();
-            ComponentData* ptr = data.get();
-            storage.push_back(std::move(data));
-            lookup.emplace(
-                ComponentKey{std::string(typeName<API>()), std::string(instanceName)},
-                ptr
-            );
-            slot = Slot<API>{ptr};
+        Components* child = nullptr;
+
+        if (auto existing = getLocal<API>(instanceName); existing.exists()) {
+            child = nodeOf(existing.data);
+            if (child->self.api) {
+                if constexpr (std::is_same_v<API, ServiceAPI>)
+                    static_cast<ServiceAPI*>(child->self.api)->stop();
+                child->self.reset(nullptr, nullptr, nullptr);
+            }
+            child->clearChildren();
+        } else {
+            child = makeChild(instanceName, typeName<API>());
+            index(std::string(typeName<API>()), instanceName, &child->self);
+            child->index(std::string(typeName<API>()), instanceName, &child->self);
             Logger::info(moduleName, "+ interface '{}'", typeName<API>());
         }
 
-        void* instance = implementation.create(this);
-        slot.data->reset(
+        void* instance = implementation.create(child);
+        child->self.reset(
             instance,
             implementation.getAPI(instance),
             implementation.destroy
         );
 
-        if (implementation.configure)
+        if (mode == Mode::Normal && implementation.configure)
             implementation.configure(instance);
 
         Logger::info(moduleName, "> use '{}' = '{}'", typeName<API>(), implName);
-        return slot;
+        return Slot<API>{&child->self};
     }
 
     template<typename API>
     Slot<API> get(std::string_view instanceName = "default") {
-        ComponentKey key{std::string(typeName<API>()), std::string(instanceName)};
-        auto it = lookup.find(key);
-        if (it == lookup.end() || !it->second)
-            return {};
-        return Slot<API>{it->second};
+        if (auto local = getLocal<API>(instanceName); local.exists())
+            return local;
+        if (parent)
+            return parent->get<API>(instanceName);
+        return {};
     }
 
     template<typename T>
     T* require(std::string_view instanceName = "default") {
         Slot<T> slot = get<T>(instanceName);
-        if (mode == Mode::Check) {
-            reqs.push_back({std::string(typeName<T>()), std::string(instanceName), depth});
+        recordReq(std::string(typeName<T>()), std::string(instanceName));
+        if (mode == Mode::Check)
             return slot.get();
-        }
         if (!slot.exists()) {
             throw std::runtime_error(std::format(
                 "Component '{}' with instance '{}' not found",
@@ -265,10 +304,25 @@ public:
         return slot.get();
     }
 
-    // -------------------------------------------------------------------------
+    template<typename API>
+    void remove(std::string_view instanceName = "default") {
+        ComponentKey key{std::string(typeName<API>()), std::string(instanceName)};
+        auto it = lookup.find(key);
+        if (it == lookup.end())
+            return;
+        Components* node = nodeOf(it->second);
+        lookup.erase(it);
+        auto child = std::find_if(children.begin(), children.end(),
+            [node](const std::unique_ptr<Components>& p) { return p.get() == node; });
+        if (child != children.end())
+            children.erase(child);
+    }
+
+    void removeBranch(std::string_view instanceName) {
+        remove<Components>(instanceName);
+    }
 
     std::vector<Requirement> getUniqueRequirements() const {
-        // Возвращаем уникальные требования по всему дереву (без дублей), сохраняя порядок
         std::vector<Requirement> result;
         std::unordered_set<std::string> seen;
 
@@ -297,10 +351,9 @@ public:
 
     void printRequirementTree() const {
         Logger::Tree tree("Requirements");
-
         for (const auto& r : reqs) {
             tree.node(std::format("{}{}", registry->has(r.type)
-                ? Color::paint("✓ ", Color::ok) 
+                ? Color::paint("✓ ", Color::ok)
                 : Color::paint("✗ ", Color::error), r.type),
                 r.depth
             );
@@ -312,5 +365,14 @@ public:
         return reqs;
     }
 };
+
+inline Components::~Components() {
+    stopServices();
+    // self раньше детей: композитор ещё видит ParticleStorage / Render / glfw
+    self.reset(nullptr, nullptr, nullptr);
+    // pop_back — последние добавленные дети раньше; Settings на родителе ещё жив
+    while (!children.empty())
+        children.pop_back();
+}
 
 } // namespace Lattice

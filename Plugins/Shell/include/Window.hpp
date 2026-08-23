@@ -36,6 +36,7 @@ public:
             }
             render->frame();
             Logger::info("Window", "looping");
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
         }
     }
 

@@ -29,7 +29,7 @@ namespace ParticleDynamics {
 class SpatialGrid final : public SpatialIndexAPI {
 public:
     explicit SpatialGrid(Lattice::Components& components) {
-        Lattice::Settings* settings = components.require<Lattice::Settings>();
+        settings = components.require<Lattice::Settings>();
         settings->bind("SpatialGrid", "size", &size, [this](glm::vec3 newSize) { setSize(newSize); });
         settings->bind("SpatialGrid", "cell_size", &cellSize, [this](float value) { setCellSize(value); });
 
@@ -112,11 +112,15 @@ public:
     }
 
     ~SpatialGrid() {
-
+        if (settings) {
+            settings->unbind("SpatialGrid", "size");
+            settings->unbind("SpatialGrid", "cell_size");
+        }
     }
 
 private:
     ParticleStorage* particles = nullptr;
+    Lattice::Settings* settings = nullptr;
 
     glm::vec3 size{};
     float cellSize = 5.0f;

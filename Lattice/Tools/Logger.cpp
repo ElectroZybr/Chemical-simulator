@@ -86,7 +86,6 @@ std::string makeConsoleLine(std::string_view status, std::string_view color, std
 }
 } // helpers
 
-
 void Logger::setConsoleMode(ConsoleMode mode) noexcept {
     gConsoleMode.store(mode, std::memory_order_relaxed);
 }

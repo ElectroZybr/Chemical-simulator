@@ -19,25 +19,29 @@ public:
     Verlet(Lattice::Components& components) 
         // интегратор требует для работы буфер. Если нет - исключение
         : particles(components.require<ParticleDynamics::ParticleStorage>())
+        , settings(components.require<Lattice::Settings>())
     {
-        Lattice::Settings* settings = components.require<Lattice::Settings>();
         settings->bind("verlet", "dt", &dt, 0, 0.1, true);
     }
 
     void configure() {
-        // дополнительные поля для работы интегратора
         particles->addCol<PrevForceX>();
         particles->addCol<PrevForceY>();
         particles->addCol<PrevForceZ>();
+        configured = true;
     }
 
     void step() override;
 
     ~Verlet () {
+        if (settings)
+            settings->unbind("verlet", "dt");
+        if (configured && particles) {
+            particles->removeCol<PrevForceX>();
+            particles->removeCol<PrevForceY>();
+            particles->removeCol<PrevForceZ>();
+        }
         Logger::info("Verlet", "destroying object");
-        // particles->removeCol<PrevForceX>();
-        // particles->removeCol<PrevForceY>();
-        // particles->removeCol<PrevForceZ>();
     }
 
 private:
@@ -45,7 +49,9 @@ private:
     void correct();
 
     float dt = 0.01;
+    bool configured = false;
 
     ParticleDynamics::ParticleStorage* particles = nullptr;
+    Lattice::Settings* settings = nullptr;
 };
 }

@@ -58,12 +58,14 @@ public:
     }
 
     ~ClassicMD() {
-        atoms->removeCol<Energy>();
-        atoms->removeCol<Charge>();
-        atoms->removeCol<Type>();
-        atoms->removeCol<Valence>();
-        atoms->removeCol<Hybridization>();
-        atoms->removeCol<Id>();
+        if (atoms) {
+            atoms->removeCol<Energy>();
+            atoms->removeCol<Charge>();
+            atoms->removeCol<Type>();
+            atoms->removeCol<Valence>();
+            atoms->removeCol<Hybridization>();
+            atoms->removeCol<Id>();
+        }
         Logger::info("ClassicMD", "destroying object");
     }
 
