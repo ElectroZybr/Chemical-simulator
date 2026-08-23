@@ -1,6 +1,10 @@
 #include <Lattice/Kernel/PluginManager.hpp>
+#include <Lattice/Kernel/Requirements.hpp>
 #include <Lattice/Tools/Logger.hpp>
 #include <toml++/toml.h>
+
+#include <cstddef>
+#include <unordered_set>
 
 namespace Lattice {
     void PluginManager::scanDirectory(std::filesystem::path path) {
@@ -61,7 +65,15 @@ namespace Lattice {
         if (auto version = table["version"].value<std::string>()) {
             info.version = VersionRange::parseVersion(*version);
         }
-        info.kernelApiVersion = table["api"].value_or(1);
+        info.kernelApi = kernelApi;
+        if (auto core = table["core"].as_table()) {
+            if (auto apiNode = (*core)["api"]) {
+                if (auto s = apiNode.value<std::string>())
+                    info.kernelApi = VersionRange::parseVersion(*s);
+                else if (auto n = apiNode.value<int64_t>())
+                    info.kernelApi = Version{static_cast<uint8_t>(*n), 0, 0};
+            }
+        }
 
         if (auto deps = table["dependencies"].as_array()) {
             for (auto&& node : *deps) {
@@ -108,6 +120,14 @@ namespace Lattice {
             return false;
 
         plugin.status = LoadStatus::DependencyCycle;
+
+        if (plugin.manifest.kernelApi.major != kernelApi.major ||
+            plugin.manifest.kernelApi > kernelApi) {
+            plugin.status = LoadStatus::IncompatibleVersion;
+            Logger::error(moduleName, "Plugin '{}' needs kernel API {}, host is {}",
+                id, plugin.manifest.kernelApi.str(), kernelApi.str());
+            return false;
+        }
 
         for (const auto& dep : plugin.manifest.dependencies) {
             auto it = candidates.find(dep.id);
@@ -187,11 +207,20 @@ namespace Lattice {
 
         Logger::action(moduleName, "Loading {}", pluginPath.string());
 
+        const size_t depsBefore = compileDepSink().size();
+
         DynamicLibrary library;
         if (!library.open(pluginPath)) {
             Logger::error(moduleName, "Failed to open '{}': {}", pluginPath.string(), library.lastError());
             pluginCandidate->status = LoadStatus::Failed;
             return false;
+        }
+
+        PluginCatalog catalog;
+        catalog.pluginId = pluginCandidate->manifest.id;
+        {
+            const auto& sink = compileDepSink();
+            catalog.deps.assign(sink.begin() + static_cast<std::ptrdiff_t>(depsBefore), sink.end());
         }
 
         PluginRegisterFn regFn = library.symbol<PluginRegisterFn>("plugin_register");
@@ -203,7 +232,7 @@ namespace Lattice {
 
         // Сверим, что registry меняется: запомним текущее состояние, вызовем регистрацию и посмотрим на разницу
         auto before = globalRegistry.listProvided();
-        if (!regFn(&globalRegistry)) {
+        if (!regFn(globalRegistry)) {
             Logger::error(moduleName, "plugin_register failed for '{}'", pluginPath.string());
             pluginCandidate->status = LoadStatus::Failed;
             return false;
@@ -214,6 +243,13 @@ namespace Lattice {
         if (after.size() == before.size()) {
             Logger::warning(moduleName, "Plugin '{}' does not provide anything", pluginCandidate->manifest.id);
         }
+
+        std::unordered_set<std::string> beforeSet(before.begin(), before.end());
+        for (const auto& name : after) {
+            if (!beforeSet.contains(name))
+                catalog.provided.push_back(name);
+        }
+        recordPluginCatalog(std::move(catalog));
 
         PluginShutdownFn shutdown = library.symbol<PluginShutdownFn>("plugin_shutdown");
         plugins.push_back(LoadedPlugin{std::move(library), pluginCandidate->manifest, shutdown});

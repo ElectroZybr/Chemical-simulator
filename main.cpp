@@ -18,9 +18,9 @@ int runApplication(int argc, char** argv) {
     Logger::setConsoleMode(consoleMode);
     Lattice::Runtime runtime;
     runtime.loadPlugins("Plugins");
-    if (runtime.check("ClassicMD", "Universe 1"))
+    if (runtime.check("ClassicMD"))
         runtime.start("ClassicMD", "Universe 1");
-    if (runtime.check("Window", "Window"))
+    if (runtime.check("Window"))
         runtime.start("Window", "Window", ServiceLaunch::Host);
     runtime.run();
     return 0;

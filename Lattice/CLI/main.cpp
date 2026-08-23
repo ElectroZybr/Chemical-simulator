@@ -27,7 +27,7 @@ std::cout << LogStyle::paint(R"(
  / /___/ ___ |/ /   / / _/ // /___/ /___   / /___/ /____/ /   
 /_____/_/  |_/_/   /_/ /___/\____/_____/   \____/_____/___/   
 
-)", LogStyle::Color::logo);
+)", LogStyle::Color::brightCyan);
 }
 
 static void printHelp() {

@@ -30,12 +30,6 @@ inline constexpr std::string_view brightCyan    = "\033[96m";
 inline constexpr std::string_view brightWhite   = "\033[97m";
 
 // Semantic styles
-inline constexpr std::string_view tree    = gray;
-inline constexpr std::string_view logo    = brightCyan;
-inline constexpr std::string_view header  = brightCyan;
-inline constexpr std::string_view key     = brightBlue;
-inline constexpr std::string_view value   = brightWhite;
-inline constexpr std::string_view device  = brightYellow;
 inline constexpr std::string_view error   = brightRed;
 inline constexpr std::string_view ok      = brightGreen;
 inline constexpr std::string_view warning = brightYellow;

@@ -1,23 +1,30 @@
 #pragma once
 
-#include <vector>
-#include <string>
+#include <cstdint>
+#include <cstdio>
 #include <filesystem>
+#include <format>
+#include <optional>
+#include <string>
+#include <string_view>
+#include <vector>
 
 #include "Lattice/Kernel/Registry.hpp"
 
 namespace Lattice {
 struct Version {
-    uint8_t major;
-    uint8_t minor;
-    uint8_t patch;
+    uint8_t major = 0;
+    uint8_t minor = 0;
+    uint8_t patch = 0;
 
     auto operator<=>(const Version&) const = default;
 
-    std::string str() {
+    std::string str() const {
         return std::format("{}.{}.{}", major, minor, patch);
     }
 };
+
+inline constexpr Version kernelApi{1, 0, 0};
 
 struct VersionRange {
     std::optional<Version> min;
@@ -82,7 +89,7 @@ struct PluginManifest {
     std::string id;
     std::string name;
     Version version;
-    uint32_t kernelApiVersion;
+    Version kernelApi{};
 
     std::vector<PluginDependency> dependencies;
 };
@@ -107,6 +114,6 @@ struct PluginCandidate {
     std::vector<std::string> providedAPIs;
 };
 
-using PluginRegisterFn = bool(*)(Registry*);
+using PluginRegisterFn = bool(*)(Registry&);
 using PluginShutdownFn = void(*)();
 }

@@ -72,15 +72,7 @@ public:
         print(Level::Ok, tag, std::format(format, std::forward<TArgs>(args)...));
     }
 
-    static void treeLine(std::string_view message) {
-        std::lock_guard lock(mutex());
-
-        std::cout
-            << Color::tree
-            << message
-            << Color::reset
-            << '\n';
-    }
+    static void treeLine(std::string_view message);
 
     template <typename... TArgs>
     static void tree(std::format_string<TArgs...> format, TArgs&&... args) {
@@ -151,23 +143,21 @@ public:
         }
 
         void print() const {
-            Logger::treeLine(root_.name_);
+            Logger::treeLine(std::format("{}{}", Color::brightWhite, root_.name_));
             printNode(root_, "");
         }
 
     private:
-        static void printNode(
-            const Node& node,
-            const std::string& prefix)
-        {
+        static void printNode(const Node& node, const std::string& prefix) {
             for (size_t i = 0; i < node.children_.size(); ++i) {
                 const auto& child = node.children_[i];
                 const bool last = i + 1 == node.children_.size();
 
                 Logger::tree(
-                    "{}{}─ {}",
+                    "{}{}─ {}{}",
                     prefix,
                     last ? "└" : "├",
+                    Color::brightWhite,
                     child->name_
                 );
 

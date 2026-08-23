@@ -7,9 +7,16 @@ target("Shell")
 
     add_files("PluginInit.cpp")
     add_files("src/**.cpp")
+    if is_plat("macosx") then
+        add_files("src/**.mm")
+        add_frameworks("QuartzCore", "AppKit")
+    end
 
     add_packages("stb")
     add_packages("glfw")
+    if is_plat("linux") then
+        add_syslinks("dl")
+    end
 
     add_includedirs("include", {public = true})
     add_includedirs("..", {public = true})

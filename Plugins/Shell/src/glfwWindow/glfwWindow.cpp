@@ -2,12 +2,17 @@
 #include <Lattice/Tools/Logger.hpp>
 
 #include <algorithm>
+#include <climits>
+#include <dlfcn.h>
+#include <cstdlib>
+#include <fstream>
 #include <format>
 #include <stdexcept>
 #include <string>
 #include <utility>
 #include <filesystem>
 #include <unistd.h>
+#include <vector>
 
 #ifdef _WIN32
     #include <windows.h>
@@ -20,6 +25,7 @@
     #define GLFW_EXPOSE_NATIVE_WIN32
 #elif defined(__APPLE__)
     #define GLFW_EXPOSE_NATIVE_COCOA
+    #include "MetalLayer.hpp"
 #else
     #define GLFW_EXPOSE_NATIVE_X11
     #define GLFW_EXPOSE_NATIVE_WAYLAND
@@ -37,7 +43,9 @@
 
 namespace {
 
-#ifndef _WIN32
+#ifdef __linux__
+constexpr std::string_view kAppId = "LatticeLab";
+
 std::filesystem::path executableDirectory() {
     char buffer[PATH_MAX + 1]{};
     ssize_t len = readlink("/proc/self/exe", buffer, PATH_MAX);
@@ -46,25 +54,104 @@ std::filesystem::path executableDirectory() {
     return std::filesystem::path(buffer).parent_path();
 }
 
-void setLinuxIcon(GLFWwindow* window) {
-    const auto exeDir = executableDirectory();
-    const std::filesystem::path candidates[] = {
-        "assets/icon.png",
-        exeDir / "assets/icon.png",
-    };
-
-    for (const auto& path : candidates) {
-        int w = 0, h = 0, c = 0;
-        unsigned char* pixels = stbi_load(path.string().c_str(), &w, &h, &c, 4);
-        if (!pixels) continue;
-
-        GLFWimage icon{w, h, pixels};
-        glfwSetWindowIcon(window, 1, &icon);
-        stbi_image_free(pixels);
-        return;
-    }
+std::filesystem::path moduleDirectory() {
+    Dl_info info{};
+    if (dladdr(reinterpret_cast<const void*>(&executableDirectory), &info) && info.dli_fname)
+        return std::filesystem::path(info.dli_fname).parent_path();
+    return {};
 }
-#endif
+
+std::filesystem::path findIconPath() {
+    std::vector<std::filesystem::path> roots;
+    auto addRoot = [&](std::filesystem::path p) {
+        if (p.empty()) return;
+        std::error_code ec;
+        auto n = std::filesystem::weakly_canonical(p, ec);
+        if (!ec) p = std::move(n);
+        if (std::find(roots.begin(), roots.end(), p) == roots.end())
+            roots.push_back(std::move(p));
+    };
+    addRoot(std::filesystem::current_path());
+    addRoot(executableDirectory());
+    addRoot(moduleDirectory());
+
+    for (auto root : roots) {
+        for (int i = 0; i < 6 && !root.empty(); ++i) {
+            const auto path = root / "assets" / "icon.png";
+            std::error_code ec;
+            if (std::filesystem::is_regular_file(path, ec))
+                return path;
+            if (!root.has_parent_path() || root == root.parent_path())
+                break;
+            root = root.parent_path();
+        }
+    }
+    return {};
+}
+
+std::filesystem::path xdgDataHome() {
+    if (const char* d = std::getenv("XDG_DATA_HOME"); d && *d)
+        return d;
+    if (const char* h = std::getenv("HOME"); h && *h)
+        return std::filesystem::path(h) / ".local" / "share";
+    return {};
+}
+
+bool installDesktopIcon(const std::filesystem::path& iconPng) {
+    const auto data = xdgDataHome();
+    if (data.empty()) {
+        Logger::warning("Window", "cannot install desktop icon: no HOME/XDG_DATA_HOME");
+        return false;
+    }
+
+    std::error_code ec;
+    const auto iconDir = data / "icons" / "hicolor" / "256x256" / "apps";
+    const auto appDir = data / "applications";
+    std::filesystem::create_directories(iconDir, ec);
+    std::filesystem::create_directories(appDir, ec);
+
+    const auto iconDst = iconDir / std::format("{}.png", kAppId);
+    std::filesystem::copy_file(iconPng, iconDst, std::filesystem::copy_options::overwrite_existing, ec);
+    if (ec) {
+        Logger::warning("Window", "failed to copy icon to {}: {}", iconDst.string(), ec.message());
+        return false;
+    }
+
+    const auto desktop = appDir / std::format("{}.desktop", kAppId);
+    const auto exe = executableDirectory() / "LatticeLab";
+    std::ofstream out(desktop);
+    if (!out) {
+        Logger::warning("Window", "failed to write {}", desktop.string());
+        return false;
+    }
+    out << "[Desktop Entry]\n"
+        << "Type=Application\n"
+        << "Name=LatticeLab\n"
+        << "Exec=" << exe.string() << "\n"
+        << "Icon=" << iconDst.string() << "\n"
+        << "StartupWMClass=" << kAppId << "\n"
+        << "Terminal=false\n"
+        << "Categories=Science;Education;\n";
+    out.close();
+    Logger::info("Window", "Wayland app icon via {} (Icon={})", desktop.string(), iconDst.string());
+    return true;
+}
+
+bool applyX11Icon(GLFWwindow* window, const std::filesystem::path& iconPng) {
+    int w = 0, h = 0, c = 0;
+    unsigned char* pixels = stbi_load(iconPng.string().c_str(), &w, &h, &c, 4);
+    if (!pixels) {
+        Logger::warning("Window", "icon decode failed: {} ({})",
+            iconPng.string(), stbi_failure_reason() ? stbi_failure_reason() : "unknown");
+        return false;
+    }
+    GLFWimage icon{w, h, pixels};
+    glfwSetWindowIcon(window, 1, &icon);
+    stbi_image_free(pixels);
+    Logger::info("Window", "X11 icon {}x{} from {}", w, h, iconPng.string());
+    return true;
+}
+#endif // __linux__
 
 bool monitorWorkArea(GLFWmonitor* monitor, int& x, int& y, int& w, int& h) {
     if (!monitor) return false;
@@ -88,6 +175,21 @@ glfwWindow::glfwWindow(const State& state) : state_(state) {
     glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
     glfwWindowHint(GLFW_AUTO_ICONIFY, GLFW_FALSE);
     glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
+#if defined(GLFW_X11_CLASS_NAME)
+    glfwWindowHintString(GLFW_X11_CLASS_NAME, "LatticeLab");
+    glfwWindowHintString(GLFW_X11_INSTANCE_NAME, "LatticeLab");
+#endif
+#if defined(GLFW_WAYLAND_APP_ID)
+    glfwWindowHintString(GLFW_WAYLAND_APP_ID, "LatticeLab");
+#endif
+#ifdef __linux__
+    const auto iconPath = findIconPath();
+    if (iconPath.empty()) {
+        Logger::warning("Window", "icon not found (assets/icon.png from cwd/exe/plugin)");
+    } else if (glfwGetPlatform() == GLFW_PLATFORM_WAYLAND) {
+        installDesktopIcon(iconPath);
+    }
+#endif
 
     int monitorCount = 0;
     GLFWmonitor** monitors = glfwGetMonitors(&monitorCount);
@@ -132,8 +234,18 @@ glfwWindow::glfwWindow(const State& state) : state_(state) {
             SendMessageW(hwnd, WM_SETICON, ICON_SMALL, reinterpret_cast<LPARAM>(small));
         }
     }
+    Logger::info("Window", "created {}x{} at {},{} (Win32)", w, h, state_.x, state_.y);
 #else
-    setLinuxIcon(window_);
+    const int platform = glfwGetPlatform();
+    const char* platformName =
+        platform == GLFW_PLATFORM_WAYLAND ? "Wayland" :
+        platform == GLFW_PLATFORM_X11 ? "X11" :
+        platform == GLFW_PLATFORM_COCOA ? "Cocoa" : "unknown";
+    Logger::info("Window", "created {}x{} at {},{} ({})", w, h, state_.x, state_.y, platformName);
+#ifdef __linux__
+    if (!iconPath.empty() && platform == GLFW_PLATFORM_X11)
+        applyX11Icon(window_, iconPath);
+#endif
 #endif
 
     glfwSetWindowUserPointer(window_, this);
@@ -235,10 +347,13 @@ void glfwWindow::setFullscreen(bool enabled) {
         state_.monitorIndex = monitorIndex(monitor);
         applyFullscreen(monitor);
         state_.fullscreen = true;
+        Logger::info("Window", "fullscreen on (monitor {})", state_.monitorIndex);
     } else {
         applyWindowed();
         state_.fullscreen = false;
         syncFromWindow();
+        Logger::info("Window", "fullscreen off {}x{} at {},{}",
+            state_.width, state_.height, state_.x, state_.y);
     }
 }
 
@@ -263,8 +378,9 @@ NativeWindow glfwWindow::native() const {
     n.window = glfwGetWin32Window(window_);
 
 #elif defined(__APPLE__)
-    n.kind = NativeWindow::Kind::Metal; // или Cocoa — как договоритесь для wgpu
-    n.extra = /* metal layer */;
+    n.kind = NativeWindow::Kind::Metal;
+    n.window = glfwGetCocoaWindow(window_);
+    n.extra = glfwMetalLayer(window_);
 
 #else
     const int platform = glfwGetPlatform(); // GLFW ≥ 3.4
@@ -309,6 +425,7 @@ void glfwWindow::onPos(int x, int y) {
     state_.x = x;
     state_.y = y;
     state_.monitorIndex = monitorIndex(currentMonitor());
+    Logger::debug("Window", "moved {},{}", x, y);
 }
 
 void glfwWindow::onSize(int width, int height) {
@@ -316,11 +433,13 @@ void glfwWindow::onSize(int width, int height) {
     state_.width = width;
     state_.height = height;
     state_.monitorIndex = monitorIndex(currentMonitor());
+    Logger::info("Window", "resized {}x{}", width, height);
 }
 
 void glfwWindow::onMaximize(int maximized) {
     if (state_.fullscreen) return;
     state_.maximized = (maximized == GLFW_TRUE);
+    Logger::info("Window", "{}", state_.maximized ? "maximized" : "restored");
     if (!state_.maximized) {
         syncFromWindow();
     } else {

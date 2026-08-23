@@ -22,6 +22,10 @@ void WGPU::init() {
     initialized_ = true;
 }
 
+void WGPU::initHeadless() {
+    init();
+}
+
 // ---------- resources ----------
 WGPUBuffer WGPU::createBuffer(size_t bytes, WGPUBufferUsage usage,
                               std::string_view label, bool mappedAtCreation)

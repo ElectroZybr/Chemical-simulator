@@ -40,11 +40,11 @@ namespace {
 #endif
 
         constexpr std::string_view kReset = Color::reset;
-        constexpr std::string_view kDim = Color::tree;
-        constexpr std::string_view kTitle = Color::header;
-        constexpr std::string_view kLabel = Color::key;
-        constexpr std::string_view kValue = Color::value;
-        constexpr std::string_view kDevice = Color::device;
+        constexpr std::string_view kDim = Color::gray;
+        constexpr std::string_view kTitle = Color::brightCyan;
+        constexpr std::string_view kLabel = Color::brightBlue;
+        constexpr std::string_view kValue = Color::brightWhite;
+        constexpr std::string_view kDevice = Color::brightYellow;
 
         std::string colorize(std::string_view text, std::string_view color) {
             return Color::paint(text, color);
@@ -858,36 +858,36 @@ namespace {
     void printSystemInfo(std::ostream& out, const SystemInfo& info) {
         Logger::Tree tree("System");
 
-        tree.node(std::format("{} {}", Color::paint("OS:", Color::key), Color::paint(info.os, Color::value)), 0);
-        tree.node(std::format("{} {}", Color::paint("Arch:", Color::key), Color::paint(info.arch, Color::value)), 0);
-        tree.node(std::format("{} {}", Color::paint("RAM:", Color::key), Color::paint(formatBytes(info.totalRamBytes), Color::value)), 0);
+        tree.node(std::format("{} {}", Color::paint("OS:", Color::brightBlue), Color::paint(info.os, Color::brightWhite)), 0);
+        tree.node(std::format("{} {}", Color::paint("Arch:", Color::brightBlue), Color::paint(info.arch, Color::brightWhite)), 0);
+        tree.node(std::format("{} {}", Color::paint("RAM:", Color::brightBlue), Color::paint(formatBytes(info.totalRamBytes), Color::brightWhite)), 0);
 
-        tree.node(Color::paint("Build", Color::header), 0);
-        tree.node(std::format("{} {}", Color::paint("Version:", Color::key), Color::paint(info.engine.version, Color::value)), 1);
-        tree.node(std::format("{} {}", Color::paint("Build:", Color::key), Color::paint(info.engine.build, Color::value)), 1);
-        tree.node(std::format("{} {}", Color::paint("Compiler:", Color::key), Color::paint(info.engine.compiler, Color::value)), 1);
+        tree.node(Color::paint("Build", Color::brightCyan), 0);
+        tree.node(std::format("{} {}", Color::paint("Version:", Color::brightBlue), Color::paint(info.engine.version, Color::brightWhite)), 1);
+        tree.node(std::format("{} {}", Color::paint("Build:", Color::brightBlue), Color::paint(info.engine.build, Color::brightWhite)), 1);
+        tree.node(std::format("{} {}", Color::paint("Compiler:", Color::brightBlue), Color::paint(info.engine.compiler, Color::brightWhite)), 1);
 
-        tree.node(Color::paint("Devices", Color::header), 0);
-        tree.node(std::format("{} {}", Color::paint("CPU[0]:", Color::device), Color::paint(info.cpu.name, Color::value)), 1);
-        tree.node(std::format("{} {}", Color::paint("Cores:", Color::key), Color::paint(info.cpu.cores ? std::to_string(info.cpu.cores) : "unknown", Color::value)), 2);
-        tree.node(std::format("{} {}", Color::paint("Threads:", Color::key), Color::paint(info.cpu.threads ? std::to_string(info.cpu.threads) : "unknown", Color::value)), 2);
-        tree.node(std::format("{} {}", Color::paint("SIMD:", Color::key), Color::paint(info.cpu.simd, Color::value)), 2);
+        tree.node(Color::paint("Devices", Color::brightCyan), 0);
+        tree.node(std::format("{} {}", Color::paint("CPU[0]:", Color::brightYellow), Color::paint(info.cpu.name, Color::brightWhite)), 1);
+        tree.node(std::format("{} {}", Color::paint("Cores:", Color::brightBlue), Color::paint(info.cpu.cores ? std::to_string(info.cpu.cores) : "unknown", Color::brightWhite)), 2);
+        tree.node(std::format("{} {}", Color::paint("Threads:", Color::brightBlue), Color::paint(info.cpu.threads ? std::to_string(info.cpu.threads) : "unknown", Color::brightWhite)), 2);
+        tree.node(std::format("{} {}", Color::paint("SIMD:", Color::brightBlue), Color::paint(info.cpu.simd, Color::brightWhite)), 2);
 
         if (info.gpus.empty()) {
-            tree.node(std::format("{} {}", Color::paint("GPU[0]:", Color::device), Color::paint("unknown", Color::value)), 1);
+            tree.node(std::format("{} {}", Color::paint("GPU[0]:", Color::brightYellow), Color::paint("unknown", Color::brightWhite)), 1);
         } else {
             for (std::size_t i = 0; i < info.gpus.size(); ++i) {
                 const auto& gpu = info.gpus[i];
 
-                tree.node(std::format("{} {}", Color::paint(std::format("GPU[{}]:", i), Color::device), Color::paint(gpu.name, Color::value)), 1);
+                tree.node(std::format("{} {}", Color::paint(std::format("GPU[{}]:", i), Color::brightYellow), Color::paint(gpu.name, Color::brightWhite)), 1);
                 if (!gpu.pciAddress.empty())
-                    tree.node(std::format("{} {}", Color::paint("PCI:", Color::key), Color::paint(gpu.pciAddress, Color::value)), 2);
+                    tree.node(std::format("{} {}", Color::paint("PCI:", Color::brightBlue), Color::paint(gpu.pciAddress, Color::brightWhite)), 2);
                 if (!gpu.driver.empty())
-                    tree.node(std::format("{} {}", Color::paint("Driver:", Color::key), Color::paint(gpu.driver, Color::value)), 2);
+                    tree.node(std::format("{} {}", Color::paint("Driver:", Color::brightBlue), Color::paint(gpu.driver, Color::brightWhite)), 2);
                 if (!gpu.computeInfo.empty())
-                    tree.node(std::format("{} {}", Color::paint("Compute:", Color::key), Color::paint(gpu.computeInfo, Color::value)), 2);
+                    tree.node(std::format("{} {}", Color::paint("Compute:", Color::brightBlue), Color::paint(gpu.computeInfo, Color::brightWhite)), 2);
 
-                tree.node(std::format("{} {}", Color::paint("VRAM:", Color::key), Color::paint(formatVram(gpu.vramBytes), Color::value)), 2);
+                tree.node(std::format("{} {}", Color::paint("VRAM:", Color::brightBlue), Color::paint(formatVram(gpu.vramBytes), Color::brightWhite)), 2);
             }
         }
 

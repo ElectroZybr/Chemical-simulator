@@ -10,6 +10,7 @@
 #include "Lattice/Kernel/ServiceAPI.hpp"
 #include "Lattice/Kernel/PluginManager.hpp"
 #include "Lattice/Kernel/Components.hpp"
+#include "Lattice/Kernel/Requirements.hpp"
 #include "Lattice/Kernel/Settings.hpp"
 #include "Lattice/Tools/Logger.hpp"
 #include <Lattice/Tools/SystemInfo.hpp>
@@ -35,21 +36,8 @@ public:
         return true;
     }
 
-    bool check(std::string_view modelId, std::string_view instanceName = "default") {
-        Components branch(&globalRegistry, nullptr, Mode::Check, modelId);
-
-        branch.add<Settings>();
-        branch.use<ServiceAPI>(modelId);
-        bool ok = true;
-        for (const auto& r : branch.getUniqueRequirements()) {
-            if (!globalRegistry.has(r.type)) {
-                branch.printRequirements();
-                Logger::error(moduleName, "{} check failed: missing '{}'", modelId, r.type);
-                return false;
-            }
-        }    
-        Logger::ok(moduleName, "{} check passed", modelId);
-        return true;
+    bool check(std::string_view modelId) {
+        return checkServiceRequirements(modelId, globalRegistry);
     }
 
     Slot<ServiceAPI> start(

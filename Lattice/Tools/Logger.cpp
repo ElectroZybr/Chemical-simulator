@@ -48,13 +48,13 @@ LevelStyle levelStyle(Logger::Level level) {
     using Level = Logger::Level;
     switch (level) {
         case Level::Action:
-            return {"ACTION", "→", Color::header, Logger::ConsoleMode::Default, false};
+            return {"ACTION", "→", Color::brightCyan, Logger::ConsoleMode::Default, false};
         case Level::Trace:
-            return {"TRACE", "·", Color::tree, Logger::ConsoleMode::Trace, false};
+            return {"TRACE", "·", Color::gray, Logger::ConsoleMode::Trace, false};
         case Level::Debug:
-            return {"DEBUG", "→", Color::header, Logger::ConsoleMode::Verbose, false};
+            return {"DEBUG", "→", Color::brightCyan, Logger::ConsoleMode::Verbose, false};
         case Level::Info:
-            return {"INFO", "•", Color::value, Logger::ConsoleMode::Verbose, false};
+            return {"INFO", "•", Color::brightWhite, Logger::ConsoleMode::Verbose, false};
         case Level::Warning:
             return {"WARN", "⚠", Color::warning, Logger::ConsoleMode::Default, true};
         case Level::Error:
@@ -64,7 +64,7 @@ LevelStyle levelStyle(Logger::Level level) {
         case Level::Ok:
             return {"OK", "✓", Color::ok, Logger::ConsoleMode::Default, false};
     }
-    return {"INFO", "•", Color::value, Logger::ConsoleMode::Verbose, false};
+    return {"INFO", "•", Color::brightWhite, Logger::ConsoleMode::Verbose, false};
 }
 
 std::string makePlainLine(std::string_view label, std::string_view tag, std::string_view message) {
@@ -80,11 +80,30 @@ std::string makeConsoleLine(std::string_view status, std::string_view color, std
         Color::bold,
         tag,
         Color::reset,
-        Color::tree,
+        Color::gray,
         message,
         Color::reset);
 }
 } // helpers
+
+void Logger::treeLine(std::string_view message) {
+    std::lock_guard lock(mutex());
+
+    std::ofstream& file = logFile();
+    if (file.is_open()) {
+        file << timestampForLogLine()
+             << ' '
+             << message
+             << '\n';
+        file.flush();
+    }
+
+    std::cout
+        << Color::gray
+        << message
+        << Color::reset
+        << '\n';
+}
 
 void Logger::setConsoleMode(ConsoleMode mode) noexcept {
     gConsoleMode.store(mode, std::memory_order_relaxed);

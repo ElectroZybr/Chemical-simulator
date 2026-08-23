@@ -11,7 +11,6 @@
 // Plugin dependences
 #include <ParticleDynamics/api/ParticleAPI.hpp>
 #include <ParticleDynamics/api/ParticleStorage.hpp>
-#include <ParticleDynamics/src/SpatialGrid.hpp>
 
 // Source
 // #include "AtomStorage.hpp"
@@ -32,8 +31,7 @@ public:
     explicit ClassicMD(Lattice::Components& universe) {
         settings = universe.require<Lattice::Settings>();
         atoms = universe.add<ParticleDynamics::ParticleStorage>();
-        // TODO: Slot<SpatialIndexAPI> + use("SpatialGrid")
-        spatialGrid = universe.add<ParticleDynamics::SpatialGrid>();
+        spatialGrid = universe.use<ParticleDynamics::SpatialIndexAPI>("SpatialGrid");
         integrator = universe.use<ParticleDynamics::IntegratorAPI>("Verlet");
 
         atoms->addCol<Energy>();
@@ -73,7 +71,7 @@ private:
     Lattice::Settings* settings = nullptr;
     Lattice::Slot<ParticleDynamics::IntegratorAPI> integrator;
     ParticleDynamics::ParticleStorage* atoms = nullptr;
-    ParticleDynamics::SpatialGrid* spatialGrid = nullptr;
+    Lattice::Slot<ParticleDynamics::SpatialIndexAPI> spatialGrid;
 };
 
 } // namespace ClassicMD
