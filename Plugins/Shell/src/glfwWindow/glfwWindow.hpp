@@ -5,6 +5,7 @@
 
 #include "WindowAPI.hpp"
 #include "glfwKeyboard.hpp"
+#include "glfwMouse.hpp"
 
 class glfwWindow final : public WindowAPI {
 public:
@@ -32,12 +33,16 @@ public:
     void setTitle(std::string_view title) override;
 
     const Input::KeyboardState& keyboard() const override { return keyboard_; }
+    const Input::MouseState& mouse() const override { return mouse_; }
 
 private:
     static void posCallback(GLFWwindow* w, int x, int y);
     static void sizeCallback(GLFWwindow* w, int width, int height);
     static void maximizeCallback(GLFWwindow* w, int maximized);
     static void keyCallback(GLFWwindow* w, int key, int scancode, int action, int mods);
+    static void mouseButtonCallback(GLFWwindow* w, int button, int action, int mods);
+    static void cursorPosCallback(GLFWwindow* w, double x, double y);
+    static void scrollCallback(GLFWwindow* w, double dx, double dy);
 
     void onPos(int x, int y);
     void onSize(int width, int height);
@@ -51,6 +56,7 @@ private:
     void applyFullscreen(GLFWmonitor* monitor);
 
     Input::KeyboardState keyboard_;
+    Input::MouseState mouse_;
     GLFWwindow* window_ = nullptr;
     State state_{};
 };

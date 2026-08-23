@@ -251,7 +251,17 @@ glfwWindow::glfwWindow(const State& state) : state_(state) {
     glfwSetWindowPosCallback(window_, posCallback);
     glfwSetWindowSizeCallback(window_, sizeCallback);
     glfwSetWindowMaximizeCallback(window_, maximizeCallback);
+
     glfwSetKeyCallback(window_, keyCallback);
+
+    glfwSetMouseButtonCallback(window_, mouseButtonCallback);
+    glfwSetCursorPosCallback(window_, cursorPosCallback);
+    glfwSetScrollCallback(window_, scrollCallback);
+
+    double x = 0.0, y = 0.0;
+    glfwGetCursorPos(window_, &x, &y);
+    mouse_.pos = {static_cast<float>(x), static_cast<float>(y)};
+    mouse_.delta = {0.f, 0.f};
 
     if (!state_.fullscreen) {
         syncFromWindow();
@@ -308,6 +318,7 @@ void glfwWindow::requestClose() {
 
 void glfwWindow::pollEvents() {
     keyboard_.beginFrame();
+    mouse_.beginFrame();
     glfwPollEvents();
 }
 
@@ -425,6 +436,25 @@ void glfwWindow::keyCallback(GLFWwindow* w, int key, int, int action, int) {
     if (auto* self = static_cast<glfwWindow*>(glfwGetWindowUserPointer(w))) {
         self->keyboard_.onKey(Input::keyFromGlfw(key), Input::keyActionFromGlfw(action));
     }
+}
+
+void glfwWindow::mouseButtonCallback(GLFWwindow* w, int button, int action, int mods) {
+    auto* self = static_cast<glfwWindow*>(glfwGetWindowUserPointer(w));
+    if (!self) return;
+    const auto btn = Input::mouseButtonFromGlfw(button);
+    if (btn == Input::MouseButton::Count) return;
+    self->mouse_.onButton(btn, Input::buttonActionFromGlfw(action));
+    Logger::debug("Window", "click");
+}
+
+void glfwWindow::cursorPosCallback(GLFWwindow* w, double x, double y) {
+    if (auto* self = static_cast<glfwWindow*>(glfwGetWindowUserPointer(w)))
+        self->mouse_.onMove(static_cast<float>(x), static_cast<float>(y));
+}
+
+void glfwWindow::scrollCallback(GLFWwindow* w, double dx, double dy) {
+    if (auto* self = static_cast<glfwWindow*>(glfwGetWindowUserPointer(w)))
+        self->mouse_.onScroll(static_cast<float>(dx), static_cast<float>(dy));
 }
 
 void glfwWindow::onPos(int x, int y) {
@@ -556,31 +586,3 @@ void glfwWindow::applyFullscreen(GLFWmonitor* monitor) {
     glfwSetWindowMonitor(window_, monitor, 0, 0, mode->width, mode->height, mode->refreshRate);
     glfwFocusWindow(window_);
 }
-
-// ============================================================
-// Public extras
-// ============================================================
-
-// void glfwWindow::toggleFullscreen() {
-//     setFullscreen(!state_.fullscreen);
-// }
-
-// WindowAPI::State glfwWindow::snapshot() const {
-//     State s = state_;
-//     if (!s.fullscreen && window_) {
-//         s.maximized = glfwGetWindowAttrib(window_, GLFW_MAXIMIZED) == GLFW_TRUE;
-//         s.monitorIndex = monitorIndex(currentMonitor());
-
-//         if (s.maximized) {
-//             auto* mon = monitorByIndex(s.monitorIndex);
-//             if (!monitorWorkArea(mon, s.x, s.y, s.width, s.height)) {
-//                 glfwGetWindowPos(window_, &s.x, &s.y);
-//                 glfwGetWindowSize(window_, &s.width, &s.height);
-//             }
-//         } else {
-//             glfwGetWindowPos(window_, &s.x, &s.y);
-//             glfwGetWindowSize(window_, &s.width, &s.height);
-//         }
-//     }
-//     return s;
-// }

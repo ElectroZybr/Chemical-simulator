@@ -7,7 +7,10 @@
 #include "NativeWindow.hpp"
 
 
-namespace Input { struct KeyboardState; }
+namespace Input { 
+    struct KeyboardState; 
+    struct MouseState;
+}
 
 class WindowAPI {
 public:
@@ -31,6 +34,7 @@ public:
     // pump
     virtual void pollEvents() = 0;
     virtual const Input::KeyboardState& keyboard() const = 0;
+    virtual const Input::MouseState& mouse() const = 0;
 
     // geometry
     virtual glm::vec2 windowSize() const = 0;

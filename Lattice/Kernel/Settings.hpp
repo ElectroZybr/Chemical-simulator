@@ -67,7 +67,7 @@ public:
         entry.handler = std::move(fn);
     }
 
-    // для редкого вызова из gui, не использовать для горячих клавиш (поиск по мапе)
+    // для редкого вызова из gui, не использовать для частых событий (поиск по мапе)
     void fire(std::string_view key) {
         if (auto h = handler(key))
             h();
@@ -101,7 +101,6 @@ public:
                 ++it;
         }
     }
-
 
     bool hasValue(std::string_view key) const {
         auto it = entries_.find(std::string(key));

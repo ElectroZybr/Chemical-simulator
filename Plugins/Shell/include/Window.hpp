@@ -6,7 +6,7 @@
 #include <Lattice/Kernel/Components.hpp>
 #include <Lattice/Kernel/Settings.hpp>
 
-#include "Action.hpp"
+#include "ActionMap.hpp"
 #include "Render.hpp"
 
 #include "WindowAPI.hpp"
@@ -27,6 +27,7 @@ public:
         actionMap.bindAction("print.dfd", "P", ActionMode::OnHold);
         actionMap.bindAdd("verlet.dt", "[", +0.001);
         actionMap.bindAdd("verlet.dt", "]", -0.001, ActionMode::OnHold);
+        actionMap.bindAdd("verlet.dt", "MouseLeft", -0.001, ActionMode::OnHold);
     }
 
     void configure() {
@@ -38,7 +39,7 @@ public:
         render->setup();
         while (!stopRequested()) {
             window->pollEvents();
-            actionMap.tick(window->keyboard());
+            actionMap.tick(window->keyboard(), window->mouse());
             if (window->shouldClose()) {
                 requestStop();
                 break;
