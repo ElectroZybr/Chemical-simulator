@@ -6,6 +6,7 @@
 #include <Lattice/Kernel/Components.hpp>
 #include <Lattice/Kernel/Settings.hpp>
 
+#include "Action.hpp"
 #include "Render.hpp"
 
 #include "WindowAPI.hpp"
@@ -14,11 +15,18 @@
 
 class Window final : public ServiceAPI {
 public:
-    explicit Window(Lattice::Components& branch) {
-        settings = branch.require<Lattice::Settings>();
+    explicit Window(Lattice::Components& branch)
+        : settings(*branch.require<Lattice::Settings>())
+        , actionMap(settings)
+    {
         window = branch.use<WindowAPI, glfwWindow>();
         render = branch.add<Render>();
         Logger::info("Window", "window created");
+        settings.on("print", "dfd", [&]() { print(); });
+
+        actionMap.bindAction("print.dfd", "P", ActionMode::OnHold);
+        actionMap.bindAdd("verlet.dt", "[", +0.001);
+        actionMap.bindAdd("verlet.dt", "]", -0.001, ActionMode::OnHold);
     }
 
     void configure() {
@@ -30,12 +38,12 @@ public:
         render->setup();
         while (!stopRequested()) {
             window->pollEvents();
+            actionMap.tick(window->keyboard());
             if (window->shouldClose()) {
                 requestStop();
                 break;
             }
             render->frame();
-            Logger::info("Window", "looping");
             std::this_thread::sleep_for(std::chrono::milliseconds(50));
         }
     }
@@ -46,8 +54,12 @@ public:
     }
 
 private:
-    Lattice::Settings* settings = nullptr;
+    Lattice::Settings& settings;
     Lattice::Slot<WindowAPI> window;
     Render* render = nullptr;
+    ActionMap actionMap;
     uint32_t fps;
+    void print() {
+        Logger::action("printer", "test");
+    }
 };

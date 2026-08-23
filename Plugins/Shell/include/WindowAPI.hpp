@@ -7,6 +7,8 @@
 #include "NativeWindow.hpp"
 
 
+namespace Input { struct KeyboardState; }
+
 class WindowAPI {
 public:
     struct State {
@@ -28,6 +30,7 @@ public:
 
     // pump
     virtual void pollEvents() = 0;
+    virtual const Input::KeyboardState& keyboard() const = 0;
 
     // geometry
     virtual glm::vec2 windowSize() const = 0;

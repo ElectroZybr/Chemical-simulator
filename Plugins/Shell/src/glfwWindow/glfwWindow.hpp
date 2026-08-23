@@ -4,6 +4,7 @@
 #include <string_view>
 
 #include "WindowAPI.hpp"
+#include "glfwKeyboard.hpp"
 
 class glfwWindow final : public WindowAPI {
 public:
@@ -30,15 +31,13 @@ public:
     void show() override;
     void setTitle(std::string_view title) override;
 
-    // extras
-    void toggleFullscreen();
-    State snapshot() const;
-    GLFWwindow* handle() const { return window_; }
+    const Input::KeyboardState& keyboard() const override { return keyboard_; }
 
 private:
     static void posCallback(GLFWwindow* w, int x, int y);
     static void sizeCallback(GLFWwindow* w, int width, int height);
     static void maximizeCallback(GLFWwindow* w, int maximized);
+    static void keyCallback(GLFWwindow* w, int key, int scancode, int action, int mods);
 
     void onPos(int x, int y);
     void onSize(int width, int height);
@@ -51,6 +50,7 @@ private:
     void applyWindowed();
     void applyFullscreen(GLFWmonitor* monitor);
 
+    Input::KeyboardState keyboard_;
     GLFWwindow* window_ = nullptr;
     State state_{};
 };

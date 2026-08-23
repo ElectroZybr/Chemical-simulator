@@ -48,7 +48,6 @@ public:
 
     void run() override {
         while (!stopRequested()) {
-            Logger::info("ClassicMD", "looping");
             integrator->step();
             settings->set("SpatialGrid", "size", glm::vec3(10, 10, 10));
             std::this_thread::sleep_for(std::chrono::milliseconds(1000));

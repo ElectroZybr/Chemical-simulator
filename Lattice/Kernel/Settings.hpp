@@ -15,7 +15,7 @@
 
 namespace Lattice {
 
-enum class ParamType { Bool, Int, Double, Vec2, Vec3, Vec4, String };
+enum class ParamType { Bool, Int, Double, Vec2, Vec3, Vec4, String, Action };
 
 struct ParamInfo {
     std::string key;
@@ -33,8 +33,9 @@ public:
 private:
     struct Entry {
         ParamInfo info;
-        std::function<Value()> get;
-        std::function<void(const Value&)> set;
+        std::function<Value()>            get = nullptr;
+        std::function<void(const Value&)> set = nullptr;
+        std::function<void()>         handler = nullptr;
     };
 
     std::unordered_map<std::string, Entry> entries_;
@@ -44,21 +45,48 @@ public:
     void bind(std::string_view group, std::string_view name, T* ptr,
               double min = 0, double max = 0, bool hasRange = false) {
         const std::string key = makeKey(group, name);
-        Entry entry;
+        Entry& entry = entries_[key];
         entry.info = { key, std::string(group), std::string(name), typeOf<T>(), min, max, hasRange };
         entry.get = [ptr]() -> Value { return valueMake(*ptr); };
         entry.set = [ptr](const Value& v) { *ptr = valueCast<T>(v); };
-        entries_[key] = std::move(entry);
     }
 
     template<typename T, typename F>
     void bind(std::string_view group, std::string_view name, T* ptr, F&& onChange) {
         const std::string key = makeKey(group, name);
-        Entry entry;
+        Entry& entry = entries_[key];
         entry.info = { key, std::string(group), std::string(name), typeOf<T>() };
         entry.get = [ptr]() -> Value { return valueMake(*ptr); };
         entry.set = makeSetter(ptr, std::forward<F>(onChange));
-        entries_[key] = std::move(entry);
+    }
+
+    void on(std::string_view group, std::string_view name, std::function<void()> fn) {
+        const std::string key = makeKey(group, name);
+        Entry& entry = entries_[key];
+        entry.info = { key, std::string(group), std::string(name), ParamType::Action };
+        entry.handler = std::move(fn);
+    }
+
+    // для редкого вызова из gui, не использовать для горячих клавиш (поиск по мапе)
+    void fire(std::string_view key) {
+        if (auto h = handler(key))
+            h();
+    }
+
+    std::function<void()> handler(std::string_view key) const {
+        const auto& e = find(std::string(key));
+        if (e.info.type != ParamType::Action)
+            throw std::runtime_error("Settings: not an action: " + std::string(key));
+        if (!e.handler)
+            throw std::runtime_error("Settings: action has no handler: " + std::string(key));
+        return e.handler;
+    }
+
+    std::function<void()> tryHandler(std::string_view key) const {
+        auto it = entries_.find(std::string(key));
+        if (it == entries_.end()) return {};
+        if (it->second.info.type != ParamType::Action) return {};
+        return it->second.handler;
     }
 
     void unbind(std::string_view group, std::string_view name) {
@@ -72,6 +100,53 @@ public:
             else
                 ++it;
         }
+    }
+
+
+    bool hasValue(std::string_view key) const {
+        auto it = entries_.find(std::string(key));
+        return it != entries_.end()
+            && it->second.info.type != ParamType::Action
+            && static_cast<bool>(it->second.set);
+    }
+
+    ParamType type(std::string_view key) const;
+
+    std::function<void()> makeToggle(std::string_view key) {
+        const std::string k{key};
+        return [this, k] {
+            auto& e = find(k);
+            if (e.info.type != ParamType::Bool)
+                throw std::runtime_error("toggle expects bool: " + k);
+            const bool v = std::get<bool>(e.get());
+            e.set(Value{!v});
+        };
+    }
+
+    std::function<void()> makeAdd(std::string_view key, double delta) {
+        const std::string k{key};
+        return [this, k, delta] {
+            auto& e = find(k);
+            if (e.info.type == ParamType::Double) {
+                double v = std::get<double>(e.get());
+                e.set(Value{v + delta});
+            } else if (e.info.type == ParamType::Int) {
+                int64_t v = std::get<int64_t>(e.get());
+                e.set(Value{v + static_cast<int64_t>(delta)});
+            } else {
+                throw std::runtime_error("add expects int/double: " + k);
+            }
+        };
+    }
+
+    template<typename T>
+    T getByKey(std::string_view key) const {
+        return std::get<T>(find(std::string(key)).get());
+    }
+
+    template<typename T>
+    void setByKey(std::string_view key, T value) {
+        find(std::string(key)).set(Value{std::move(value)});
     }
 
     template<typename T>

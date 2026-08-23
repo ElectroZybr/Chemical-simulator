@@ -2,7 +2,6 @@
 #include <Lattice/Tools/Logger.hpp>
 
 #include <algorithm>
-#include <climits>
 #include <dlfcn.h>
 #include <cstdlib>
 #include <fstream>
@@ -252,6 +251,7 @@ glfwWindow::glfwWindow(const State& state) : state_(state) {
     glfwSetWindowPosCallback(window_, posCallback);
     glfwSetWindowSizeCallback(window_, sizeCallback);
     glfwSetWindowMaximizeCallback(window_, maximizeCallback);
+    glfwSetKeyCallback(window_, keyCallback);
 
     if (!state_.fullscreen) {
         syncFromWindow();
@@ -307,6 +307,7 @@ void glfwWindow::requestClose() {
 }
 
 void glfwWindow::pollEvents() {
+    keyboard_.beginFrame();
     glfwPollEvents();
 }
 
@@ -418,6 +419,12 @@ void glfwWindow::sizeCallback(GLFWwindow* w, int width, int height) {
 void glfwWindow::maximizeCallback(GLFWwindow* w, int maximized) {
     if (auto* self = static_cast<glfwWindow*>(glfwGetWindowUserPointer(w)))
         self->onMaximize(maximized);
+}
+
+void glfwWindow::keyCallback(GLFWwindow* w, int key, int, int action, int) {
+    if (auto* self = static_cast<glfwWindow*>(glfwGetWindowUserPointer(w))) {
+        self->keyboard_.onKey(Input::keyFromGlfw(key), Input::keyActionFromGlfw(action));
+    }
 }
 
 void glfwWindow::onPos(int x, int y) {
@@ -554,26 +561,26 @@ void glfwWindow::applyFullscreen(GLFWmonitor* monitor) {
 // Public extras
 // ============================================================
 
-void glfwWindow::toggleFullscreen() {
-    setFullscreen(!state_.fullscreen);
-}
+// void glfwWindow::toggleFullscreen() {
+//     setFullscreen(!state_.fullscreen);
+// }
 
-WindowAPI::State glfwWindow::snapshot() const {
-    State s = state_;
-    if (!s.fullscreen && window_) {
-        s.maximized = glfwGetWindowAttrib(window_, GLFW_MAXIMIZED) == GLFW_TRUE;
-        s.monitorIndex = monitorIndex(currentMonitor());
+// WindowAPI::State glfwWindow::snapshot() const {
+//     State s = state_;
+//     if (!s.fullscreen && window_) {
+//         s.maximized = glfwGetWindowAttrib(window_, GLFW_MAXIMIZED) == GLFW_TRUE;
+//         s.monitorIndex = monitorIndex(currentMonitor());
 
-        if (s.maximized) {
-            auto* mon = monitorByIndex(s.monitorIndex);
-            if (!monitorWorkArea(mon, s.x, s.y, s.width, s.height)) {
-                glfwGetWindowPos(window_, &s.x, &s.y);
-                glfwGetWindowSize(window_, &s.width, &s.height);
-            }
-        } else {
-            glfwGetWindowPos(window_, &s.x, &s.y);
-            glfwGetWindowSize(window_, &s.width, &s.height);
-        }
-    }
-    return s;
-}
+//         if (s.maximized) {
+//             auto* mon = monitorByIndex(s.monitorIndex);
+//             if (!monitorWorkArea(mon, s.x, s.y, s.width, s.height)) {
+//                 glfwGetWindowPos(window_, &s.x, &s.y);
+//                 glfwGetWindowSize(window_, &s.width, &s.height);
+//             }
+//         } else {
+//             glfwGetWindowPos(window_, &s.x, &s.y);
+//             glfwGetWindowSize(window_, &s.width, &s.height);
+//         }
+//     }
+//     return s;
+// }
