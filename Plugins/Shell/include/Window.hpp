@@ -6,40 +6,46 @@
 #include <Lattice/Kernel/Components.hpp>
 #include <Lattice/Kernel/Settings.hpp>
 
+// Plugin dependences
+// #include "Document.hpp"
+// #include "TomlParser.hpp"
 #include "ActionMap.hpp"
-#include "Render.hpp"
 
+// Source
+#include "Render.hpp"
 #include "WindowAPI.hpp"
-#include "Render/include/Render.hpp"
-#include "Shell/src/glfwWindow/glfwWindow.hpp"
+#include "glfwWindow/glfwWindow.hpp"
+
 
 class Window final : public ServiceAPI {
 public:
     explicit Window(Lattice::Components& branch)
         : settings(*branch.require<Lattice::Settings>())
-        , actionMap(settings)
+        , window(branch.use<WindowAPI, glfwWindow>())
+        , render(branch.add<Render>())
     {
-        window = branch.use<WindowAPI, glfwWindow>();
-        render = branch.add<Render>();
         Logger::info("Window", "window created");
-        settings.on("print", "dfd", [&]() { print(); });
+        settings.on("actions", "print", [&]() { print(); });
+        // actionMap.set("actions", "print");
 
-        actionMap.bindAction("print.dfd", "P", ActionMode::OnHold);
-        actionMap.bindAdd("verlet.dt", "[", +0.001);
-        actionMap.bindAdd("verlet.dt", "]", -0.001, ActionMode::OnHold);
-        actionMap.bindAdd("verlet.dt", "MouseLeft", -0.001, ActionMode::OnHold);
     }
 
-    void configure() {
+    void configure(Lattice::Components& branch) {
+        actionMap = branch.require<ActionMap>();
         window->show();
         window->setTitle("LatticeLab");
+
+        actionMap->set("verlet.dt");
+        actionMap->set("actions.print");
+        actionMap->bindAdd("verlet.dt", "MouseLeft", +0.001);
+        actionMap->bind("actions.print", "Ctrl+S");
     }
 
     void run() override {
         render->setup();
         while (!stopRequested()) {
             window->pollEvents();
-            actionMap.tick(window->keyboard(), window->mouse());
+            actionMap->tick();
             if (window->shouldClose()) {
                 requestStop();
                 break;
@@ -58,7 +64,7 @@ private:
     Lattice::Settings& settings;
     Lattice::Slot<WindowAPI> window;
     Render* render = nullptr;
-    ActionMap actionMap;
+    ActionMap* actionMap;
     uint32_t fps;
     void print() {
         Logger::action("printer", "test");

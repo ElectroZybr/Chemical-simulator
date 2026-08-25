@@ -1,68 +1,66 @@
 #pragma once
 
-#include <algorithm>
 #include <string>
 #include <string_view>
 #include <unordered_map>
 #include <memory>
-#include <format>
-#include <stdexcept>
-#include <type_traits>
 #include <vector>
 
-#include <Lattice/Kernel/TypeName.hpp>
-#include <Lattice/Kernel/Registry.hpp>
-#include <Lattice/Kernel/Requirements.hpp>
-#include <Lattice/Kernel/ServiceAPI.hpp>
 #include <Lattice/Tools/Logger.hpp>
+#include <Lattice/Kernel/Registry.hpp>
+#include <Lattice/Kernel/ServiceAPI.hpp>
+#include <Lattice/Kernel/Requirements.hpp>
 
 namespace Lattice {
 
 class Components;
+class Registry;
 
 struct ComponentData {
     Components* owner = nullptr;
     void* instance = nullptr;
     void* api = nullptr;
     void (*destroy)(void*) = nullptr;
+    void (*configure)(void*, Components&) = nullptr;
 
     ~ComponentData() {
         if (instance && destroy)
             destroy(instance);
     }
 
-    void reset(void* newInstance, void* newApi, void (*newDestroy)(void*)) {
+    void reset(void* newInstance, void* newT, void (*newDestroy)(void*),
+               void (*newConfigure)(void*, Components&) = nullptr) {
         if (instance && destroy)
             destroy(instance);
+
         instance = newInstance;
-        api = newApi;
+        api = newT;
         destroy = newDestroy;
+        configure = newConfigure;
     }
 };
 
-// Хендл на слот узла. get/require идут вверх по дереву к корню.
-// Конкретные типы хранить как T* (add/require), интерфейсы — Slot<API> (use/get).
-template<typename API>
+template<typename T>
 struct Slot {
     ComponentData* data = nullptr;
 
     Slot() = default;
     explicit Slot(ComponentData* d) : data(d) {}
 
-    API* operator->() const {
-        return data ? static_cast<API*>(data->api) : nullptr;
+    T* operator->() const {
+        return data ? static_cast<T*>(data->api) : nullptr;
     }
 
-    API& operator*() const {
-        return *static_cast<API*>(data->api);
+    T& operator*() const {
+        return *static_cast<T*>(data->api);
     }
 
     explicit operator bool() const {
         return data && data->api;
     }
 
-    API* get() const {
-        return data ? static_cast<API*>(data->api) : nullptr;
+    T* get() const {
+        return data ? static_cast<T*>(data->api) : nullptr;
     }
 
     bool exists() const {
@@ -75,6 +73,7 @@ struct Slot {
 };
 
 class Components {
+    static constexpr std::string_view moduleName = "Components";
     using ComponentKey = std::pair<std::string, std::string>;
 
     struct ComponentKeyHash {
@@ -88,7 +87,6 @@ class Components {
     Registry* registry = nullptr;
     Components* parent = nullptr;
     std::string name;
-    std::string kind;
 
     std::unordered_map<ComponentKey, ComponentData*, ComponentKeyHash> lookup;
     std::vector<std::unique_ptr<Components>> children;
@@ -110,21 +108,15 @@ class Components {
         lookup.insert_or_assign(ComponentKey{type, std::string(instanceName)}, data);
     }
 
-    Components* makeChild(std::string_view instanceName, std::string_view childKind = {}) {
+    Components* makeChild(std::string_view instanceName) {
         auto node = std::make_unique<Components>(registry, this, instanceName);
         Components* raw = node.get();
-        raw->self.owner = raw;
-        raw->kind = childKind;
         children.push_back(std::move(node));
         return raw;
     }
 
     std::string label() const {
-        if (kind.empty())
-            return name.empty() ? "Root" : name;
-        if (name.empty() || name == "default")
-            return kind;
-        return std::format("{} '{}'", kind, name);
+        return name.empty() ? "Root" : name;
     }
 
     void appendTree(Logger::Tree& tree, size_t depth) const {
@@ -138,20 +130,31 @@ class Components {
         children.clear();
     }
 
-    void stopServices() {
-        const std::string apiName{typeName<ServiceAPI>()};
-        for (auto& [key, data] : lookup) {
-            if (key.first != apiName || !data || !data->api)
+    template<typename T>
+    void collectInto(std::vector<T*>& out) const {
+        const std::string type{typeName<T>()};
+
+        for (const auto& [key, data] : lookup) {
+            if (key.first != type)
                 continue;
-            static_cast<ServiceAPI*>(data->api)->stop();
+            if (!data || !data->instance)
+                continue;
+
+            out.push_back(static_cast<T*>(data->instance));
         }
-        for (auto& child : children)
-            child->stopServices();
+
+        for (const auto& child : children)
+            child->collectInto<T>(out);
+    }
+
+    const Components* rootNode() const {
+        const Components* n = this;
+        while (n->parent)
+            n = n->parent;
+        return n;
     }
 
 public:
-    static constexpr std::string_view moduleName = "Components";
-
     explicit Components(Registry* registry, Components* parent = nullptr, std::string_view name = "Root")
         : registry(registry), parent(parent), name(name) {
         self.owner = this;
@@ -162,18 +165,64 @@ public:
     Components(Components&&) = delete;
     Components& operator=(Components&&) = delete;
 
-    ~Components();
+    // создает и возвращает объекты интерфейса <T> найденные в глобальном registry
+    template<typename T>
+    std::vector<T*> addImpls() {
+        std::vector<T*> result;
+        for (const auto& implName : registry->implementationsOf<T>())
+            result.push_back(&add<T>(implName, implName));
+        return result;
+    }
 
-    Components* addBranch(std::string_view instanceName = "default") {
-        if (auto existing = getLocal<Components>(instanceName); existing.exists())
-            return nodeOf(existing.data);
+    // возвращает объекты интерфейса <T> из текущего узла и его потомков
+    template<typename T>
+    std::vector<T*> localCollect() const {
+        std::vector<T*> out;
+        collectInto<T>(out);
+        return out;
+    }
 
-        Components* child = makeChild(instanceName, "branch");
-        index(std::string(typeName<Components>()), instanceName, &child->self);
+    // возвращает все объекты интерфейса <T> существующие в дереве (начиная с root)
+    template<typename T>
+    std::vector<T*> globalCollect() const {
+        return rootNode()->localCollect<T>();
+    }
 
-        Logger::info(moduleName, "+ branch '{}'", instanceName);
+    template<typename T>
+    T& add(std::string_view implName, std::string_view instanceName = "default") {
+        const auto& entry = registry->requireImpl<T>(implName);
+        Components* child = makeChild(instanceName);
 
-        return child;
+        index(std::string(typeName<T>()), instanceName, &child->self);
+        index(std::string(implName), instanceName, &child->self);
+
+        void* instance = entry.create(child);
+        child->self.reset(instance, entry.getAPI(instance), entry.destroy, entry.configure);
+
+        Logger::info(moduleName, "+ {} '{}' ({})",
+            typeName<T>(), instanceName, implName);
+
+        return *static_cast<T*>(instance);
+    }
+
+    template<typename T, typename Impl>
+    Impl& add(std::string_view instanceName = {}) {
+        const auto& entry = registry->requireImpl<T>(typeName<Impl>());
+        const std::string_view id = instanceName.empty()
+            ? typeName<Impl>()
+            : instanceName;
+        Components* child = makeChild(id);
+
+        index(std::string(typeName<T>()), id, &child->self);
+        index(std::string(typeName<Impl>()), id, &child->self);
+
+        void* instance = entry.create(child);
+        child->self.reset(instance, entry.getAPI(instance), entry.destroy, entry.configure);
+
+        Logger::info(moduleName, "+ {} '{}' ({})",
+            typeName<T>(), id, typeName<Impl>());
+
+        return *static_cast<Impl*>(instance);
     }
 
     template<typename T>
@@ -188,14 +237,11 @@ public:
                 "Component '{}' not found", typeName<T>()));
         }
 
-        Components* child = makeChild(instanceName, typeName<T>());
+        Components* child = makeChild(instanceName);
         void* instance = entry->create(child);
-        child->self.reset(instance, instance, entry->destroy);
+        child->self.reset(instance, instance, entry->destroy, entry->configure);
         index(std::string(typeName<T>()), instanceName, &child->self);
         child->index(std::string(typeName<T>()), instanceName, &child->self);
-
-        if (entry->configure)
-            entry->configure(instance);
 
         Logger::info(moduleName, "+ {}", typeName<T>());
 
@@ -228,9 +274,9 @@ public:
                     static_cast<ServiceAPI*>(child->self.api)->stop();
                 child->self.reset(nullptr, nullptr, nullptr);
             }
-            child->clearChildren();
+            child->children.clear();;
         } else {
-            child = makeChild(instanceName, typeName<API>());
+            child = makeChild(instanceName);
             index(std::string(typeName<API>()), instanceName, &child->self);
             child->index(std::string(typeName<API>()), instanceName, &child->self);
             Logger::info(moduleName, "+ interface '{}'", typeName<API>());
@@ -243,13 +289,12 @@ public:
             implementation.destroy
         );
 
-        if (implementation.configure)
-            implementation.configure(instance);
-
         Logger::info(moduleName, "> use '{}' = '{}'", typeName<API>(), implName);
         return Slot<API>{&child->self};
     }
 
+    // ищет компонент <T> в текущем узле и родительских
+    // если компонент не найден кидает исключение
     template<typename API>
     Slot<API> get(std::string_view instanceName = "default") {
         noteRequire<API>();
@@ -260,6 +305,8 @@ public:
         return {};
     }
 
+    // ищет компонент <T> в текущем узле и родительских
+    // если компонент не найден кидает исключение
     template<typename T>
     T* require(std::string_view instanceName = "default") {
         noteRequire<T>();
@@ -272,6 +319,16 @@ public:
         return slot.get();
     }
 
+    // вызывает метод configure() у всех компонентов ветки
+    void configureAll() {
+        if (self.configure)
+            self.configure(self.instance, *this);
+
+        for (auto& child : children)
+            child->configureAll();
+    }
+
+    // удаляет компонент <T> из ветки
     template<typename API>
     void remove(std::string_view instanceName = "default") {
         ComponentKey key{std::string(typeName<API>()), std::string(instanceName)};
@@ -286,16 +343,25 @@ public:
             children.erase(child);
     }
 
-    void removeBranch(std::string_view instanceName) {
-        remove<Components>(instanceName);
+    // останавливает все сервисы
+    void stopServices() {
+        const std::string apiName{typeName<ServiceAPI>()};
+        for (auto& [key, data] : lookup) {
+            if (key.first != apiName || !data || !data->api)
+                continue;
+            static_cast<ServiceAPI*>(data->api)->stop();
+        }
+        for (auto& child : children)
+            child->stopServices();
+    }
+
+    ~Components() {
+        stopServices();
+        self.reset(nullptr, nullptr, nullptr);
+        while (!children.empty())
+            children.pop_back();
     }
 };
 
-inline Components::~Components() {
-    stopServices();
-    self.reset(nullptr, nullptr, nullptr);
-    while (!children.empty())
-        children.pop_back();
-}
 
 } // namespace Lattice

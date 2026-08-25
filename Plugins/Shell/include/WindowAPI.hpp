@@ -8,8 +8,8 @@
 
 
 namespace Input { 
-    struct KeyboardState; 
-    struct MouseState;
+    struct Keyboard; 
+    struct Mouse;
 }
 
 class WindowAPI {
@@ -33,8 +33,8 @@ public:
 
     // pump
     virtual void pollEvents() = 0;
-    virtual const Input::KeyboardState& keyboard() const = 0;
-    virtual const Input::MouseState& mouse() const = 0;
+    virtual const Input::Keyboard& keyboard() const = 0;
+    virtual const Input::Mouse& mouse() const = 0;
 
     // geometry
     virtual glm::vec2 windowSize() const = 0;

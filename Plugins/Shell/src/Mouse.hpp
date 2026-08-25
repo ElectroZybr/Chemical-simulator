@@ -8,6 +8,9 @@
 
 #include <glm/vec2.hpp>
 
+#include "InputAPI.hpp"
+
+
 namespace Input {
 
 enum class MouseButton : uint8_t {
@@ -19,30 +22,30 @@ enum class MouseButton : uint8_t {
     Count
 };
 
-inline constexpr std::size_t kMouseButtonCount =
+static constexpr std::size_t kMouseButtonCount =
     static_cast<std::size_t>(MouseButton::Count);
 
-enum class ButtonAction : uint8_t { Press, Release, Repeat };
-
-std::string_view mouseButtonToString(MouseButton b);
-MouseButton mouseButtonFromString(std::string_view name);
+enum class ButtonAction : uint8_t {
+    Press,
+    Release,
+    Repeat
+};
 
 struct MouseState {
     bool down[kMouseButtonCount]{};
     bool pressed[kMouseButtonCount]{};
     bool released[kMouseButtonCount]{};
 
-    glm::vec2 pos{0.f, 0.f};       // текущая позиция (window coords)
-    glm::vec2 delta{0.f, 0.f};     // сдвиг за кадр
-    glm::vec2 scroll{0.f, 0.f};    // накопленный scroll за кадр
-    glm::vec2 scrollDelta{0.f, 0.f};
+    glm::vec2 pos{0.f};
+    glm::vec2 delta{0.f};
+    glm::vec2 scroll{0.f};
+    glm::vec2 scrollDelta{0.f};
 
     void beginFrame() {
         std::fill(std::begin(pressed), std::end(pressed), false);
         std::fill(std::begin(released), std::end(released), false);
         delta = {0.f, 0.f};
         scrollDelta = {0.f, 0.f};
-        // scroll можно обнулять каждый кадр или копить — ниже обнуляем delta only
     }
 
     void onButton(MouseButton button, ButtonAction action) {
@@ -68,19 +71,42 @@ struct MouseState {
         scrollDelta += glm::vec2{dx, dy};
         scroll += glm::vec2{dx, dy};
     }
-
-    bool isDown(MouseButton b) const {
-        const auto i = static_cast<std::size_t>(b);
-        return i < kMouseButtonCount && down[i];
-    }
-    bool wasPressed(MouseButton b) const {
-        const auto i = static_cast<std::size_t>(b);
-        return i < kMouseButtonCount && pressed[i];
-    }
-    bool wasReleased(MouseButton b) const {
-        const auto i = static_cast<std::size_t>(b);
-        return i < kMouseButtonCount && released[i];
-    }
 };
 
-} // namespace Input
+class Mouse final : public InputAPI {
+public:
+    bool down(std::string_view trigger) const override;
+    bool pressed(std::string_view trigger) const override;
+    bool released(std::string_view trigger) const override;
+
+    void beginFrame() { state_.beginFrame(); }
+
+    void onButton(MouseButton button, ButtonAction action) {
+        state_.onButton(button, action);
+    }
+
+    void onMove(float x, float y) {
+        state_.onMove(x, y);
+    }
+
+    void onScroll(float dx, float dy) {
+        state_.onScroll(dx, dy);
+    }
+
+    void setPosition(float x, float y) {
+        state_.pos = {x, y};
+    }
+
+    void resetDelta() {
+        state_.delta = {0, 0};
+    }
+
+    const MouseState& state() const { return state_; }
+
+    static std::string_view buttonToString(MouseButton button);
+    static MouseButton buttonFromString(std::string_view name);
+
+private:
+    MouseState state_;
+};
+}

@@ -15,9 +15,11 @@ MouseButton mouseButtonFromGlfw(int button) {
 }
 
 ButtonAction buttonActionFromGlfw(int action) {
-    if (action == GLFW_PRESS) return ButtonAction::Press;
-    if (action == GLFW_RELEASE) return ButtonAction::Release;
-    return ButtonAction::Repeat;
+    switch (action) {
+    case GLFW_PRESS:   return ButtonAction::Press;
+    case GLFW_RELEASE: return ButtonAction::Release;
+    default:           return ButtonAction::Repeat;
+    }
 }
 
-} // namespace Input
+}

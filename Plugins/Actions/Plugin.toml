@@ -1,0 +1,6 @@
+id = "Actions"
+name = "Actions"
+version = "1.0.0"
+
+[core]
+api = "1.0"

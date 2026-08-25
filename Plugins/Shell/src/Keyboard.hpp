@@ -7,6 +7,9 @@
 #include <string>
 #include <string_view>
 
+#include "InputAPI.hpp"
+
+
 namespace Input {
 
 enum class Key : uint16_t {
@@ -29,34 +32,24 @@ enum class Key : uint16_t {
 
     F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12,
 
-    // OEM / punctuation (US layout names; physical keys via GLFW)
-    Minus,         // -
-    Equal,         // =
-    LeftBracket,   // [
-    RightBracket,  // ]
-    Backslash,     // 
-    Semicolon,     // ;
-    Apostrophe,    // '
-    GraveAccent,   // `
-    Comma,         // ,
-    Period,        // .
-    Slash,         // /
+    Minus, Equal,
+    LeftBracket, RightBracket,
+    Backslash, Semicolon, Apostrophe,
+    GraveAccent, Comma, Period, Slash,
 
-    // Numpad
     Kp0, Kp1, Kp2, Kp3, Kp4,
     Kp5, Kp6, Kp7, Kp8, Kp9,
     KpDecimal, KpDivide, KpMultiply, KpSubtract, KpAdd,
     KpEnter, KpEqual,
 
-    // Misc
     PrintScreen, ScrollLock, Pause,
-    CapsLock, NumLock,
-    Menu, // menu / app key
+    CapsLock, NumLock, Menu,
 
     Count
 };
 
-inline constexpr std::size_t kKeyCount = static_cast<std::size_t>(Key::Count);
+inline constexpr std::size_t kKeyCount =
+    static_cast<std::size_t>(Key::Count);
 
 enum class KeyAction : uint8_t {
     Press,
@@ -74,39 +67,26 @@ struct KeyCombo {
     std::array<Key, kMax> keys{};
     uint8_t count = 0;
 
-    void clear() {
-        keys.fill(Key::Unknown);
-        count = 0;
-    }
-
-    void add(Key k);
+    void clear();
+    void add(Key key);
     void normalize();
 
-    bool contains(Key k) const {
+    bool contains(Key key) const {
         for (uint8_t i = 0; i < count; ++i)
-            if (keys[i] == k) return true;
+            if (keys[i] == key)
+                return true;
         return false;
     }
 
-    bool operator==(const KeyCombo& o) const {
-        if (count != o.count) return false;
-        for (uint8_t i = 0; i < count; ++i)
-            if (keys[i] != o.keys[i]) return false;
-        return true;
-    }
+    bool operator==(const KeyCombo& other) const;
 };
 
 struct KeyComboHash {
-    std::size_t operator()(const KeyCombo& c) const noexcept {
-        std::size_t h = c.count;
-        for (uint8_t i = 0; i < c.count; ++i)
-            h ^= static_cast<std::size_t>(c.keys[i]) + 0x9e3779b9u + (h << 6) + (h >> 2);
-        return h;
-    }
+    std::size_t operator()(const KeyCombo& combo) const noexcept;
 };
 
 std::optional<KeyCombo> parseCombo(std::string_view text);
-std::string toString(const KeyCombo& c);
+std::string toString(const KeyCombo& combo);
 
 struct KeyboardState {
     bool down[kKeyCount]{};
@@ -116,14 +96,27 @@ struct KeyboardState {
     void beginFrame();
     void onKey(Key key, KeyAction action);
 
-    bool isDown(Key k) const;
-    bool wasPressed(Key k) const;
-    bool wasReleased(Key k) const;
-
-    KeyCombo currentDownCombo() const;
+    bool isDown(Key key) const;
+    bool wasPressed(Key key) const;
+    bool wasReleased(Key key) const;
 };
 
-bool comboDown(const KeyCombo& combo, const KeyboardState& kb);
-bool comboPressed(const KeyCombo& combo, const KeyboardState& kb, bool wasDownLastFrame);
+
+class Keyboard final : public InputAPI {
+public:
+    void beginFrame();
+    void onKey(Key key, KeyAction action);
+
+    bool down(std::string_view trigger) const override;
+    bool pressed(std::string_view trigger) const override;
+    bool released(std::string_view trigger) const override;
+
+private:
+    KeyboardState state_;
+
+    bool comboDown(const KeyCombo& combo) const;
+    bool comboPressed(const KeyCombo& combo) const;
+    bool comboReleased(const KeyCombo& combo) const;
+};
 
 } // namespace Input

@@ -3,13 +3,16 @@
 #include <GLFW/glfw3.h>
 #include <string_view>
 
+#include <Lattice/Kernel/Components.hpp>
+
 #include "WindowAPI.hpp"
-#include "glfwKeyboard.hpp"
-#include "glfwMouse.hpp"
+#include "Keyboard.hpp"
+#include "Mouse.hpp"
 
 class glfwWindow final : public WindowAPI {
 public:
-    explicit glfwWindow(const State& state = State{});
+    explicit glfwWindow(Lattice::Components& components);
+
     ~glfwWindow() override;
 
     glfwWindow(const glfwWindow&) = delete;
@@ -32,8 +35,8 @@ public:
     void show() override;
     void setTitle(std::string_view title) override;
 
-    const Input::KeyboardState& keyboard() const override { return keyboard_; }
-    const Input::MouseState& mouse() const override { return mouse_; }
+    const Input::Keyboard& keyboard() const override { return keyboard_; }
+    const Input::Mouse& mouse() const override { return mouse_; }
 
 private:
     static void posCallback(GLFWwindow* w, int x, int y);
@@ -55,8 +58,8 @@ private:
     void applyWindowed();
     void applyFullscreen(GLFWmonitor* monitor);
 
-    Input::KeyboardState keyboard_;
-    Input::MouseState mouse_;
+    Input::Keyboard& keyboard_;
+    Input::Mouse& mouse_;
     GLFWwindow* window_ = nullptr;
     State state_{};
 };

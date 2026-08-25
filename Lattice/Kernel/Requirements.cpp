@@ -199,7 +199,7 @@ std::vector<CompileDep> collectForService(std::string_view implName) {
     return out;
 }
 
-bool checkServiceRequirements(std::string_view implName, const Registry& registry) {
+bool checkRequirements(std::string_view implName, const Registry& registry) {
     if (!registry.hasImpl("ServiceAPI", implName) && !registry.has(implName)) {
         Logger::error("Requirements", "unknown service '{}'", implName);
         return false;
@@ -211,8 +211,6 @@ bool checkServiceRequirements(std::string_view implName, const Registry& registr
         Logger::error("Requirements", "no compile catalog for '{}'", implName);
         return false;
     }
-
-    printCompositionTree(implName, *catalog, byProvided);
 
     bool ok = true;
     printUniqueList(*catalog, byProvided, registry, ok);

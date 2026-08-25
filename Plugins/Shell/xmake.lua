@@ -22,7 +22,9 @@ target("Shell")
     add_includedirs("..", {public = true})
     add_includedirs("src")
 
+    add_includedirs("../Actions/include")
     add_includedirs("../Render/include")
+    add_includedirs("../StdIo/include")
     add_includedirs("../GPU/include")
 
     add_deps("Lattice")

@@ -24,7 +24,6 @@ struct ServiceAPI {
         });
     }
 
-    // Цикл на вызывающем потоке. Для App/CLI/окна: GLFW и ввод живут здесь.
     void enter() {
         if (running_.exchange(true))
             return;

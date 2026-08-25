@@ -165,6 +165,26 @@ public:
         entry.set(Value{std::move(value)});
     }
 
+    void setFromString(std::string_view key, std::string_view str) {
+        auto& e = find(std::string(key));
+        switch (e.info.type) {
+        case ParamType::Bool:
+            e.set(Value{str == "true" || str == "1"});
+            break;
+        case ParamType::Int:
+            e.set(Value{static_cast<int64_t>(std::stoll(std::string(str)))});
+            break;
+        case ParamType::Double:
+            e.set(Value{std::stod(std::string(str))});
+            break;
+        case ParamType::String:
+            e.set(Value{std::string(str)});
+            break;
+        default:
+            throw std::runtime_error("unsupported type for string set");
+        }
+    }
+
     std::vector<ParamInfo> list() const {
         std::vector<ParamInfo> out;
         out.reserve(entries_.size());

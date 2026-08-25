@@ -34,7 +34,7 @@ std::vector<PluginCatalog>& pluginCatalogs();
 
 void recordPluginCatalog(PluginCatalog catalog);
 std::vector<CompileDep> collectForService(std::string_view implName);
-bool checkServiceRequirements(std::string_view implName, const Registry& registry);
+bool checkRequirements(std::string_view implName, const Registry& registry);
 
 #if defined(__GNUC__) || defined(__clang__)
 #define LATTICE_DEP_HIDDEN __attribute__((visibility("hidden")))

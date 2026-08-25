@@ -7,6 +7,7 @@
 #include <stdexcept>
 #include <format>
 #include <type_traits>
+#include <algorithm>
 
 #include <Lattice/Kernel/TypeName.hpp>
 #include <Lattice/Tools/Logger.hpp>
@@ -16,8 +17,8 @@ namespace Lattice {
 class Components;
 
 template<typename T>
-concept HasConfigure = requires(T& t) {
-    t.configure();
+concept HasConfigure = requires(T& obj, Components& branch) {
+    obj.configure(branch);
 };
 
 class Registry {
@@ -25,7 +26,7 @@ public:
     using CreateFn     = void* (*)(Components*);
     using DestroyFn    = void  (*)(void*);
     using GetAPIFn     = void* (*)(void*);
-    using ConfigureFn  = void  (*)(void*);
+    using ConfigureFn  = void  (*)(void*, Components&);
 
     struct TypeEntry {
         std::string name;
@@ -60,7 +61,7 @@ public:
 
         entry.destroy = [](void* p) { delete static_cast<T*>(p); };
         if constexpr (HasConfigure<T>) {
-            entry.configure = [](void* p) { static_cast<T*>(p)->configure(); };
+            entry.configure = [](void* p, Components& branch) { static_cast<T*>(p)->configure(branch); };
         }
 
         auto [it, inserted] = types.emplace(entry.name, std::move(entry));
@@ -96,8 +97,8 @@ public:
             return static_cast<API*>(static_cast<Impl*>(p));
         };
         if constexpr (HasConfigure<Impl>) {
-            entry.configure = [](void* p) { static_cast<Impl*>(p)->configure(); };
-        };
+            entry.configure = [](void* p, Components& branch) { static_cast<Impl*>(p)->configure(branch); };
+        }
 
         auto [it, inserted] = types.emplace(entry.name, std::move(entry));
         if (!inserted)
@@ -168,7 +169,7 @@ public:
         auto it = types.find(typeName<T>());
         if (it == types.end())
             return nullptr;
-        return it->second;
+        return &it->second;
     }
 
     // Возвращает список всех зарегистрированных имён типов и API
@@ -204,6 +205,26 @@ public:
             throw std::runtime_error(std::format("Implementation '{}' not found for API '{}'", id, typeName<API>()));
         }
         return types.at(std::string(id));
+    }
+
+    void printRegistryTree() const {
+        Logger::Tree tree{"Registry"};
+
+        for (const auto& [api, impls] : apiToImpls) {
+            tree.node(api, 0);
+
+            for (const auto& impl : impls)
+                tree.node(impl, 1);
+        }
+
+        tree.node("Components", 0);
+
+        for (const auto& [name, entry] : types) {
+            if (entry.implements.empty())
+                tree.node(name, 1);
+        }
+
+        tree.print();
     }
 
 private:

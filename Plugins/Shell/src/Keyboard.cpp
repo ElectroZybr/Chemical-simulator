@@ -3,76 +3,153 @@
 #include <algorithm>
 #include <cctype>
 #include <unordered_map>
+#include <Lattice/Tools/Logger.hpp>
 
 namespace Input {
 namespace {
 
-void toLowerInPlace(std::string& s) {
+void lower(std::string& s) {
     for (char& c : s)
-        c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+        c = static_cast<char>(
+            std::tolower(static_cast<unsigned char>(c)));
 }
 
-Key parseToken(std::string_view t) {
-    std::string s(t);
-    toLowerInPlace(s);
+Key parseToken(std::string_view token) {
+    std::string s(token);
+    lower(s);
+
     if (s == "ctrl" || s == "control") return Key::LeftCtrl;
     if (s == "shift") return Key::LeftShift;
     if (s == "alt") return Key::LeftAlt;
-    if (s == "super" || s == "meta" || s == "cmd") return Key::LeftSuper;
+    if (s == "super" || s == "meta" || s == "cmd")
+        return Key::LeftSuper;
+
     return keyFromString(s);
 }
 
-bool modFamilyDown(Key mod, const KeyboardState& kb) {
-    switch (mod) {
-    case Key::LeftCtrl: case Key::RightCtrl:
-        return kb.isDown(Key::LeftCtrl) || kb.isDown(Key::RightCtrl);
-    case Key::LeftShift: case Key::RightShift:
-        return kb.isDown(Key::LeftShift) || kb.isDown(Key::RightShift);
-    case Key::LeftAlt: case Key::RightAlt:
-        return kb.isDown(Key::LeftAlt) || kb.isDown(Key::RightAlt);
-    case Key::LeftSuper: case Key::RightSuper:
-        return kb.isDown(Key::LeftSuper) || kb.isDown(Key::RightSuper);
+bool modifierDown(Key key, const KeyboardState& state) {
+    switch (key) {
+    case Key::LeftCtrl:
+    case Key::RightCtrl:
+        return state.isDown(Key::LeftCtrl) ||
+               state.isDown(Key::RightCtrl);
+
+    case Key::LeftShift:
+    case Key::RightShift:
+        return state.isDown(Key::LeftShift) ||
+               state.isDown(Key::RightShift);
+
+    case Key::LeftAlt:
+    case Key::RightAlt:
+        return state.isDown(Key::LeftAlt) ||
+               state.isDown(Key::RightAlt);
+
+    case Key::LeftSuper:
+    case Key::RightSuper:
+        return state.isDown(Key::LeftSuper) ||
+               state.isDown(Key::RightSuper);
+
     default:
-        return kb.isDown(mod);
+        return state.isDown(key);
     }
 }
 
 } // namespace
 
-void KeyCombo::add(Key k) {
-    if (k == Key::Unknown || count >= kMax) return;
-    for (uint8_t i = 0; i < count; ++i)
-        if (keys[i] == k) return;
-    keys[count++] = k;
+void KeyCombo::clear() {
+    keys.fill(Key::Unknown);
+    count = 0;
+}
+
+void KeyCombo::add(Key key) {
+    if (key == Key::Unknown || count >= kMax || contains(key))
+        return;
+
+    keys[count++] = key;
     normalize();
 }
 
 void KeyCombo::normalize() {
-    if (count <= 1) return;
     std::sort(keys.begin(), keys.begin() + count,
-              [](Key a, Key b) {
-                  return static_cast<uint16_t>(a) < static_cast<uint16_t>(b);
-              });
-    uint8_t w = 0;
+        [](Key a, Key b) {
+            return static_cast<uint16_t>(a) <
+                   static_cast<uint16_t>(b);
+        });
+
+    uint8_t unique = 0;
+
     for (uint8_t i = 0; i < count; ++i) {
-        if (w == 0 || keys[i] != keys[w - 1])
-            keys[w++] = keys[i];
+        if (unique == 0 || keys[i] != keys[unique - 1])
+            keys[unique++] = keys[i];
     }
-    for (uint8_t i = w; i < kMax; ++i)
+
+    for (uint8_t i = unique; i < kMax; ++i)
         keys[i] = Key::Unknown;
-    count = w;
+
+    count = unique;
 }
 
-bool isModifier(Key key) {
-    switch (key) {
-    case Key::LeftShift: case Key::RightShift:
-    case Key::LeftCtrl:  case Key::RightCtrl:
-    case Key::LeftAlt:   case Key::RightAlt:
-    case Key::LeftSuper: case Key::RightSuper:
-        return true;
-    default:
+bool KeyCombo::operator==(const KeyCombo& other) const {
+    if (count != other.count)
         return false;
+
+    for (uint8_t i = 0; i < count; ++i)
+        if (keys[i] != other.keys[i])
+            return false;
+
+    return true;
+}
+
+std::size_t KeyComboHash::operator()(const KeyCombo& combo) const noexcept {
+    std::size_t hash = combo.count;
+
+    for (uint8_t i = 0; i < combo.count; ++i)
+        hash ^= static_cast<std::size_t>(combo.keys[i]) +
+                0x9e3779b9u + (hash << 6) + (hash >> 2);
+
+    return hash;
+}
+
+std::optional<KeyCombo> parseCombo(std::string_view text) {
+    KeyCombo combo;
+
+    std::size_t begin = 0;
+
+    while (begin <= text.size()) {
+        const auto end = text.find('+', begin);
+
+        auto token = text.substr(
+            begin,
+            end == std::string_view::npos
+                ? std::string_view::npos
+                : end - begin
+        );
+
+        while (!token.empty() && token.front() == ' ')
+            token.remove_prefix(1);
+
+        while (!token.empty() && token.back() == ' ')
+            token.remove_suffix(1);
+
+        if (!token.empty()) {
+            const Key key = parseToken(token);
+
+            if (key == Key::Unknown)
+                return std::nullopt;
+
+            combo.add(key);
+        }
+
+        if (end == std::string_view::npos)
+            break;
+
+        begin = end + 1;
     }
+
+    if (combo.count == 0)
+        return std::nullopt;
+
+    return combo;
 }
 
 std::string_view keyToString(Key key) {
@@ -122,7 +199,7 @@ std::string_view keyToString(Key key) {
     case Key::Comma: return "Comma";
     case Key::Period: return "Period";
     case Key::Slash: return "Slash";
-
+        
     default: return "Unknown";
     }
 }
@@ -132,7 +209,7 @@ Key keyFromString(std::string_view name) {
         std::unordered_map<std::string, Key> m;
 
         auto put = [&](std::string k, Key v) {
-            toLowerInPlace(k);
+            lower(k);
             m.emplace(std::move(k), v);
         };
 
@@ -166,45 +243,23 @@ Key keyFromString(std::string_view name) {
     }();
 
     std::string key{name};
-    toLowerInPlace(key);
+    lower(key);
 
     if (auto it = map.find(key); it != map.end())
         return it->second;
     return Key::Unknown;
 }
 
-std::optional<KeyCombo> parseCombo(std::string_view text) {
-    KeyCombo combo;
-    std::size_t start = 0;
-    while (start <= text.size()) {
-        const std::size_t plus = text.find('+', start);
-        auto token = text.substr(
-            start,
-            plus == std::string_view::npos ? std::string_view::npos : plus - start);
+std::string toString(const KeyCombo& combo) {
+    std::string result;
 
-        while (!token.empty() && token.front() == ' ') token.remove_prefix(1);
-        while (!token.empty() && token.back() == ' ') token.remove_suffix(1);
+    for (uint8_t i = 0; i < combo.count; ++i) {
+        if (i)
+            result += '+';
 
-        if (!token.empty()) {
-            const Key k = parseToken(token);
-            if (k == Key::Unknown) return std::nullopt;
-            combo.add(k);
-        }
-
-        if (plus == std::string_view::npos) break;
-        start = plus + 1;
+        result += keyToString(combo.keys[i]);
     }
-    if (combo.count == 0) return std::nullopt;
-    return combo;
-}
-
-std::string toString(const KeyCombo& c) {
-    std::string out;
-    for (uint8_t i = 0; i < c.count; ++i) {
-        if (i) out += '+';
-        out += keyToString(c.keys[i]);
-    }
-    return out;
+    return result;
 }
 
 void KeyboardState::beginFrame() {
@@ -213,54 +268,105 @@ void KeyboardState::beginFrame() {
 }
 
 void KeyboardState::onKey(Key key, KeyAction action) {
-    if (key == Key::Unknown) return;
-    const std::size_t i = static_cast<std::size_t>(key);
-    if (i >= kKeyCount) return;
+    if (key == Key::Unknown)
+        return;
 
-    if (action == KeyAction::Press) {
-        if (!down[i]) pressed[i] = true;
-        down[i] = true;
-    } else if (action == KeyAction::Release) {
-        if (down[i]) released[i] = true;
-        down[i] = false;
+    const auto index = static_cast<std::size_t>(key);
+
+    if (index >= kKeyCount)
+        return;
+
+    switch (action) {
+    case KeyAction::Press:
+        if (!down[index])
+            pressed[index] = true;
+        down[index] = true;
+        break;
+
+    case KeyAction::Release:
+        if (down[index])
+            released[index] = true;
+        down[index] = false;
+        break;
+
+    case KeyAction::Repeat:
+        break;
     }
 }
 
-bool KeyboardState::isDown(Key k) const {
-    const auto i = static_cast<std::size_t>(k);
-    return i < kKeyCount && down[i];
+bool KeyboardState::isDown(Key key) const {
+    const auto index = static_cast<std::size_t>(key);
+    return index < kKeyCount && down[index];
 }
 
-bool KeyboardState::wasPressed(Key k) const {
-    const auto i = static_cast<std::size_t>(k);
-    return i < kKeyCount && pressed[i];
+bool KeyboardState::wasPressed(Key key) const {
+    const auto index = static_cast<std::size_t>(key);
+    return index < kKeyCount && pressed[index];
 }
 
-bool KeyboardState::wasReleased(Key k) const {
-    const auto i = static_cast<std::size_t>(k);
-    return i < kKeyCount && released[i];
+bool KeyboardState::wasReleased(Key key) const {
+    const auto index = static_cast<std::size_t>(key);
+    return index < kKeyCount && released[index];
 }
 
-KeyCombo KeyboardState::currentDownCombo() const {
-    KeyCombo c;
-    for (std::size_t i = 1; i < kKeyCount && c.count < KeyCombo::kMax; ++i) {
-        if (down[i])
-            c.add(static_cast<Key>(i));
-    }
-    return c;
+void Keyboard::beginFrame() {
+    state_.beginFrame();
 }
 
-bool comboDown(const KeyCombo& combo, const KeyboardState& kb) {
-    if (combo.count == 0) return false;
+void Keyboard::onKey(Key key, KeyAction action) {
+    state_.onKey(key, action);
+        // Logger::info("Keyboard", "onKey {} action={} down={}",
+        //     keyToString(key),
+        //     static_cast<int>(action),
+        //     state_.isDown(key));
+}
+
+bool Keyboard::comboDown(const KeyCombo& combo) const {
+    if (combo.count == 0)
+        return false;
+
     for (uint8_t i = 0; i < combo.count; ++i) {
-        if (!modFamilyDown(combo.keys[i], kb))
+        if (!modifierDown(combo.keys[i], state_))
             return false;
     }
+
     return true;
 }
 
-bool comboPressed(const KeyCombo& combo, const KeyboardState& kb, bool wasDownLastFrame) {
-    return comboDown(combo, kb) && !wasDownLastFrame;
+bool Keyboard::comboPressed(const KeyCombo& combo) const {
+    if (!comboDown(combo))
+        return false;
+
+    for (uint8_t i = 0; i < combo.count; ++i) {
+        if (state_.wasPressed(combo.keys[i]))
+            return true;
+    }
+
+    return false;
+}
+
+bool Keyboard::comboReleased(const KeyCombo& combo) const {
+    for (uint8_t i = 0; i < combo.count; ++i) {
+        if (state_.wasReleased(combo.keys[i]))
+            return true;
+    }
+
+    return false;
+}
+
+bool Keyboard::down(std::string_view trigger) const {
+    const auto combo = parseCombo(trigger);
+    return combo && comboDown(*combo);
+}
+
+bool Keyboard::pressed(std::string_view trigger) const {
+    const auto combo = parseCombo(trigger);
+    return combo && comboPressed(*combo);
+}
+
+bool Keyboard::released(std::string_view trigger) const {
+    const auto combo = parseCombo(trigger);
+    return combo && comboReleased(*combo);
 }
 
 } // namespace Input

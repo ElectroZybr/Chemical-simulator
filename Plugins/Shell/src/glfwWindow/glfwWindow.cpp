@@ -1,5 +1,4 @@
 #include "glfwWindow.hpp"
-#include <Lattice/Tools/Logger.hpp>
 
 #include <algorithm>
 #include <dlfcn.h>
@@ -39,6 +38,10 @@
     #endif
 #endif
     #include <GLFW/glfw3native.h>
+
+#include <Lattice/Tools/Logger.hpp>
+#include "glfwKeyboard.hpp"
+#include "glfwMouse.hpp"
 
 namespace {
 
@@ -164,7 +167,9 @@ bool monitorWorkArea(GLFWmonitor* monitor, int& x, int& y, int& w, int& h) {
 // ctor / dtor / move
 // ============================================================
 
-glfwWindow::glfwWindow(const State& state) : state_(state) {
+glfwWindow::glfwWindow(Lattice::Components& components) 
+    : keyboard_(components.add<InputAPI, Input::Keyboard>())
+    , mouse_(components.add<InputAPI, Input::Mouse>()) {
     if (!glfwInit()) {
         throw std::runtime_error("Failed to initialize GLFW");
     }
@@ -260,8 +265,8 @@ glfwWindow::glfwWindow(const State& state) : state_(state) {
 
     double x = 0.0, y = 0.0;
     glfwGetCursorPos(window_, &x, &y);
-    mouse_.pos = {static_cast<float>(x), static_cast<float>(y)};
-    mouse_.delta = {0.f, 0.f};
+    mouse_.setPosition(static_cast<float>(x), static_cast<float>(y));
+    mouse_.resetDelta();
 
     if (!state_.fullscreen) {
         syncFromWindow();
@@ -278,14 +283,14 @@ glfwWindow::~glfwWindow() {
     }
 }
 
-glfwWindow::glfwWindow(glfwWindow&& other) noexcept
-    : window_(std::exchange(other.window_, nullptr))
-    , state_(other.state_)
-{
-    if (window_) {
-        glfwSetWindowUserPointer(window_, this);
-    }
-}
+// glfwWindow::glfwWindow(glfwWindow&& other) noexcept
+//     : window_(std::exchange(other.window_, nullptr))
+//     , state_(other.state_)
+// {
+//     if (window_) {
+//         glfwSetWindowUserPointer(window_, this);
+//     }
+// }
 
 glfwWindow& glfwWindow::operator=(glfwWindow&& other) noexcept {
     if (this != &other) {
