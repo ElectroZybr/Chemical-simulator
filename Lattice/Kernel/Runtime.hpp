@@ -10,7 +10,9 @@
 #include "Lattice/Kernel/PluginManager.hpp"
 #include "Lattice/Kernel/Components.hpp"
 #include "Lattice/Kernel/Requirements.hpp"
+#include <Lattice/Kernel/Exception.hpp>
 #include "Lattice/Kernel/Settings.hpp"
+#include "Lattice/Tools/LogStyle.hpp"
 #include "Lattice/Tools/Logger.hpp"
 #include <Lattice/Tools/SystemInfo.hpp>
 
@@ -19,7 +21,7 @@ namespace Lattice {
 class Runtime {
 public:
     Runtime() : root(&globalRegistry, nullptr) {
-        Logger::action(moduleName, "System launching");
+        Logger::action(tag, "System launching");
         Lattice::CliSystemInfo::printSystemInfo(std::cout);
         // регистрация интерфейсов ядра
         globalRegistry.registerAPI<ServiceAPI>();
@@ -45,16 +47,14 @@ public:
     }
 
     ServiceAPI& start(std::string_view id, std::string_view instanceName = "default", ServiceLaunch launch = ServiceLaunch::Worker) {
-        Logger::Scope scope(moduleName, "Start ServiceAPI '{}' with name '{}'", id, instanceName);
+        Logger::Scope scope(tag, "Start ServiceAPI '{}' with name '{}'", id, instanceName);
         ServiceAPI& service = root.add<ServiceAPI>(id, instanceName);
-        // if (!service)
-        //     throw std::runtime_error("Failed to start service: " + std::string(id));
 
         if (launch == ServiceLaunch::Host) {
             if (!hostName.empty())
-                throw std::runtime_error("Runtime already has a host service");
+                throw Lattice::Exception("", "Runtime already has a host service");
             hostName = instanceName;
-            Logger::info(moduleName, "Host service '{}'", instanceName);
+            Logger::info(tag, "Host service '{}'", instanceName);
         } else {
             service.start();
         }
@@ -68,7 +68,7 @@ public:
             auto test = root.get<ServiceAPI>(hostName);
 
             Logger::info(
-                moduleName,
+                tag,
                 "Host lookup immediately after add: {}",
                 test ? "FOUND" : "NOT FOUND"
             );
@@ -103,13 +103,34 @@ public:
     Registry& registry() noexcept { return globalRegistry; }
     Components* roote() { return &root; }
 
+    void reportException(const std::exception& error) const {
+        auto* fatal = dynamic_cast<const Lattice::Exception*>(&error);
+        if (fatal) {
+            Logger::exception(fatal->tag(), "{}", error.what());
+            Logger::message("{}Dump components tree (failed node is red):{}", Color::gray, Color::reset);
+            root.dumpTree(fatal->tag());
+        } else {
+            Logger::exception(tag, "Unhandled exception: {}", error.what());
+            Logger::message("{}Dump components tree{}", Color::gray, Color::reset);
+            root.dumpTree();
+        }
+        Logger::message("\n{}{}Critical error. application terminated.{}", Color::red, Color::bold, Color::reset);
+        Logger::message("{}{}Crash log: {}{}\n", Color::gray, Color::bold, std::string(Logger::logPath()), Color::reset);
+    }
+
+    void reportUnknownException() const {
+        Logger::exception(tag, "Unhandled non-standard exception");
+        Logger::treeLine("Dump components tree (failed node is red):");
+        root.dumpTree();
+    }
+
 private:
     void stopAll() {
         running = false;
         root.stopServices();
     }
 
-    static constexpr std::string_view moduleName = "Runtime";
+    static constexpr std::string_view tag = "Runtime";
     Registry globalRegistry;
     PluginManager pluginManager;
     Components root;

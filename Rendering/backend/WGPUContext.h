@@ -41,12 +41,12 @@ public:
 
         instance_ = wgpu::createInstance(instanceDesc);
         if (!instance_) {
-            throw std::runtime_error("wgpu: failed to create instance");
+            throw Lattice::Exception("wgpu: failed to create instance");
         }
 
         surface_ = createSurface(window);
         if (!surface_) {
-            throw std::runtime_error("wgpu: failed to create surface");
+            throw Lattice::Exception("wgpu: failed to create surface");
         }
 
         wgpu::RequestAdapterOptions adapterOpts = wgpu::Default;
@@ -55,7 +55,7 @@ public:
 
         adapter_ = instance_->requestAdapter(adapterOpts);
         if (!adapter_) {
-            throw std::runtime_error("wgpu: failed to get adapter");
+            throw Lattice::Exception("wgpu: failed to get adapter");
         }
 
         wgpu::DeviceDescriptor deviceDesc = wgpu::Default;
@@ -68,7 +68,7 @@ public:
 
         device_ = adapter_->requestDevice(deviceDesc);
         if (!device_) {
-            throw std::runtime_error("wgpu: failed to get device");
+            throw Lattice::Exception("wgpu: failed to get device");
         }
 
         queue_ = device_->getQueue();
@@ -116,7 +116,7 @@ public:
 
         instance_ = wgpu::createInstance(instanceDesc);
         if (!instance_) {
-            throw std::runtime_error("wgpu: failed to create instance");
+            throw Lattice::Exception("wgpu: failed to create instance");
         }
 
         // Без surface — просто берём любой адаптер
@@ -124,7 +124,7 @@ public:
         adapterOpts.powerPreference = wgpu::PowerPreference::HighPerformance;
         adapter_ = instance_->requestAdapter(adapterOpts);
         if (!adapter_) {
-            throw std::runtime_error("wgpu: failed to get adapter");
+            throw Lattice::Exception("wgpu: failed to get adapter");
         }
 
         wgpu::DeviceDescriptor deviceDesc{};
@@ -136,7 +136,7 @@ public:
         };
         device_ = adapter_->requestDevice(deviceDesc);
         if (!device_) {
-            throw std::runtime_error("wgpu: failed to get device");
+            throw Lattice::Exception("wgpu: failed to get device");
         }
 
         queue_ = device_->getQueue();

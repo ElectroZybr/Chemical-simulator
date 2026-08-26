@@ -2,15 +2,16 @@
 
 #include <filesystem>
 #include <string>
-#include <stdexcept>
 
 #include <toml++/toml.hpp>
+#include <Lattice/Kernel/Exception.hpp>
 
 #include "Document.hpp"
 #include "ParserAPI.hpp"
 
 
 class TomlParser final : public ParserAPI {
+    static constexpr std::string_view tag = "TomlParser";
 public:
     std::string_view extension() const override { return ".toml"; }
     
@@ -84,8 +85,6 @@ private:
         if (const auto* value = node.as_boolean())
             return bool(value->get());
 
-        throw std::runtime_error(
-            "Unsupported TOML value"
-        );
+        throw Lattice::Exception(tag, "Unsupported TOML value");
     }
 };

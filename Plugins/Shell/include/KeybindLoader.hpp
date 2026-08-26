@@ -1,11 +1,11 @@
 #pragma once
 
 #include <Lattice/Kernel/Components.hpp>
+#include <Lattice/Kernel/Exception.hpp>
 
 #include "Document.hpp"
 #include "LoaderAPI.hpp"
 #include "ActionMap.hpp"
-
 
 class KeybindsLoader final : public LoaderAPI {
 public:
@@ -13,6 +13,7 @@ public:
         : actionMap(*components.require<ActionMap>()) {}
 
     void load(const Document& doc) override {
+        throw Lattice::Exception("KeybindsLoader", "загрузка: о нет всему пизда!!!");
         const auto* keybinds = doc.get("keybinds");
 
         if (!keybinds || !keybinds->is<Table>())

@@ -11,13 +11,14 @@
 #include <vector>
 
 #include "Lattice/Kernel/TypeName.hpp"
+#include <Lattice/Kernel/Exception.hpp>
 
 class DynamicSoA {
+    static constexpr std::string_view tag = "DynamicSoA";
 public:
     DynamicSoA() = default;
     DynamicSoA(const DynamicSoA&) = delete;
     DynamicSoA& operator=(const DynamicSoA&) = delete;
-
     DynamicSoA(DynamicSoA&& other) noexcept
         : size_(std::exchange(other.size_, 0))
         , capacity_(std::exchange(other.capacity_, 0))
@@ -99,9 +100,7 @@ public:
         const size_t id = typeId<Tag>();
 
         if (id >= columns_.size() || !columns_[id].active) {
-            throw std::runtime_error(
-                std::format("Column '{}' not found", Lattice::typeName<Tag>()) 
-            );
+            throw Lattice::Exception(tag, "Column '{}' not found", Lattice::typeName<Tag>());
         }
 
         columns_[id] = Column{};
@@ -134,9 +133,7 @@ public:
         using T = typename Tag::type;
         auto* column = findColumn<Tag>();
         if (!column) {
-            throw std::runtime_error(
-                std::format("Column '{}' not found", Tag::name)
-            );
+            throw Lattice::Exception(tag, "Column '{}' not found", Tag::name);
         }
         return reinterpret_cast<T*>(storage_ + column.offset);
     }
@@ -146,9 +143,7 @@ public:
         using T = typename Tag::type;
         const auto* column = findColumn<Tag>();
         if (!column) {
-            throw std::runtime_error(
-                std::format("Column '{}' not found", Tag::name)
-            );
+            throw Lattice::Exception(tag, "Column '{}' not found", Tag::name);
         }
         return reinterpret_cast<const T*>(storage_ + column.offset);
     }

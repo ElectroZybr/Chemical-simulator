@@ -5,11 +5,14 @@
 #include <unordered_map>
 #include <memory>
 #include <vector>
+#include <utility>
 
 #include <Lattice/Tools/Logger.hpp>
 #include <Lattice/Kernel/Registry.hpp>
 #include <Lattice/Kernel/ServiceAPI.hpp>
 #include <Lattice/Kernel/Requirements.hpp>
+#include "Lattice/Kernel/Exception.hpp"
+#include "Lattice/Tools/LogStyle.hpp"
 
 namespace Lattice {
 
@@ -18,6 +21,7 @@ class Registry;
 
 struct ComponentData {
     Components* owner = nullptr;
+    std::string type;
     void* instance = nullptr;
     void* api = nullptr;
     void (*destroy)(void*) = nullptr;
@@ -73,7 +77,7 @@ struct Slot {
 };
 
 class Components {
-    static constexpr std::string_view moduleName = "Components";
+    static constexpr std::string_view tag = "Components";
     using ComponentKey = std::pair<std::string, std::string>;
 
     struct ComponentKeyHash {
@@ -108,9 +112,11 @@ class Components {
         lookup.insert_or_assign(ComponentKey{type, std::string(instanceName)}, data);
     }
 
-    Components* makeChild(std::string_view instanceName) {
+    Components* makeChild(std::string_view instanceName, std::string_view type) {
         auto node = std::make_unique<Components>(registry, this, instanceName);
         Components* raw = node.get();
+        raw->self.owner = raw;
+        raw->self.type = type;
         children.push_back(std::move(node));
         return raw;
     }
@@ -119,11 +125,29 @@ class Components {
         return name.empty() ? "Root" : name;
     }
 
-    void appendTree(Logger::Tree& tree, size_t depth) const {
+    void appendTree(Logger::Tree& tree, size_t depth, const Components* highlighted) const {
         for (const auto& child : children) {
-            tree.node(child->label(), depth);
-            child->appendTree(tree, depth + 1);
+            const bool selected = child.get() == highlighted;
+
+            std::string label = child->self.type;
+            if (selected)
+                label = std::format("{}{}{} 🡸{}", Color::red, Color::bold, label, Color::reset);
+
+            tree.node(label, depth);
+            child->appendTree(tree, depth + 1, highlighted);
         }
+    }
+
+    const Components* findByName(std::string_view target) const {
+        if (self.type == target)
+            return this;
+
+        for (const auto& child : children) {
+            if (const Components* found = child->findByName(target))
+                return found;
+        }
+
+        return nullptr;
     }
 
     void clearChildren() {
@@ -191,7 +215,7 @@ public:
     template<typename T>
     T& add(std::string_view implName, std::string_view instanceName = "default") {
         const auto& entry = registry->requireImpl<T>(implName);
-        Components* child = makeChild(instanceName);
+        Components* child = makeChild(instanceName, implName);
 
         index(std::string(typeName<T>()), instanceName, &child->self);
         index(std::string(implName), instanceName, &child->self);
@@ -199,8 +223,7 @@ public:
         void* instance = entry.create(child);
         child->self.reset(instance, entry.getAPI(instance), entry.destroy, entry.configure);
 
-        Logger::info(moduleName, "+ {} '{}' ({})",
-            typeName<T>(), instanceName, implName);
+        Logger::info(tag, "+ {} '{}' ({})", typeName<T>(), instanceName, implName);
 
         return *static_cast<T*>(instance);
     }
@@ -211,7 +234,7 @@ public:
         const std::string_view id = instanceName.empty()
             ? typeName<Impl>()
             : instanceName;
-        Components* child = makeChild(id);
+        Components* child = makeChild(id, std::string(typeName<Impl>()));
 
         index(std::string(typeName<T>()), id, &child->self);
         index(std::string(typeName<Impl>()), id, &child->self);
@@ -219,8 +242,7 @@ public:
         void* instance = entry.create(child);
         child->self.reset(instance, entry.getAPI(instance), entry.destroy, entry.configure);
 
-        Logger::info(moduleName, "+ {} '{}' ({})",
-            typeName<T>(), id, typeName<Impl>());
+        Logger::info(tag, "+ {} '{}' ({})", typeName<T>(), id, typeName<Impl>());
 
         return *static_cast<Impl*>(instance);
     }
@@ -233,17 +255,16 @@ public:
 
         const Registry::TypeEntry* entry = registry->find(std::string(typeName<T>()));
         if (!entry || !entry->create) {
-            throw std::runtime_error(std::format(
-                "Component '{}' not found", typeName<T>()));
+            throw Lattice::Exception(tag, "Component '{}' not found", typeName<T>());
         }
 
-        Components* child = makeChild(instanceName);
+        Components* child = makeChild(instanceName, std::string(typeName<T>()));
         void* instance = entry->create(child);
         child->self.reset(instance, instance, entry->destroy, entry->configure);
         index(std::string(typeName<T>()), instanceName, &child->self);
         child->index(std::string(typeName<T>()), instanceName, &child->self);
 
-        Logger::info(moduleName, "+ {}", typeName<T>());
+        Logger::info(tag, "+ {}", typeName<T>());
 
         return static_cast<T*>(instance);
     }
@@ -259,9 +280,7 @@ public:
         noteUse<API>();
 
         if (!registry->hasImpl<API>(implName)) {
-            Logger::error(moduleName, "unknown implementation '{}' for '{}'", implName, typeName<API>());
-            throw std::runtime_error(std::format(
-                "Implementation '{}' not found for '{}'", implName, typeName<API>()));
+            throw Lattice::Exception(tag, "unknown implementation '{}' for '{}'", implName, typeName<API>());
         }
 
         const auto& implementation = registry->requireImpl<API>(implName);
@@ -276,10 +295,10 @@ public:
             }
             child->children.clear();;
         } else {
-            child = makeChild(instanceName);
+            child = makeChild(instanceName, implName);
             index(std::string(typeName<API>()), instanceName, &child->self);
             child->index(std::string(typeName<API>()), instanceName, &child->self);
-            Logger::info(moduleName, "+ interface '{}'", typeName<API>());
+            Logger::info(tag, "+ interface '{}'", typeName<API>());
         }
 
         void* instance = implementation.create(child);
@@ -289,7 +308,7 @@ public:
             implementation.destroy
         );
 
-        Logger::info(moduleName, "> use '{}' = '{}'", typeName<API>(), implName);
+        Logger::info(tag, "> use '{}' = '{}'", typeName<API>(), implName);
         return Slot<API>{&child->self};
     }
 
@@ -312,9 +331,7 @@ public:
         noteRequire<T>();
         Slot<T> slot = get<T>(instanceName);
         if (!slot.exists()) {
-            throw std::runtime_error(std::format(
-                "Component '{}' with instance '{}' not found",
-                typeName<T>(), instanceName));
+            throw Lattice::Exception(tag, "Component '{}' with instance '{}' not found", typeName<T>(), instanceName);
         }
         return slot.get();
     }
@@ -361,7 +378,12 @@ public:
         while (!children.empty())
             children.pop_back();
     }
+
+    void dumpTree(std::string_view componentName = "Unknown") const {
+        const Components* highlighted = componentName.empty() ? nullptr : findByName(componentName);
+        Logger::Tree tree(label());
+        appendTree(tree, 0, highlighted);
+        tree.print();
+    }
 };
-
-
 } // namespace Lattice

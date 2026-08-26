@@ -5,11 +5,11 @@
 #include <cstdlib>
 #include <fstream>
 #include <format>
-#include <stdexcept>
 #include <string>
 #include <utility>
 #include <filesystem>
 #include <unistd.h>
+
 #include <vector>
 
 #ifdef _WIN32
@@ -39,6 +39,7 @@
 #endif
     #include <GLFW/glfw3native.h>
 
+#include "Lattice/Kernel/Exception.hpp"
 #include <Lattice/Tools/Logger.hpp>
 #include "glfwKeyboard.hpp"
 #include "glfwMouse.hpp"
@@ -171,7 +172,7 @@ glfwWindow::glfwWindow(Lattice::Components& components)
     : keyboard_(components.add<InputAPI, Input::Keyboard>())
     , mouse_(components.add<InputAPI, Input::Mouse>()) {
     if (!glfwInit()) {
-        throw std::runtime_error("Failed to initialize GLFW");
+        throw Lattice::Exception(tag, "Failed to initialize GLFW");
     }
 
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
@@ -216,7 +217,7 @@ glfwWindow::glfwWindow(Lattice::Components& components)
 
     if (!window_) {
         glfwTerminate();
-        throw std::runtime_error("Failed to create GLFW window");
+        throw Lattice::Exception(tag, "Failed to create GLFW window");
     }
 
     if (!state_.fullscreen) {

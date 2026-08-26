@@ -1,12 +1,13 @@
 #include "WGPU.hpp"
 
-#include <stdexcept>
-#include <iostream>
 #include <cstring>
 
 #if defined(_WIN32)
     #include <windows.h>
 #endif
+
+#include <Lattice/Kernel/Exception.hpp>
+#include <Lattice/Tools/Logger.hpp>
 
 namespace GPU {
 
@@ -78,7 +79,7 @@ WGPUPresentMode WGPU::choosePresentMode(const WGPUSurfaceCapabilities& caps) {
 // ---------- surface (фабрика, без хранения в GPU) ----------
 WGPUSurface WGPU::createSurface(const NativeWindow& window) {
     if (!instance_)
-        throw std::runtime_error("wgpu: createSurface before init");
+        throw Lattice::Exception(tag, "createSurface before init");
 
     WGPUSurfaceDescriptor desc = {};
     desc.label = toWGPUString("Surface");
@@ -131,9 +132,9 @@ WGPUSurface WGPU::createSurface(const NativeWindow& window) {
 
 WGPUTextureFormat WGPU::configureSurface(WGPUSurface surface, uint32_t width, uint32_t height) {
     if (!surface || !device_ || !adapter_)
-        throw std::runtime_error("wgpu: configureSurface invalid state");
+        throw Lattice::Exception(tag, "configureSurface invalid state");
     if (width == 0 || height == 0)
-        throw std::runtime_error("wgpu: configureSurface zero size");
+        throw Lattice::Exception(tag, "configureSurface zero size");
 
     WGPUSurfaceCapabilities caps = {};
     wgpuSurfaceGetCapabilities(surface, adapter_, &caps);
@@ -200,7 +201,7 @@ void WGPU::createInstance() {
 
     instance_ = wgpuCreateInstance(&desc);
     if (!instance_)
-        throw std::runtime_error("wgpu: failed to create instance");
+        throw Lattice::Exception(tag,"failed to create instance");
 }
 
 void WGPU::createDevice() {
@@ -209,6 +210,7 @@ void WGPU::createDevice() {
 
     struct AdapterUserData {
         WGPUAdapter adapter = nullptr;
+        std::string error;
         bool done = false;
     } adapterData;
 
@@ -220,8 +222,7 @@ void WGPU::createDevice() {
         if (status == WGPURequestAdapterStatus_Success)
             data->adapter = adapter;
         else
-            std::cerr << "wgpu requestAdapter failed: "
-                      << std::string_view(message.data, message.length) << '\n';
+            data->error = std::string(message.data, message.length);
         data->done = true;
     };
     adapterCb.userdata1 = &adapterData;
@@ -232,25 +233,26 @@ void WGPU::createDevice() {
 
     adapter_ = adapterData.adapter;
     if (!adapter_)
-        throw std::runtime_error("wgpu: failed to get adapter");
+        throw Lattice::Exception(tag, "failed to get adapter: {}", adapterData.error);
 
     WGPUDeviceDescriptor deviceDesc = {};
     deviceDesc.deviceLostCallbackInfo.mode = WGPUCallbackMode_AllowSpontaneous;
     deviceDesc.deviceLostCallbackInfo.callback =
-        [](WGPUDevice const*, WGPUDeviceLostReason reason, WGPUStringView message,
-           void*, void*) {
-            std::cerr << "wgpu device lost (" << static_cast<int>(reason) << "): "
-                      << std::string_view(message.data, message.length) << '\n';
+        [](WGPUDevice const*, WGPUDeviceLostReason reason, WGPUStringView message, void*, void*) {
+            Logger::error(tag, "device lost ({}): {}",
+                static_cast<int>(reason),
+                std::string_view(message.data, message.length));
         };
     deviceDesc.uncapturedErrorCallbackInfo.callback =
-        [](WGPUDevice const*, WGPUErrorType type, WGPUStringView message,
-           void*, void*) {
-            std::cerr << "wgpu error (" << static_cast<int>(type) << "): "
-                      << std::string_view(message.data, message.length) << '\n';
+        [](WGPUDevice const*, WGPUErrorType type, WGPUStringView message, void*, void*) {
+            Logger::error(tag, "error ({}): {}",
+                static_cast<int>(type),
+                std::string_view(message.data, message.length));
         };
 
     struct DeviceUserData {
         WGPUDevice device = nullptr;
+        std::string error;
         bool done = false;
     } deviceData;
 
@@ -262,8 +264,7 @@ void WGPU::createDevice() {
         if (status == WGPURequestDeviceStatus_Success)
             data->device = device;
         else
-            std::cerr << "wgpu requestDevice failed: "
-                      << std::string_view(message.data, message.length) << '\n';
+            data->error = std::string(message.data, message.length);
         data->done = true;
     };
     deviceCb.userdata1 = &deviceData;
@@ -274,7 +275,7 @@ void WGPU::createDevice() {
 
     device_ = deviceData.device;
     if (!device_)
-        throw std::runtime_error("wgpu: failed to get device");
+        throw Lattice::Exception(tag, "failed to get device: {}", deviceData.error);
 
     queue_ = wgpuDeviceGetQueue(device_);
 }

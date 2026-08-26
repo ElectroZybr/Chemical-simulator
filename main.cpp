@@ -17,37 +17,30 @@ int runApplication(int argc, char** argv) {
 
     Logger::setConsoleMode(consoleMode);
     Lattice::Runtime runtime;
-    runtime.loadPlugins("Plugins");
-    runtime.registry().printRegistryTree();
-    if (runtime.check("ClassicMD"))
-        runtime.start("ClassicMD", "Universe 1");
-    
-    if (runtime.check("Window"))
-        runtime.start("Window", "Window", ServiceLaunch::Host);
+    try {
+        runtime.loadPlugins("Plugins");
+        runtime.registry().printRegistryTree();
+        if (runtime.check("ClassicMD"))
+            runtime.start("ClassicMD", "Universe 1");
 
-    if (runtime.check("ActionMap"))
-        runtime.configure("ActionMap");
+        if (runtime.check("Window"))
+            runtime.start("Window", "Window", ServiceLaunch::Host);
 
-    if (runtime.check("IOSubsystem"))
-        runtime.configure("IOSubsystem");
+        if (runtime.check("ActionMap"))
+            runtime.configure("ActionMap");
 
-    runtime.roote()->configureAll();
+        if (runtime.check("IOSubsystem"))
+            runtime.configure("IOSubsystem");
 
-    // Lattice::ConfigPaths paths;
-    // paths.userDir = "User";
-    // paths.pluginDirs = { "Plugins" };
-    // paths.projectFile = "lattice.toml";
-
-    // Lattice::ConfigLoader loader(std::move(paths));
-    // Lattice::Config cfg = loader.load();
-
-    // for (auto& w : cfg.warnings())
-    //     Logger::warning("Config", "{}", w);
-
-    // Lattice:: applyBinds(cfg);
-    
-    runtime.run();
-    return 0;
+        runtime.roote()->configureAll();
+        runtime.run();
+        return 0;
+    } catch (const std::exception& error) {
+        runtime.reportException(error);
+    } catch (...) {
+        runtime.reportUnknownException();
+    }
+    return 1;
 }
 
 int main(int argc, char** argv) { return runApplication(argc, argv); }

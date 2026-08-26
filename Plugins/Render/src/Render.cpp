@@ -71,7 +71,7 @@ void Render::ensureSurface(WindowAPI& window) {
     const auto n = window.native();
     frameState->surface = gpu_->createSurface(window.native());
     if (!frameState->surface)
-        throw std::runtime_error("Render: failed to create surface");
+        throw Lattice::Exception(tag, "failed to create surface");
 }
 
 void Render::resize(uint32_t w, uint32_t h) {

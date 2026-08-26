@@ -14,6 +14,7 @@ namespace GPU {
 }
 
 class Render {
+    static constexpr std::string_view tag = "Render";
 public:
     explicit Render(Lattice::Components& renderer);
     void setup();

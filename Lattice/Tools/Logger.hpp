@@ -1,11 +1,13 @@
 #pragma once
 
 #include <chrono>
+#include <filesystem>
 #include <format>
-#include <iostream>
 #include <mutex>
+#include <memory>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include <Lattice/Tools/LogStyle.hpp>
 
@@ -25,12 +27,21 @@ public:
         Info,
         Warning,
         Error,
-        Fatal,
+        Exception,
         Ok,
     };
 
+    static std::filesystem::path logPath() {
+        return std::filesystem::path("Logs") / "lattice.log";
+    }
+
     static void setConsoleMode(ConsoleMode mode) noexcept;
     static ConsoleMode consoleMode() noexcept;
+
+    template <typename... TArgs>
+    static void message(std::format_string<TArgs...> format, TArgs&&... args) {
+        print(std::format(format, std::forward<TArgs>(args)...));
+    }
 
     template <typename... TArgs>
     static void action(std::string_view tag, std::format_string<TArgs...> format, TArgs&&... args) {
@@ -63,8 +74,8 @@ public:
     }
 
     template <typename... TArgs>
-    static void fatal(std::string_view tag, std::format_string<TArgs...> format, TArgs&&... args) {
-        print(Level::Fatal, tag, std::format(format, std::forward<TArgs>(args)...));
+    static void exception(std::string_view tag, std::format_string<TArgs...> format, TArgs&&... args) {
+        print(Level::Exception, tag, std::format(format, std::forward<TArgs>(args)...));
     }
 
     template <typename... TArgs>
@@ -80,7 +91,7 @@ public:
     }
 
 private:
-    // static void printTree(const std::string& message);
+    static void print(const std::string& message);
     static void print(Level level, std::string_view tag, const std::string& message);
     static std::mutex& mutex();
 

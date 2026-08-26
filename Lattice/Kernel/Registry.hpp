@@ -4,12 +4,12 @@
 #include <string_view>
 #include <unordered_map>
 #include <vector>
-#include <stdexcept>
 #include <format>
 #include <type_traits>
 #include <algorithm>
 
 #include <Lattice/Kernel/TypeName.hpp>
+#include "Lattice/Kernel/Exception.hpp"
 #include <Lattice/Tools/Logger.hpp>
 
 namespace Lattice {
@@ -23,6 +23,7 @@ concept HasConfigure = requires(T& obj, Components& branch) {
 
 class Registry {
 public:
+    static constexpr std::string_view tag = "Registry";
     using CreateFn     = void* (*)(Components*);
     using DestroyFn    = void  (*)(void*);
     using GetAPIFn     = void* (*)(void*);
@@ -66,9 +67,9 @@ public:
 
         auto [it, inserted] = types.emplace(entry.name, std::move(entry));
         if (!inserted)
-            throw std::runtime_error(std::format("Type '{}' already registered", name));
+            throw Lattice::Exception(tag, "Type '{}' already registered", name);
 
-        Logger::info("Registry", "+ cmpt {}", name);
+        Logger::info(tag, "+ cmpt {}", name);
     }
 
     // -------------------------------------------------------------------------
@@ -102,19 +103,19 @@ public:
 
         auto [it, inserted] = types.emplace(entry.name, std::move(entry));
         if (!inserted)
-            throw std::runtime_error(std::format("Implementation '{}' already registered", name));
+            throw Lattice::Exception(tag, "Implementation '{}' already registered", name);
 
         // Запоминаем, что этот тип реализует API
         apiToImpls[implements].push_back(name);
 
-        Logger::info("Registry", "+ impl {} -> {}", name, implements);
+        Logger::info(tag, "+ impl {} -> {}", name, implements);
     }
 
     template<typename API>
     void registerAPI() {
         // просто запоминаем имя API, без create/destroy
         apiToImpls.try_emplace(std::string(typeName<API>()));
-        Logger::info("Registry", "+ api  {}", typeName<API>());
+        Logger::info(tag, "+ api  {}", typeName<API>());
     }
 
     // -------------------------------------------------------------------------
@@ -189,7 +190,7 @@ public:
     TypeEntry& require() {
         auto it = types.find(std::string(typeName<T>()));
         if (it == types.end()) {
-            throw std::runtime_error(std::format("Type '{}' not registered", typeName<T>()));
+            throw Lattice::Exception(tag, "Type '{}' not registered", typeName<T>());
         }
         return it->second;
     }
@@ -202,13 +203,13 @@ public:
     template<typename API>
     const TypeEntry& requireImpl(std::string_view id) const {
         if (!hasImpl<API>(id)) {
-            throw std::runtime_error(std::format("Implementation '{}' not found for API '{}'", id, typeName<API>()));
+            throw Lattice::Exception(tag, "Not found implementation '{}' for API '{}'", id, typeName<API>());
         }
         return types.at(std::string(id));
     }
 
     void printRegistryTree() const {
-        Logger::Tree tree{"Registry"};
+        Logger::Tree tree{tag};
 
         for (const auto& [api, impls] : apiToImpls) {
             tree.node(api, 0);

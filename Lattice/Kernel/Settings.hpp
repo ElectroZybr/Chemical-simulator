@@ -13,6 +13,8 @@
 #include <glm/vec3.hpp>
 #include <glm/vec4.hpp>
 
+#include <Lattice/Kernel/Exception.hpp>
+
 namespace Lattice {
 
 enum class ParamType { Bool, Int, Double, Vec2, Vec3, Vec4, String, Action };
@@ -31,6 +33,7 @@ class Settings {
 public:
     using Value = std::variant<bool, int64_t, double, glm::vec2, glm::vec3, glm::vec4, std::string>;
 private:
+    static constexpr std::string_view tag = "Settings";
     struct Entry {
         ParamInfo info;
         std::function<Value()>            get = nullptr;
@@ -76,9 +79,9 @@ public:
     std::function<void()> handler(std::string_view key) const {
         const auto& e = find(std::string(key));
         if (e.info.type != ParamType::Action)
-            throw std::runtime_error("Settings: not an action: " + std::string(key));
+            throw Lattice::Exception(tag, "Settings: not an action: ", std::string(key));
         if (!e.handler)
-            throw std::runtime_error("Settings: action has no handler: " + std::string(key));
+            throw Lattice::Exception(tag, "Settings: action has no handler: ", std::string(key));
         return e.handler;
     }
 
@@ -116,7 +119,7 @@ public:
         return [this, k] {
             auto& e = find(k);
             if (e.info.type != ParamType::Bool)
-                throw std::runtime_error("toggle expects bool: " + k);
+                throw Lattice::Exception(tag, "toggle expects bool: ", k);
             const bool v = std::get<bool>(e.get());
             e.set(Value{!v});
         };
@@ -133,7 +136,7 @@ public:
                 int64_t v = std::get<int64_t>(e.get());
                 e.set(Value{v + static_cast<int64_t>(delta)});
             } else {
-                throw std::runtime_error("add expects int/double: " + k);
+                throw Lattice::Exception(tag, "add expects int/double: ", k);
             }
         };
     }
@@ -181,7 +184,7 @@ public:
             e.set(Value{std::string(str)});
             break;
         default:
-            throw std::runtime_error("unsupported type for string set");
+            throw Lattice::Exception(tag, "unsupported type for string set");
         }
     }
 
@@ -212,7 +215,7 @@ private:
     Entry& find(const std::string& key) {
         auto it = entries_.find(key);
         if (it == entries_.end())
-            throw std::runtime_error("Settings: unknown param '" + key + "'");
+            throw Lattice::Exception(tag, "Settings: unknown param '{}'", key);
         return it->second;
     }
 

@@ -10,6 +10,7 @@
 namespace GPU {
 
 class WGPU {
+    static constexpr std::string_view tag = "WGPU";
 public:
     void init();
     void initHeadless();

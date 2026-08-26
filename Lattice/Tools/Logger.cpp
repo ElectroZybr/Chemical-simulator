@@ -1,4 +1,5 @@
 #include <Lattice/Tools/Logger.hpp>
+#include "Lattice/Tools/LogStyle.hpp"
 
 #include <atomic>
 #include <chrono>
@@ -37,8 +38,9 @@ std::string timestampForLogLine() {
 
 std::ofstream& logFile() {
     static std::ofstream file = [] {
-        std::filesystem::create_directories("Logs");
-        std::ofstream out(std::filesystem::path("Logs") / "latticelab.log", std::ios::out | std::ios::trunc);
+        const auto path = Logger::logPath();
+        std::filesystem::create_directories(path.parent_path());
+        std::ofstream out(path, std::ios::out | std::ios::trunc);
         return out;
     }();
     return file;
@@ -56,10 +58,10 @@ LevelStyle levelStyle(Logger::Level level) {
         case Level::Info:
             return {"INFO", "•", Color::brightWhite, Logger::ConsoleMode::Verbose, false};
         case Level::Warning:
-            return {"WARN", "⚠", Color::warning, Logger::ConsoleMode::Default, true};
+            return {"WARN", "⚠", Color::yellow, Logger::ConsoleMode::Default, true};
         case Level::Error:
-            return {"ERROR", "✗", Color::error, Logger::ConsoleMode::Default, true};
-        case Level::Fatal:
+            return {"ERROR", "⚠", Color::error, Logger::ConsoleMode::Default, true};
+        case Level::Exception:
             return {"FATAL", "✗", Color::error, Logger::ConsoleMode::Default, true};
         case Level::Ok:
             return {"OK", "✓", Color::ok, Logger::ConsoleMode::Default, false};
@@ -71,19 +73,6 @@ std::string makePlainLine(std::string_view label, std::string_view tag, std::str
     return std::format("[{}] [{}] {}", label, tag, message);
 }
 
-std::string makeConsoleLine(std::string_view status, std::string_view color, std::string_view tag, std::string_view message) {
-    return std::format(
-        "{}{}{} [{}{}{}] {}{}{}",
-        color,
-        status,
-        Color::reset,
-        Color::bold,
-        tag,
-        Color::reset,
-        Color::gray,
-        message,
-        Color::reset);
-}
 } // helpers
 
 void Logger::treeLine(std::string_view message) {
@@ -118,6 +107,20 @@ std::mutex& Logger::mutex() {
     return consoleMutex;
 }
 
+void Logger::print(const std::string& message) {
+    std::lock_guard lock(mutex());
+
+    std::ofstream& file = logFile();
+    if (file.is_open()) {
+        file << timestampForLogLine()
+             << ' '
+             << message
+             << '\n';
+        file.flush();
+    }
+    std::cout << message << '\n';
+}
+
 void Logger::print(Level level, std::string_view tag, const std::string& message) {
     std::lock_guard lock(mutex());
     const LevelStyle style = levelStyle(level);
@@ -137,6 +140,32 @@ void Logger::print(Level level, std::string_view tag, const std::string& message
     }
 
     std::ostream& stream = style.useStdErr ? std::cerr : std::cout;
-    const std::string consoleLine = makeConsoleLine(style.status, style.color, tag, message);
+    std::string consoleLine;
+    switch (level) {
+        case Level::Exception:
+        stream << std::format("{}{}{} [{}{}{}] {}{}{}{}",
+            style.color, style.status, Color::reset,
+            Color::bold, tag,          Color::reset,
+            Color::red, Color::bold,  message,      Color::reset) << '\n';
+        return;
+        case Level::Warning:
+        consoleLine = std::format("{}{}{} [{}{}{}] {}{}{}",
+            style.color, style.status, Color::reset,
+            Color::bold, tag,          Color::reset,
+            Color::yellow, message,      Color::reset);
+        break;
+        case Level::Error:
+        consoleLine = std::format("{}{}{} [{}{}{}] {}{}{}",
+            style.color, style.status, Color::reset,
+            Color::bold, tag,          Color::reset,
+            Color::brightRed, message,      Color::reset);
+        break;
+        default:
+        consoleLine = std::format("{}{}{} [{}{}{}] {}{}{}",
+            style.color, style.status, Color::reset,
+            Color::bold, tag,          Color::reset,
+            Color::gray, message,      Color::reset);
+        break;
+    }
     stream << consoleLine << '\n';
 }

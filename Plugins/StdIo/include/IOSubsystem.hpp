@@ -22,6 +22,7 @@
 class IOSubsystem final : public SubsystemAPI {
 public:
     explicit IOSubsystem(Lattice::Components& ioBranch) {
+        components = &ioBranch;
         loaders = ioBranch.addImpls<LoaderAPI>();
         parsers = ioBranch.addImpls<ParserAPI>();
         Lattice::Settings* settings = ioBranch.require<Lattice::Settings>(); 
@@ -49,6 +50,7 @@ public:
     }
 
 private:
+    Lattice::Components* components = nullptr;
     ParserAPI* findParser(const std::filesystem::path& path) {
         for (ParserAPI* parser : parsers)
             if (parser && parser->extension() == path.extension())

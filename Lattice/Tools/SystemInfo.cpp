@@ -178,7 +178,7 @@ namespace {
         #endif
         }
 
-        constexpr std::string detectCompilerName() {
+        std::string detectCompilerName() {
         #if defined(__clang__)
             return std::format("Clang {}", __clang_version__);
         #elif defined(__GNUC__)

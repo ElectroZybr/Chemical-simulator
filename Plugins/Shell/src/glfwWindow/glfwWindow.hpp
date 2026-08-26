@@ -39,6 +39,7 @@ public:
     const Input::Mouse& mouse() const override { return mouse_; }
 
 private:
+    static constexpr std::string_view tag = "glfwWindow";
     static void posCallback(GLFWwindow* w, int x, int y);
     static void sizeCallback(GLFWwindow* w, int width, int height);
     static void maximizeCallback(GLFWwindow* w, int maximized);

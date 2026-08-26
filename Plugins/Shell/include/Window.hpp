@@ -37,8 +37,10 @@ public:
 
         actionMap->set("verlet.dt");
         actionMap->set("actions.print");
+        actionMap->set("io.load");
         actionMap->bindAdd("verlet.dt", "MouseLeft", +0.001);
         actionMap->bind("actions.print", "Ctrl+S");
+        actionMap->bind("io.load", "Ctrl+O");
     }
 
     void run() override {
