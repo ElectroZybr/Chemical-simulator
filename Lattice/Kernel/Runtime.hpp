@@ -5,20 +5,22 @@
 #include <iostream>
 #include <thread>
 
-#include "Lattice/Kernel/ServiceAPI.hpp"
-#include "Lattice/Kernel/SubsystemAPI.hpp"
-#include "Lattice/Kernel/PluginManager.hpp"
-#include "Lattice/Kernel/Components.hpp"
-#include "Lattice/Kernel/Requirements.hpp"
+#include <Lattice/Kernel/ServiceAPI.hpp>
+#include <Lattice/Kernel/SubsystemAPI.hpp>
+#include <Lattice/Kernel/PluginManager.hpp>
+#include <Lattice/Kernel/StartupConfig.hpp>
+#include <Lattice/Kernel/Requirements.hpp>
+#include <Lattice/Kernel/Components.hpp>
 #include <Lattice/Kernel/Exception.hpp>
-#include "Lattice/Kernel/Settings.hpp"
+#include <Lattice/Kernel/Settings.hpp>
+#include <Lattice/Tools/SystemInfo.hpp>
 #include "Lattice/Tools/LogStyle.hpp"
 #include "Lattice/Tools/Logger.hpp"
-#include <Lattice/Tools/SystemInfo.hpp>
 
 
 namespace Lattice {
 class Runtime {
+    static constexpr std::string_view tag = "Runtime";
 public:
     Runtime() : root(&globalRegistry, nullptr) {
         Logger::action(tag, "System launching");
@@ -38,53 +40,131 @@ public:
         return true;
     }
 
-    SubsystemAPI& configure(std::string_view id, std::string_view instanceName = "default") {
-        return root.add<SubsystemAPI>(id, instanceName);
-    }
+    void buildBranch(const StartupEntry& entry, std::string_view name = "default") {
+        Logger::Scope scope(tag, "Start component '{}' with name '{}'", entry.name, name);
+        if (globalRegistry.hasImpl<ServiceAPI>(entry.name)) {
+            root.add<ServiceAPI>(entry.name, name);
 
-    bool check(std::string_view id) {
-        return checkRequirements(id, globalRegistry);
-    }
+            if (entry.host) {
+                if (!hostName.empty())
+                    throw Lattice::Exception(tag, "Runtime already has a host service");
 
-    ServiceAPI& start(std::string_view id, std::string_view instanceName = "default", ServiceLaunch launch = ServiceLaunch::Worker) {
-        Logger::Scope scope(tag, "Start ServiceAPI '{}' with name '{}'", id, instanceName);
-        ServiceAPI& service = root.add<ServiceAPI>(id, instanceName);
+                hostName = entry.name;
+                Logger::info(tag, "Host service '{}'", entry.name);
+            }
 
-        if (launch == ServiceLaunch::Host) {
-            if (!hostName.empty())
-                throw Lattice::Exception("", "Runtime already has a host service");
-            hostName = instanceName;
-            Logger::info(tag, "Host service '{}'", instanceName);
-        } else {
-            service.start();
-        }
-
-        scope.finish("Configure '{}' done", instanceName);
-        return service;
-    }
-
-    void run() {
-        if (!hostName.empty()) {
-            auto test = root.get<ServiceAPI>(hostName);
-
-            Logger::info(
-                tag,
-                "Host lookup immediately after add: {}",
-                test ? "FOUND" : "NOT FOUND"
-            );
-            auto* host = root.require<ServiceAPI>(hostName);
-            host->enter();
-            stopAll();
+            scope.finish("Start '{}' done", entry.name);
             return;
         }
-        while (running)
-            std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
-        stopAll();
+        if (globalRegistry.hasImpl<SubsystemAPI>(entry.name)) {
+            root.add<SubsystemAPI>(entry.name, name);
+            scope.finish("Start '{}' done", entry.name);
+            return;
+        }
+
+        throw Lattice::Exception(tag, "unknown component '{}'", entry.name);
     }
 
+    void startServices(const StartupConfig& config) {
+        for (const auto& entry : config.entries()) {
+            if (!entry.enabled || entry.host)
+                continue;
+
+            if (!globalRegistry.hasImpl<ServiceAPI>(entry.name))
+                continue;
+
+            auto service = root.require<ServiceAPI>(entry.name);
+            service->start();
+
+            Logger::info(tag, "Started service '{}'", entry.name);
+        }
+    }
+
+    void run(int argc, char** argv) {
+        try {
+            Logger::ConsoleMode consoleMode = Logger::ConsoleMode::Trace;
+            std::filesystem::path configPath = "lattice.toml";
+            for (int i = 1; i < argc; ++i) {
+                const std::string_view arg = argv[i];
+                if (arg == "--trace") {
+                    consoleMode = Logger::ConsoleMode::Trace;
+                } else if (arg == "--verbose" || arg == "-v") {
+                    if (consoleMode != Logger::ConsoleMode::Trace) {
+                        consoleMode = Logger::ConsoleMode::Verbose;
+                    }
+                } else if (arg == "--config" || arg == "-c") {
+                    if (++i >= argc)
+                        throw Lattice::Exception(tag, "missing path for {}", arg);
+                    configPath = argv[i];
+                }
+            }
+
+            Logger::setConsoleMode(consoleMode);
+            StartupConfig config(configPath);
+            loadPlugins("Plugins");
+            // const std::vector<StartupEntry> startOrder = startSort(config);
+            for (const auto& entry : config.entries())
+                buildBranch(entry);
+            root.configureAll();
+            startServices(config);
+
+            if (!hostName.empty()) {
+                auto host = root.require<ServiceAPI>(hostName);
+                host->enter();
+            } else {
+                while (running)
+                    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+            }
+            stopAll();
+        } catch (const std::exception& error) {
+            reportException(error);
+        } catch (...) {
+            reportUnknownException();
+        }
+    }
+
+    // std::vector<StartupEntry> startSort(const StartupConfig& config) {
+    //     std::vector<StartupEntry> result;
+    //     std::unordered_set<std::string_view> visited;
+    //     std::unordered_set<std::string_view> visiting;
+    //     std::unordered_map<std::string_view, const StartupEntry*> configured;
+
+    //     for (const auto& entry : config.entries())
+    //         configured.emplace(entry.name, &entry);
+
+    //     auto visit = [&](auto&& self, std::string_view name) -> void {
+    //         if (visited.contains(name))
+    //             return;
+
+    //         if (!visiting.insert(name).second)
+    //             throw Lattice::Exception(tag, "circular dependency involving '{}'", name);
+
+    //         for (const auto& requirement : uniqueList(name, globalRegistry))
+    //             self(self, requirement);
+
+    //         visiting.erase(name);
+    //         visited.insert(name);
+
+    //         if (auto it = configured.find(name); it != configured.end())
+    //             result.push_back(*it->second);
+    //         else
+    //             result.push_back(StartupEntry{
+    //                 .name = std::string(name),
+    //                 .enabled = true
+    //             });
+    //     };
+
+    //     for (const auto& entry : config.entries()) {
+    //         if (entry.enabled)
+    //             visit(visit, entry.name);
+    //     }
+
+    //     return result;
+    // }
+
     void stop(std::string_view instanceName) {
-        auto* service = root.get<ServiceAPI>(instanceName).get();
+        auto service = root.find<ServiceAPI>(instanceName).get();
 
         if (!service)
             return;
@@ -101,10 +181,10 @@ public:
     }
 
     Registry& registry() noexcept { return globalRegistry; }
-    Components* roote() { return &root; }
 
     void reportException(const std::exception& error) const {
         auto* fatal = dynamic_cast<const Lattice::Exception*>(&error);
+        Logger::message("\n{}~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~{}", Color::red, Color::reset);
         if (fatal) {
             Logger::exception(fatal->tag(), "{}", error.what());
             Logger::message("{}Dump components tree (failed node is red):{}", Color::gray, Color::reset);
@@ -114,8 +194,9 @@ public:
             Logger::message("{}Dump components tree{}", Color::gray, Color::reset);
             root.dumpTree();
         }
-        Logger::message("\n{}{}Critical error. application terminated.{}", Color::red, Color::bold, Color::reset);
-        Logger::message("{}{}Crash log: {}{}\n", Color::gray, Color::bold, std::string(Logger::logPath()), Color::reset);
+        Logger::message("\n{}{}Critical error. Application terminated.{}", Color::red, Color::bold, Color::reset);
+        Logger::message("{}{}Crash log: {}{}", Color::gray, Color::bold, std::string(Logger::logPath()), Color::reset);
+        Logger::message("{}~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~{}\n", Color::red, Color::reset);
     }
 
     void reportUnknownException() const {
@@ -130,7 +211,6 @@ private:
         root.stopServices();
     }
 
-    static constexpr std::string_view tag = "Runtime";
     Registry globalRegistry;
     PluginManager pluginManager;
     Components root;

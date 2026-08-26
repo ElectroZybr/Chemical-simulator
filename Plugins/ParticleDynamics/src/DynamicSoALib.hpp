@@ -2,15 +2,13 @@
 
 #include <cassert>
 #include <cstddef>
-#include <stdexcept>
-#include <format>
 #include <cstring>
 #include <span>
 #include <type_traits>
 #include <utility>
 #include <vector>
 
-#include "Lattice/Kernel/TypeName.hpp"
+#include <Lattice/Kernel/TypeName.hpp>
 #include <Lattice/Kernel/Exception.hpp>
 
 class DynamicSoA {
@@ -135,7 +133,7 @@ public:
         if (!column) {
             throw Lattice::Exception(tag, "Column '{}' not found", Tag::name);
         }
-        return reinterpret_cast<T*>(storage_ + column.offset);
+        return reinterpret_cast<T*>(storage_ + column->offset);
     }
 
     template<class Tag>
@@ -145,7 +143,7 @@ public:
         if (!column) {
             throw Lattice::Exception(tag, "Column '{}' not found", Tag::name);
         }
-        return reinterpret_cast<const T*>(storage_ + column.offset);
+        return reinterpret_cast<const T*>(storage_ + column->offset);
     }
     // -------
     // span

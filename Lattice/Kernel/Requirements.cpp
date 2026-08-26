@@ -8,157 +8,165 @@
 #include <unordered_set>
 
 namespace Lattice {
-namespace {
 
 using ProvidedIndex = std::unordered_map<std::string, const PluginCatalog*>;
 
-ProvidedIndex indexProvided() {
-    ProvidedIndex byProvided;
-    for (const auto& catalog : pluginCatalogs()) {
+namespace {
+
+ProvidedIndex makeProvidedIndex() {
+    ProvidedIndex result;
+    for (const auto& catalog : pluginCatalogs())
         for (const auto& provided : catalog.provided)
-            byProvided.emplace(provided, &catalog);
-    }
-    return byProvided;
+            result.emplace(provided, &catalog);
+    return result;
 }
 
-const PluginCatalog* catalogFor(const ProvidedIndex& byProvided, const std::string& type) {
-    auto it = byProvided.find(type);
-    return it == byProvided.end() ? nullptr : it->second;
+const PluginCatalog* findCatalog(std::string_view name, const ProvidedIndex& index) {
+    auto it = index.find(std::string(name));
+    return it == index.end() ? nullptr : it->second;
 }
 
-bool producedHere(const PluginCatalog& catalog, const std::string& type) {
-    for (const auto& dep : catalog.deps) {
-        if ((dep.kind == DepKind::Add || dep.kind == DepKind::Use) && dep.type == type)
-            return true;
-    }
-    return false;
-}
-
-void emitAdded(
+void appendComposition(
     Logger::Tree& tree,
     const std::string& type,
     size_t depth,
-    const ProvidedIndex& byProvided,
-    std::unordered_set<std::string>& seenAdds)
+    const ProvidedIndex& index,
+    std::unordered_set<std::string>& seen)
 {
-    if (!seenAdds.insert(type).second)
+    if (!seen.insert(type).second)
         return;
 
-    const PluginCatalog* catalog = catalogFor(byProvided, type);
+    const auto* catalog = findCatalog(type, index);
     if (!catalog)
         return;
 
-    std::unordered_set<std::string> emitted;
     for (const auto& dep : catalog->deps) {
-        if (dep.type == type)
-            continue;
-        if (!emitted.insert(dep.type).second)
-            continue;
-
         tree.node(dep.type, depth);
+
         if (dep.kind == DepKind::Add)
-            emitAdded(tree, dep.type, depth + 1, byProvided, seenAdds);
+            appendComposition(tree, dep.type, depth + 1, index, seen);
     }
 }
 
-void printCompositionTree(
-    std::string_view implName,
-    const PluginCatalog& catalog,
-    const ProvidedIndex& byProvided)
-{
-    Logger::Tree tree{std::string(implName)};
-    std::unordered_set<std::string> emitted;
-    std::unordered_set<std::string> seenAdds;
-    seenAdds.insert(std::string(implName));
+ProvidedIndex indexProvided() {
+    ProvidedIndex result;
 
-    for (const auto& dep : catalog.deps) {
-        if (dep.kind == DepKind::Require && producedHere(catalog, dep.type))
-            continue;
-        if (dep.kind != DepKind::Require && dep.kind != DepKind::Add && dep.kind != DepKind::Use)
-            continue;
-        if (!emitted.insert(dep.type).second)
-            continue;
+    for (const auto& catalog : pluginCatalogs())
+        for (const auto& provided : catalog.provided)
+            result.emplace(provided, &catalog);
 
-        tree.node(std::format("{}", dep.type), 0);
-        if (dep.kind == DepKind::Add)
-            emitAdded(tree, dep.type, 1, byProvided, seenAdds);
-    }
-    tree.print();
+    return result;
 }
 
-void collectUniqueTypes(
-    const PluginCatalog& catalog,
-    const ProvidedIndex& byProvided,
-    const Registry& registry,
-    std::unordered_set<const PluginCatalog*>& seenCatalogs,
-    std::unordered_set<std::string>& seenTypes,
-    std::vector<std::string>& types,
-    std::unordered_set<std::string>& optionalImpls)
+const PluginCatalog* catalogFor(const ProvidedIndex& index, std::string_view name) {
+    auto it = index.find(std::string(name));
+    return it != index.end() ? it->second : nullptr;
+}
+
+std::vector<std::string> collectUniqueList(
+    std::string_view name,
+    const ProvidedIndex& index)
 {
-    if (!seenCatalogs.insert(&catalog).second)
-        return;
+    std::vector<std::string> result;
+    const auto* catalog = catalogFor(index, std::string(name));
+    if (!catalog)
+        return result;
 
-    auto push = [&](const std::string& type) {
-        if (type.empty())
-            return;
-        if (seenTypes.insert(type).second)
-            types.push_back(type);
-    };
+    std::unordered_set<std::string> seen;
 
-    for (const auto& dep : catalog.deps) {
-        push(dep.type);
-        if (!dep.impl.empty()) {
-            push(dep.impl);
-            optionalImpls.insert(dep.impl);
-        }
+    auto walk = [&](auto&& self, const PluginCatalog& current) -> void {
+        for (const auto& dep : current.deps) {
+            if (dep.kind == DepKind::Require && seen.insert(dep.type).second)
+                result.push_back(dep.type);
 
-        if (const Registry::TypeEntry* entry = registry.find(dep.type))
-            push(entry->implements);
-
-        if (dep.kind == DepKind::Use) {
-            for (const auto& impl : registry.implementationsOf(dep.type)) {
-                push(impl);
-                optionalImpls.insert(impl);
+            if (dep.kind == DepKind::Add) {
+                if (const auto* child = catalogFor(index, dep.type))
+                    self(self, *child);
             }
         }
+    };
 
-        if (dep.kind == DepKind::Add) {
-            if (const PluginCatalog* next = catalogFor(byProvided, dep.type))
-                collectUniqueTypes(*next, byProvided, registry, seenCatalogs, seenTypes, types, optionalImpls);
-        }
-    }
-}
-
-void printUniqueList(
-    const PluginCatalog& catalog,
-    const ProvidedIndex& byProvided,
-    const Registry& registry,
-    bool& ok)
-{
-    std::unordered_set<const PluginCatalog*> seenCatalogs;
-    std::unordered_set<std::string> seenTypes;
-    std::unordered_set<std::string> optionalImpls;
-    std::vector<std::string> types;
-    collectUniqueTypes(catalog, byProvided, registry, seenCatalogs, seenTypes, types, optionalImpls);
-
-    Logger::Tree tree{"Dependencies"};
-    for (const auto& type : types) {
-        const bool has = registry.has(type);
-        const bool optional = optionalImpls.contains(type);
-        const std::string mark = optional
-            ? Color::paint("○ ", Color::brightMagenta)
-            : has ? Color::paint("✓ ", Color::ok)
-                  : Color::paint("✗ ", Color::error);
-        tree.node(std::format("{}{}", mark, type), 0);
-        if (!has && !optional)
-            ok = false;
-        if (optional && !has)
-            ok = false;
-    }
-    tree.print();
+    walk(walk, *catalog);
+    return result;
 }
 
 } // namespace
+
+std::vector<std::string> uniqueList( std::string_view name, const Registry& registry) {
+    if (!registry.has(name)) {
+        Logger::error(tag, "unknown component '{}'", name);
+        return {};
+    }
+
+    const auto index = indexProvided();
+    if (!catalogFor(index, std::string(name))) {
+        Logger::error(tag, "no compile catalog for '{}'", name);
+        return {};
+    }
+
+    return collectUniqueList(name, index);
+}
+
+std::vector<std::string> printUniqueList(std::string_view name, const Registry& registry) {
+    const auto index = indexProvided();
+    const auto requirements = collectUniqueList(name, index);
+
+    Logger::Tree tree{"Dependencies"};
+
+    for (const auto& requirement : requirements) {
+        const bool exists = registry.has(requirement);
+
+        tree.node(std::format("{}{}",
+            exists ? Color::paint("✓ ", Color::ok)
+                   : Color::paint("✗ ", Color::error),
+            requirement
+        ));
+    }
+
+    tree.print();
+    return requirements;
+}
+
+bool check(std::string_view name, const Registry& registry) {
+    if (!registry.has(name)) {
+        Logger::error(tag, "unknown component '{}'", name);
+        return false;
+    }
+
+    const auto index = indexProvided();
+    if (!catalogFor(index, std::string(name))) {
+        Logger::error(tag, "no compile catalog for '{}'", name);
+        return false;
+    }
+
+    const auto requirements = collectUniqueList(name, index);
+
+    for (const auto& requirement : requirements) {
+        if (!registry.has(requirement)) {
+            Logger::error(tag, "{} check failed", name);
+            return false;
+        }
+    }
+
+    Logger::ok(tag, "{} check passed", name);
+    printCompositionTree(name);
+    return true;
+}
+
+void printCompositionTree(std::string_view name) {
+    const auto index = makeProvidedIndex();
+    const auto* catalog = findCatalog(name, index);
+
+    if (!catalog) {
+        Logger::error(tag, "no compile catalog for '{}'", name);
+        return;
+    }
+
+    Logger::Tree tree{std::string(name)};
+    std::unordered_set<std::string> seen;
+    appendComposition(tree, std::string(name), 0, index, seen);
+    tree.print();
+}
 
 std::vector<CompileDep>& compileDepSink() {
     static std::vector<CompileDep> sink;
@@ -171,56 +179,8 @@ std::vector<PluginCatalog>& pluginCatalogs() {
 }
 
 void recordPluginCatalog(PluginCatalog catalog) {
-    Logger::info("Requirements", "plugin '{}' compile deps: {}", catalog.pluginId, catalog.deps.size());
+    Logger::info(tag, "plugin '{}' compile deps: {}", catalog.pluginId, catalog.deps.size());
     pluginCatalogs().push_back(std::move(catalog));
-}
-
-std::vector<CompileDep> collectForService(std::string_view implName) {
-    const auto byProvided = indexProvided();
-    const PluginCatalog* root = catalogFor(byProvided, std::string(implName));
-    if (!root)
-        return {};
-
-    std::vector<CompileDep> out;
-    std::unordered_set<std::string> seenPlugins;
-
-    auto walk = [&](auto&& self, const PluginCatalog& catalog) -> void {
-        if (!seenPlugins.insert(catalog.pluginId).second)
-            return;
-        for (const auto& dep : catalog.deps) {
-            out.push_back(dep);
-            if (dep.kind != DepKind::Add)
-                continue;
-            if (const PluginCatalog* next = catalogFor(byProvided, dep.type))
-                self(self, *next);
-        }
-    };
-    walk(walk, *root);
-    return out;
-}
-
-bool checkRequirements(std::string_view implName, const Registry& registry) {
-    if (!registry.hasImpl("ServiceAPI", implName) && !registry.has(implName)) {
-        Logger::error("Requirements", "unknown service '{}'", implName);
-        return false;
-    }
-
-    const auto byProvided = indexProvided();
-    const PluginCatalog* catalog = catalogFor(byProvided, std::string(implName));
-    if (!catalog) {
-        Logger::error("Requirements", "no compile catalog for '{}'", implName);
-        return false;
-    }
-
-    bool ok = true;
-    printUniqueList(*catalog, byProvided, registry, ok);
-
-    if (!ok)
-        Logger::error("Requirements", "{} check failed", implName);
-    else
-        Logger::ok("Requirements", "{} check passed", implName);
-
-    return ok;
 }
 
 } // namespace Lattice

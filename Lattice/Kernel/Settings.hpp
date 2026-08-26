@@ -6,7 +6,6 @@
 #include <string>
 #include <functional>
 #include <variant>
-#include <stdexcept>
 #include <vector>
 
 #include <glm/vec2.hpp>

@@ -21,10 +21,13 @@ struct Render::FrameState {
 
 Render::Render(Lattice::Components& renderer)
     : frameState(std::make_unique<FrameState>()) {
-    settings = renderer.require<Lattice::Settings>();
-    gpu_ = renderer.add<GPU::WGPU>();
-    window_ = renderer.get<WindowAPI>();
-    Logger::info("Render", "render created");
+    renderer.add<GPU::WGPU>();
+}
+
+void Render::configure(Lattice::Components& renderer) {
+    settings_ = renderer.require<Lattice::Settings>();
+    gpu_ = renderer.require<GPU::WGPU>();
+    window_ = renderer.find<WindowAPI>();
 }
 
 void Render::setup() {
@@ -37,7 +40,6 @@ void Render::setup() {
 
 Render::~Render() {
     releaseFrameResources();
-    Logger::info("Render", "destroying object");
 }
 
 void Render::releaseFrameResources() {
@@ -160,8 +162,7 @@ void Render::frame() {
     passDesc.colorAttachments = &color;
     passDesc.depthStencilAttachment = frameState->depthView ? &depthAtt : nullptr;
 
-    WGPURenderPassEncoder pass =
-        wgpuCommandEncoderBeginRenderPass(encoder, &passDesc);
+    WGPURenderPassEncoder pass = wgpuCommandEncoderBeginRenderPass(encoder, &passDesc);
     wgpuRenderPassEncoderEnd(pass);
     wgpuRenderPassEncoderRelease(pass);
 

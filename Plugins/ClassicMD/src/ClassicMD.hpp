@@ -29,21 +29,22 @@ public:
     struct Id {using type = uint32_t;};
 
     explicit ClassicMD(Lattice::Components& universe) {
-        settings = universe.require<Lattice::Settings>();
-        atoms = universe.add<ParticleDynamics::ParticleStorage>();
-        spatialGrid = universe.use<ParticleDynamics::SpatialIndexAPI>("SpatialGrid");
-        integrator = universe.use<ParticleDynamics::IntegratorAPI>("Verlet");
+        universe.add<ParticleDynamics::ParticleStorage>();
+        universe.use<ParticleDynamics::SpatialIndexAPI>("SpatialGrid");
+        universe.use<ParticleDynamics::IntegratorAPI>("Verlet");
+    }
 
+    void configure(Lattice::Components& universe) {
+        settings = universe.require<Lattice::Settings>();
+        atoms = universe.require<ParticleDynamics::ParticleStorage>();
+        spatialGrid = universe.find<ParticleDynamics::SpatialIndexAPI>();
+        integrator = universe.find<ParticleDynamics::IntegratorAPI>();
         atoms->addCol<Energy>();
         atoms->addCol<Charge>();
         atoms->addCol<Type>();
         atoms->addCol<Valence>();
         atoms->addCol<Hybridization>();
         atoms->addCol<Id>();
-    }
-
-    void configure() {
-
     }
 
     void run() override {
@@ -67,10 +68,10 @@ public:
     }
 
 private:
-    Lattice::Settings* settings = nullptr;
-    Lattice::Slot<ParticleDynamics::IntegratorAPI> integrator;
-    ParticleDynamics::ParticleStorage* atoms = nullptr;
-    Lattice::Slot<ParticleDynamics::SpatialIndexAPI> spatialGrid;
+    Ref<Lattice::Settings> settings;
+    Ref<ParticleDynamics::ParticleStorage> atoms;
+    Slot<ParticleDynamics::IntegratorAPI> integrator;
+    Slot<ParticleDynamics::SpatialIndexAPI> spatialGrid;
 };
 
 } // namespace ClassicMD

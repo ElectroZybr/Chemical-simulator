@@ -168,9 +168,16 @@ bool monitorWorkArea(GLFWmonitor* monitor, int& x, int& y, int& w, int& h) {
 // ctor / dtor / move
 // ============================================================
 
-glfwWindow::glfwWindow(Lattice::Components& components) 
-    : keyboard_(components.add<InputAPI, Input::Keyboard>())
-    , mouse_(components.add<InputAPI, Input::Mouse>()) {
+glfwWindow::glfwWindow(Lattice::Components& branch) {
+    branch.add<InputAPI, Input::Keyboard>();
+    branch.add<InputAPI, Input::Mouse>();
+}
+
+void glfwWindow::configure(Lattice::Components& branch) {
+    keyboard_ = branch.require<Input::Keyboard>();
+    mouse_ = branch.require<Input::Mouse>();
+
+
     if (!glfwInit()) {
         throw Lattice::Exception(tag, "Failed to initialize GLFW");
     }
@@ -227,31 +234,31 @@ glfwWindow::glfwWindow(Lattice::Components& components)
         }
     }
 
-#ifdef _WIN32
-    if (HWND hwnd = glfwGetWin32Window(window_)) {
-        HINSTANCE inst = GetModuleHandleW(nullptr);
-        if (HICON big = static_cast<HICON>(LoadImageW(
-                inst, MAKEINTRESOURCEW(101), IMAGE_ICON, 256, 256, LR_DEFAULTCOLOR))) {
-            SendMessageW(hwnd, WM_SETICON, ICON_BIG, reinterpret_cast<LPARAM>(big));
+    #ifdef _WIN32
+        if (HWND hwnd = glfwGetWin32Window(window_)) {
+            HINSTANCE inst = GetModuleHandleW(nullptr);
+            if (HICON big = static_cast<HICON>(LoadImageW(
+                    inst, MAKEINTRESOURCEW(101), IMAGE_ICON, 256, 256, LR_DEFAULTCOLOR))) {
+                SendMessageW(hwnd, WM_SETICON, ICON_BIG, reinterpret_cast<LPARAM>(big));
+            }
+            if (HICON small = static_cast<HICON>(LoadImageW(
+                    inst, MAKEINTRESOURCEW(101), IMAGE_ICON, 32, 32, LR_DEFAULTCOLOR))) {
+                SendMessageW(hwnd, WM_SETICON, ICON_SMALL, reinterpret_cast<LPARAM>(small));
+            }
         }
-        if (HICON small = static_cast<HICON>(LoadImageW(
-                inst, MAKEINTRESOURCEW(101), IMAGE_ICON, 32, 32, LR_DEFAULTCOLOR))) {
-            SendMessageW(hwnd, WM_SETICON, ICON_SMALL, reinterpret_cast<LPARAM>(small));
-        }
-    }
-    Logger::info("Window", "created {}x{} at {},{} (Win32)", w, h, state_.x, state_.y);
-#else
-    const int platform = glfwGetPlatform();
-    const char* platformName =
-        platform == GLFW_PLATFORM_WAYLAND ? "Wayland" :
-        platform == GLFW_PLATFORM_X11 ? "X11" :
-        platform == GLFW_PLATFORM_COCOA ? "Cocoa" : "unknown";
-    Logger::info("Window", "created {}x{} at {},{} ({})", w, h, state_.x, state_.y, platformName);
-#ifdef __linux__
-    if (!iconPath.empty() && platform == GLFW_PLATFORM_X11)
-        applyX11Icon(window_, iconPath);
-#endif
-#endif
+        Logger::info("Window", "created {}x{} at {},{} (Win32)", w, h, state_.x, state_.y);
+    #else
+        const int platform = glfwGetPlatform();
+        const char* platformName =
+            platform == GLFW_PLATFORM_WAYLAND ? "Wayland" :
+            platform == GLFW_PLATFORM_X11 ? "X11" :
+            platform == GLFW_PLATFORM_COCOA ? "Cocoa" : "unknown";
+        Logger::info("Window", "created {}x{} at {},{} ({})", w, h, state_.x, state_.y, platformName);
+    #ifdef __linux__
+        if (!iconPath.empty() && platform == GLFW_PLATFORM_X11)
+            applyX11Icon(window_, iconPath);
+    #endif
+    #endif
 
     glfwSetWindowUserPointer(window_, this);
     glfwSetWindowPosCallback(window_, posCallback);
@@ -266,8 +273,8 @@ glfwWindow::glfwWindow(Lattice::Components& components)
 
     double x = 0.0, y = 0.0;
     glfwGetCursorPos(window_, &x, &y);
-    mouse_.setPosition(static_cast<float>(x), static_cast<float>(y));
-    mouse_.resetDelta();
+    mouse_->setPosition(static_cast<float>(x), static_cast<float>(y));
+    mouse_->resetDelta();
 
     if (!state_.fullscreen) {
         syncFromWindow();
@@ -323,8 +330,8 @@ void glfwWindow::requestClose() {
 }
 
 void glfwWindow::pollEvents() {
-    keyboard_.beginFrame();
-    mouse_.beginFrame();
+    keyboard_->beginFrame();
+    mouse_->beginFrame();
     glfwPollEvents();
 }
 
@@ -440,7 +447,7 @@ void glfwWindow::maximizeCallback(GLFWwindow* w, int maximized) {
 
 void glfwWindow::keyCallback(GLFWwindow* w, int key, int, int action, int) {
     if (auto* self = static_cast<glfwWindow*>(glfwGetWindowUserPointer(w))) {
-        self->keyboard_.onKey(Input::keyFromGlfw(key), Input::keyActionFromGlfw(action));
+        self->keyboard_->onKey(Input::keyFromGlfw(key), Input::keyActionFromGlfw(action));
     }
 }
 
@@ -449,18 +456,18 @@ void glfwWindow::mouseButtonCallback(GLFWwindow* w, int button, int action, int 
     if (!self) return;
     const auto btn = Input::mouseButtonFromGlfw(button);
     if (btn == Input::MouseButton::Count) return;
-    self->mouse_.onButton(btn, Input::buttonActionFromGlfw(action));
+    self->mouse_->onButton(btn, Input::buttonActionFromGlfw(action));
     Logger::debug("Window", "click");
 }
 
 void glfwWindow::cursorPosCallback(GLFWwindow* w, double x, double y) {
     if (auto* self = static_cast<glfwWindow*>(glfwGetWindowUserPointer(w)))
-        self->mouse_.onMove(static_cast<float>(x), static_cast<float>(y));
+        self->mouse_->onMove(static_cast<float>(x), static_cast<float>(y));
 }
 
 void glfwWindow::scrollCallback(GLFWwindow* w, double dx, double dy) {
     if (auto* self = static_cast<glfwWindow*>(glfwGetWindowUserPointer(w)))
-        self->mouse_.onScroll(static_cast<float>(dx), static_cast<float>(dy));
+        self->mouse_->onScroll(static_cast<float>(dx), static_cast<float>(dy));
 }
 
 void glfwWindow::onPos(int x, int y) {

@@ -11,7 +11,8 @@
 
 class glfwWindow final : public WindowAPI {
 public:
-    explicit glfwWindow(Lattice::Components& components);
+    explicit glfwWindow(Lattice::Components& branch);
+    void configure(Lattice::Components& branch);
 
     ~glfwWindow() override;
 
@@ -35,8 +36,8 @@ public:
     void show() override;
     void setTitle(std::string_view title) override;
 
-    const Input::Keyboard& keyboard() const override { return keyboard_; }
-    const Input::Mouse& mouse() const override { return mouse_; }
+    const Ref<Input::Keyboard> keyboard() const override { return keyboard_; }
+    const Ref<Input::Mouse> mouse() const override { return mouse_; }
 
 private:
     static constexpr std::string_view tag = "glfwWindow";
@@ -59,8 +60,8 @@ private:
     void applyWindowed();
     void applyFullscreen(GLFWmonitor* monitor);
 
-    Input::Keyboard& keyboard_;
-    Input::Mouse& mouse_;
+    Ref<Input::Keyboard> keyboard_;
+    Ref<Input::Mouse> mouse_;
     GLFWwindow* window_ = nullptr;
     State state_{};
 };

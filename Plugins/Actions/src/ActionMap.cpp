@@ -6,11 +6,13 @@
 #include <Lattice/Tools/Logger.hpp>
 
 
-ActionMap::ActionMap(Lattice::Components& branch)
-    : settings_(*branch.require<Lattice::Settings>())
-    , slots_(*branch.add<CommandSlots>()) {}
+ActionMap::ActionMap(Lattice::Components& branch) {
+    branch.add<CommandSlots>();
+}
 
 void ActionMap::configure(Lattice::Components& branch) {
+    settings_ = branch.require<Lattice::Settings>();
+    slots_ = branch.require<CommandSlots>();
     // находим все инпуты (устройства ввода)
     inputs_ = branch.globalCollect<InputAPI>();
 }
@@ -35,20 +37,20 @@ void ActionMap::set(std::string_view group, std::string_view action) {
 }
 
 void ActionMap::set(std::string_view id) {
-    auto cb = settings_.tryHandler(id);
+    auto cb = settings_->tryHandler(id);
 
     if (!cb) {
         Logger::warning("ActionMap", "no handler for '{}'", id);
         return;
     }
 
-    slots_.set(id, std::move(cb));
+    slots_->set(id, std::move(cb));
 
     Logger::info("ActionMap", "set '{}'", id);
 }
 
 void ActionMap::bind(std::string_view id, std::string_view trigger, ActionMode mode) {
-    auto* slot = slots_.getSlot(id);
+    auto* slot = slots_->getSlot(id);
     if (!slot) {
         Logger::warning("ActionMap", "slot '{}' not found", id);
         return;
@@ -59,13 +61,13 @@ void ActionMap::bind(std::string_view id, std::string_view trigger, ActionMode m
 }
 
 void ActionMap::bindToggle(std::string_view id, std::string_view trigger, ActionMode mode) {
-    if (!settings_.hasValue(id)) {
+    if (!settings_->hasValue(id)) {
         Logger::warning("ActionMap", "toggle target missing '{}'", id);
         return;
     }
 
     try {
-        slots_.addSlot(id).set(settings_.makeToggle(id));
+        slots_->addSlot(id).set(settings_->makeToggle(id));
         bind(id, trigger, mode);
     } catch (const std::exception& e) {
         Logger::warning("ActionMap", "toggle '{}': {}", id, e.what());
@@ -74,7 +76,7 @@ void ActionMap::bindToggle(std::string_view id, std::string_view trigger, Action
 
 void ActionMap::bindAdd(std::string_view id, std::string_view trigger, double delta, ActionMode mode) {
     try {
-        slots_.addSlot(id).set(settings_.makeAdd(id, delta));
+        slots_->addSlot(id).set(settings_->makeAdd(id, delta));
         bind(id, trigger, mode);
     } catch (const std::exception& e) {
         Logger::warning("ActionMap", "add '{}': {}", id, e.what());

@@ -19,31 +19,33 @@
 
 class Window final : public ServiceAPI {
 public:
-    explicit Window(Lattice::Components& branch)
-        : settings(*branch.require<Lattice::Settings>())
-        , window(branch.use<WindowAPI, glfwWindow>())
-        , render(branch.add<Render>())
-    {
+    explicit Window(Lattice::Components& branch) {
+        branch.use<WindowAPI, glfwWindow>();
+        branch.add<Render>();
         Logger::info("Window", "window created");
-        settings.on("actions", "print", [&]() { print(); });
-        // actionMap.set("actions", "print");
-
     }
 
     void configure(Lattice::Components& branch) {
+        settings = branch.require<Lattice::Settings>();
         actionMap = branch.require<ActionMap>();
+        render = branch.require<Render>();
+        window = branch.find<WindowAPI>();
+
+        settings->on("actions", "print", [&]() { print(); });
+
         window->show();
         window->setTitle("LatticeLab");
 
+
+    }
+
+    void run() override {
         actionMap->set("verlet.dt");
         actionMap->set("actions.print");
         actionMap->set("io.load");
         actionMap->bindAdd("verlet.dt", "MouseLeft", +0.001);
         actionMap->bind("actions.print", "Ctrl+S");
         actionMap->bind("io.load", "Ctrl+O");
-    }
-
-    void run() override {
         render->setup();
         while (!stopRequested()) {
             window->pollEvents();
@@ -63,10 +65,11 @@ public:
     }
 
 private:
-    Lattice::Settings& settings;
-    Lattice::Slot<WindowAPI> window;
-    Render* render = nullptr;
-    ActionMap* actionMap;
+    Ref<Lattice::Settings> settings;
+    Ref<ActionMap> actionMap;
+    Ref<Render> render;
+    Slot<WindowAPI> window;
+
     uint32_t fps;
     void print() {
         Logger::action("printer", "test");

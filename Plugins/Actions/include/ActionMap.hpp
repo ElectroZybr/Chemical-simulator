@@ -5,6 +5,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "Lattice/Kernel/RefSlot.hpp"
 #include "Lattice/Kernel/SubsystemAPI.hpp"
 
 #include "InputAPI.hpp"
@@ -60,10 +61,11 @@ private:
     bool pushBinding(std::string id, std::string_view trigger, ActionMode mode, CommandSlot& slot);
     ActionState& ensureAction(std::string_view id);
     const ActionState* findAction(std::string_view id) const;
+    
+    std::unordered_map<std::string, ActionState> actions_;
 
     std::vector<InputAPI*> inputs_;
     std::vector<Binding> bindings_;
-    std::unordered_map<std::string, ActionState> actions_;
-    CommandSlots slots_;
-    Lattice::Settings& settings_;
+    Ref<CommandSlots> slots_;
+    Ref<Lattice::Settings> settings_;
 };

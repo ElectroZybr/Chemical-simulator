@@ -2,8 +2,10 @@
 
 #include <string_view>
 #include <glm/vec2.hpp>
-#include "GPU/include/NativeWindow.hpp"
 
+#include <Lattice/Kernel/RefSlot.hpp>
+
+#include "GPU/include/NativeWindow.hpp"
 #include "NativeWindow.hpp"
 
 
@@ -33,8 +35,8 @@ public:
 
     // pump
     virtual void pollEvents() = 0;
-    virtual const Input::Keyboard& keyboard() const = 0;
-    virtual const Input::Mouse& mouse() const = 0;
+    virtual const Ref<Input::Keyboard> keyboard() const = 0;
+    virtual const Ref<Input::Mouse> mouse() const = 0;
 
     // geometry
     virtual glm::vec2 windowSize() const = 0;

@@ -22,11 +22,15 @@
 class IOSubsystem final : public SubsystemAPI {
 public:
     explicit IOSubsystem(Lattice::Components& ioBranch) {
-        components = &ioBranch;
-        loaders = ioBranch.addImpls<LoaderAPI>();
-        parsers = ioBranch.addImpls<ParserAPI>();
-        Lattice::Settings* settings = ioBranch.require<Lattice::Settings>(); 
+        ioBranch.addImpls<LoaderAPI>();
+        ioBranch.addImpls<ParserAPI>();
+    }
+
+    void configure(Lattice::Components& ioBranch) {
+        Ref<Lattice::Settings> settings = ioBranch.require<Lattice::Settings>(); 
         settings->on("io", "load", [&]() { load("Lattice.toml"); } );
+        loaders = ioBranch.localCollect<LoaderAPI>();
+        parsers = ioBranch.localCollect<ParserAPI>();
     }
 
     void load(const std::filesystem::path& path) {
@@ -50,7 +54,6 @@ public:
     }
 
 private:
-    Lattice::Components* components = nullptr;
     ParserAPI* findParser(const std::filesystem::path& path) {
         for (ParserAPI* parser : parsers)
             if (parser && parser->extension() == path.extension())

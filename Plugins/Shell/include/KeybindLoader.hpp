@@ -9,8 +9,9 @@
 
 class KeybindsLoader final : public LoaderAPI {
 public:
-    explicit KeybindsLoader(Lattice::Components& components)
-        : actionMap(*components.require<ActionMap>()) {}
+    void configure(Lattice::Components& branch) {
+        actionMap = branch.require<ActionMap>();
+    }
 
     void load(const Document& doc) override {
         throw Lattice::Exception("KeybindsLoader", "загрузка: о нет всему пизда!!!");
@@ -86,11 +87,11 @@ public:
                 }
 
                 if (op == "toggle")
-                    actionMap.bindToggle(path, *trigger, mode);
+                    actionMap->bindToggle(path, *trigger, mode);
                 else if (op == "add")
-                    actionMap.bindAdd(path, *trigger, delta, mode);
+                    actionMap->bindAdd(path, *trigger, delta, mode);
                 else
-                    actionMap.bind(path, *trigger, mode);
+                    actionMap->bind(path, *trigger, mode);
             }
         };
 
@@ -98,5 +99,5 @@ public:
     }
 
 private:
-    ActionMap& actionMap;
+    Ref<ActionMap> actionMap;
 };

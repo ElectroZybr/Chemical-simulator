@@ -3,43 +3,8 @@
 #include <string_view>
 
 int runApplication(int argc, char** argv) {
-    Logger::ConsoleMode consoleMode = Logger::ConsoleMode::Trace;
-    for (int i = 1; i < argc; ++i) {
-        const std::string_view arg = argv[i];
-        if (arg == "--trace") {
-            consoleMode = Logger::ConsoleMode::Trace;
-        } else if (arg == "--verbose" || arg == "-v") {
-            if (consoleMode != Logger::ConsoleMode::Trace) {
-                consoleMode = Logger::ConsoleMode::Verbose;
-            }
-        }
-    }
-
-    Logger::setConsoleMode(consoleMode);
     Lattice::Runtime runtime;
-    try {
-        runtime.loadPlugins("Plugins");
-        runtime.registry().printRegistryTree();
-        if (runtime.check("ClassicMD"))
-            runtime.start("ClassicMD", "Universe 1");
-
-        if (runtime.check("Window"))
-            runtime.start("Window", "Window", ServiceLaunch::Host);
-
-        if (runtime.check("ActionMap"))
-            runtime.configure("ActionMap");
-
-        if (runtime.check("IOSubsystem"))
-            runtime.configure("IOSubsystem");
-
-        runtime.roote()->configureAll();
-        runtime.run();
-        return 0;
-    } catch (const std::exception& error) {
-        runtime.reportException(error);
-    } catch (...) {
-        runtime.reportUnknownException();
-    }
+    runtime.run(argc, argv);
     return 1;
 }
 

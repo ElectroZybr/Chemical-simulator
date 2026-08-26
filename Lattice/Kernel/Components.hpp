@@ -7,74 +7,18 @@
 #include <vector>
 #include <utility>
 
-#include <Lattice/Tools/Logger.hpp>
 #include <Lattice/Kernel/Registry.hpp>
 #include <Lattice/Kernel/ServiceAPI.hpp>
 #include <Lattice/Kernel/Requirements.hpp>
-#include "Lattice/Kernel/Exception.hpp"
-#include "Lattice/Tools/LogStyle.hpp"
+#include <Lattice/Kernel/Exception.hpp>
+#include <Lattice/Kernel/RefSlot.hpp>
+#include <Lattice/Tools/LogStyle.hpp>
+#include <Lattice/Tools/Logger.hpp>
 
 namespace Lattice {
 
 class Components;
 class Registry;
-
-struct ComponentData {
-    Components* owner = nullptr;
-    std::string type;
-    void* instance = nullptr;
-    void* api = nullptr;
-    void (*destroy)(void*) = nullptr;
-    void (*configure)(void*, Components&) = nullptr;
-
-    ~ComponentData() {
-        if (instance && destroy)
-            destroy(instance);
-    }
-
-    void reset(void* newInstance, void* newT, void (*newDestroy)(void*),
-               void (*newConfigure)(void*, Components&) = nullptr) {
-        if (instance && destroy)
-            destroy(instance);
-
-        instance = newInstance;
-        api = newT;
-        destroy = newDestroy;
-        configure = newConfigure;
-    }
-};
-
-template<typename T>
-struct Slot {
-    ComponentData* data = nullptr;
-
-    Slot() = default;
-    explicit Slot(ComponentData* d) : data(d) {}
-
-    T* operator->() const {
-        return data ? static_cast<T*>(data->api) : nullptr;
-    }
-
-    T& operator*() const {
-        return *static_cast<T*>(data->api);
-    }
-
-    explicit operator bool() const {
-        return data && data->api;
-    }
-
-    T* get() const {
-        return data ? static_cast<T*>(data->api) : nullptr;
-    }
-
-    bool exists() const {
-        return data != nullptr;
-    }
-
-    bool ready() const {
-        return data && data->api;
-    }
-};
 
 class Components {
     static constexpr std::string_view tag = "Components";
@@ -156,16 +100,8 @@ class Components {
 
     template<typename T>
     void collectInto(std::vector<T*>& out) const {
-        const std::string type{typeName<T>()};
-
-        for (const auto& [key, data] : lookup) {
-            if (key.first != type)
-                continue;
-            if (!data || !data->instance)
-                continue;
-
-            out.push_back(static_cast<T*>(data->instance));
-        }
+        if (self.apiType == typeName<T>() && self.api)
+            out.push_back(static_cast<T*>(self.api));
 
         for (const auto& child : children)
             child->collectInto<T>(out);
@@ -191,11 +127,9 @@ public:
 
     // создает и возвращает объекты интерфейса <T> найденные в глобальном registry
     template<typename T>
-    std::vector<T*> addImpls() {
-        std::vector<T*> result;
+    void addImpls() {
         for (const auto& implName : registry->implementationsOf<T>())
-            result.push_back(&add<T>(implName, implName));
-        return result;
+            add<T>(implName, implName);
     }
 
     // возвращает объекты интерфейса <T> из текущего узла и его потомков
@@ -213,60 +147,72 @@ public:
     }
 
     template<typename T>
-    T& add(std::string_view implName, std::string_view instanceName = "default") {
+    void add(std::string_view implName, std::string_view instanceName) {
+        noteAdd<T>();
+
         const auto& entry = registry->requireImpl<T>(implName);
         Components* child = makeChild(instanceName, implName);
 
-        index(std::string(typeName<T>()), instanceName, &child->self);
+        // index(std::string(typeName<T>()), instanceName, &child->self);
         index(std::string(implName), instanceName, &child->self);
-
+        child->self.apiType = std::string(typeName<T>());
         void* instance = entry.create(child);
-        child->self.reset(instance, entry.getAPI(instance), entry.destroy, entry.configure);
+        child->self.reset(
+            instance,
+            entry.getAPI(instance),
+            entry.destroy,
+            entry.configure
+        );
 
         Logger::info(tag, "+ {} '{}' ({})", typeName<T>(), instanceName, implName);
-
-        return *static_cast<T*>(instance);
     }
 
     template<typename T, typename Impl>
-    Impl& add(std::string_view instanceName = {}) {
+    void add(std::string_view instanceName = "default") {
+        noteAdd<T>();
+
         const auto& entry = registry->requireImpl<T>(typeName<Impl>());
-        const std::string_view id = instanceName.empty()
-            ? typeName<Impl>()
-            : instanceName;
-        Components* child = makeChild(id, std::string(typeName<Impl>()));
+        Components* child = makeChild(instanceName, typeName<Impl>());
 
-        index(std::string(typeName<T>()), id, &child->self);
-        index(std::string(typeName<Impl>()), id, &child->self);
-
+        // index(std::string(typeName<T>()), instanceName, &child->self);
+        index(std::string(typeName<Impl>()), instanceName, &child->self);
+        child->self.apiType = std::string(typeName<T>());
         void* instance = entry.create(child);
-        child->self.reset(instance, entry.getAPI(instance), entry.destroy, entry.configure);
+        child->self.reset(
+            instance,
+            entry.getAPI(instance),
+            entry.destroy,
+            entry.configure
+        );
 
-        Logger::info(tag, "+ {} '{}' ({})", typeName<T>(), id, typeName<Impl>());
-
-        return *static_cast<Impl*>(instance);
+        Logger::info(tag, "+ {} '{}' ({})", typeName<T>(), instanceName, typeName<Impl>());
     }
 
     template<typename T>
-    T* add(std::string_view instanceName = "default") {
+    void add(std::string_view instanceName = "default") {
         noteAdd<T>();
-        if (auto existing = getLocal<T>(instanceName))
-            return existing.get();
+
+        if (getLocal<T>(instanceName).exists())
+            return;
 
         const Registry::TypeEntry* entry = registry->find(std::string(typeName<T>()));
-        if (!entry || !entry->create) {
+        if (!entry || !entry->create)
             throw Lattice::Exception(tag, "Component '{}' not found", typeName<T>());
-        }
 
-        Components* child = makeChild(instanceName, std::string(typeName<T>()));
+        Components* child = makeChild(instanceName, typeName<T>());
+        child->self.apiType = std::string(typeName<T>());
         void* instance = entry->create(child);
-        child->self.reset(instance, instance, entry->destroy, entry->configure);
+        child->self.reset(
+            instance,
+            instance,
+            entry->destroy,
+            entry->configure
+        );
+
         index(std::string(typeName<T>()), instanceName, &child->self);
-        child->index(std::string(typeName<T>()), instanceName, &child->self);
+        // child->index(std::string(typeName<T>()), instanceName, &child->self);
 
         Logger::info(tag, "+ {}", typeName<T>());
-
-        return static_cast<T*>(instance);
     }
 
     template<typename API, typename Impl>
@@ -291,13 +237,15 @@ public:
             if (child->self.api) {
                 if constexpr (std::is_same_v<API, ServiceAPI>)
                     static_cast<ServiceAPI*>(child->self.api)->stop();
-                child->self.reset(nullptr, nullptr, nullptr);
+                child->self.reset(nullptr, nullptr, nullptr, nullptr);
             }
             child->children.clear();;
         } else {
             child = makeChild(instanceName, implName);
+            child->self.apiType = std::string(typeName<API>());
+            // интексируем <API>("name") -> Impl; <Impl>("name") -> Impl;
             index(std::string(typeName<API>()), instanceName, &child->self);
-            child->index(std::string(typeName<API>()), instanceName, &child->self);
+            index(std::string(implName), instanceName, &child->self);
             Logger::info(tag, "+ interface '{}'", typeName<API>());
         }
 
@@ -305,7 +253,8 @@ public:
         child->self.reset(
             instance,
             implementation.getAPI(instance),
-            implementation.destroy
+            implementation.destroy,
+            implementation.configure
         );
 
         Logger::info(tag, "> use '{}' = '{}'", typeName<API>(), implName);
@@ -313,33 +262,60 @@ public:
     }
 
     // ищет компонент <T> в текущем узле и родительских
-    // если компонент не найден кидает исключение
+    // если компонент не найден возвращает nullptr
     template<typename API>
-    Slot<API> get(std::string_view instanceName = "default") {
+    Slot<API> find(std::string_view instanceName = "default") {
         noteRequire<API>();
         if (auto local = getLocal<API>(instanceName); local.exists())
             return local;
-        if (parent)
-            return parent->get<API>(instanceName);
+
+        // Для runtime-конфигурации имя реализации передаётся строкой. Если
+        // интерфейс с таким instance id не найден, разрешаем реализацию как
+        // <Implementation>/default: ServiceAPI("ClassicMD") -> ClassicMD/default.
+        if (registry->hasImpl<API>(instanceName)) {
+            const ComponentKey implementationKey{
+                std::string(instanceName), "default"};
+            if (auto it = lookup.find(implementationKey);
+                it != lookup.end() && it->second && it->second->api)
+            {
+                return Slot<API>{it->second};
+            }
+        }
+
+        if (parent) {
+            if (auto found = parent->find<API>(instanceName); found.exists())
+                    return found;
+            }
+        // if (parent)
+        //     return parent->find<API>(instanceName);
         return {};
     }
 
     // ищет компонент <T> в текущем узле и родительских
     // если компонент не найден кидает исключение
     template<typename T>
-    T* require(std::string_view instanceName = "default") {
+    Ref<T> require(std::string_view instanceName = "default") {
         noteRequire<T>();
-        Slot<T> slot = get<T>(instanceName);
-        if (!slot.exists()) {
-            throw Lattice::Exception(tag, "Component '{}' with instance '{}' not found", typeName<T>(), instanceName);
-        }
-        return slot.get();
+        if (auto slot = find<T>(instanceName); slot.exists())
+            return slot.get();
+
+        // auto* root = rootNode();
+        // if (root != this) {
+        //     if (auto slot = root->getLocal<T>(instanceName); slot.exists())
+        //         return slot.get();
+        // }
+
+        throw Lattice::Exception(tag, "Component '{}' with instance '{}' not found", typeName<T>(), instanceName);
     }
 
     // вызывает метод configure() у всех компонентов ветки
     void configureAll() {
-        if (self.configure)
+        if (self.configure) {
+            Logger::info(tag, "Configuring '{}'", self.type);
             self.configure(self.instance, *this);
+        } else if (self.instance) {
+            Logger::warning(tag, "Component '{}' has no configure callback", self.type);
+        }
 
         for (auto& child : children)
             child->configureAll();
