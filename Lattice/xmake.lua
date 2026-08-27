@@ -3,6 +3,7 @@ target("Lattice")
 
     add_files("Kernel/*.cpp")
     add_files("Tools/*.cpp")
+    add_files("Tests/*.cpp")
 
     add_includedirs("..", {public = true})
 

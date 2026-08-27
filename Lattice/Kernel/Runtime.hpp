@@ -16,6 +16,7 @@
 #include <Lattice/Tools/SystemInfo.hpp>
 #include "Lattice/Tools/LogStyle.hpp"
 #include "Lattice/Tools/Logger.hpp"
+#include "Lattice/Tools/Tests.hpp"
 
 
 namespace Lattice {
@@ -85,6 +86,7 @@ public:
         try {
             Logger::ConsoleMode consoleMode = Logger::ConsoleMode::Trace;
             std::filesystem::path configPath = "lattice.toml";
+            bool testMode = false;
             for (int i = 1; i < argc; ++i) {
                 const std::string_view arg = argv[i];
                 if (arg == "--trace") {
@@ -97,13 +99,21 @@ public:
                     if (++i >= argc)
                         throw Lattice::Exception(tag, "missing path for {}", arg);
                     configPath = argv[i];
+                } else if (arg == "--tests" || arg == "-t") {
+                    testMode = true;
                 }
             }
 
             Logger::setConsoleMode(consoleMode);
             StartupConfig config(configPath);
+
+
             loadPlugins("Plugins");
-            // const std::vector<StartupEntry> startOrder = startSort(config);
+            if (testMode) {
+                TestRegistry::instance().runAll();
+                return;
+            }
+
             for (const auto& entry : config.entries())
                 buildBranch(entry);
             root.configureAll();
@@ -123,45 +133,6 @@ public:
             reportUnknownException();
         }
     }
-
-    // std::vector<StartupEntry> startSort(const StartupConfig& config) {
-    //     std::vector<StartupEntry> result;
-    //     std::unordered_set<std::string_view> visited;
-    //     std::unordered_set<std::string_view> visiting;
-    //     std::unordered_map<std::string_view, const StartupEntry*> configured;
-
-    //     for (const auto& entry : config.entries())
-    //         configured.emplace(entry.name, &entry);
-
-    //     auto visit = [&](auto&& self, std::string_view name) -> void {
-    //         if (visited.contains(name))
-    //             return;
-
-    //         if (!visiting.insert(name).second)
-    //             throw Lattice::Exception(tag, "circular dependency involving '{}'", name);
-
-    //         for (const auto& requirement : uniqueList(name, globalRegistry))
-    //             self(self, requirement);
-
-    //         visiting.erase(name);
-    //         visited.insert(name);
-
-    //         if (auto it = configured.find(name); it != configured.end())
-    //             result.push_back(*it->second);
-    //         else
-    //             result.push_back(StartupEntry{
-    //                 .name = std::string(name),
-    //                 .enabled = true
-    //             });
-    //     };
-
-    //     for (const auto& entry : config.entries()) {
-    //         if (entry.enabled)
-    //             visit(visit, entry.name);
-    //     }
-
-    //     return result;
-    // }
 
     void stop(std::string_view instanceName) {
         auto service = root.find<ServiceAPI>(instanceName).get();
@@ -201,7 +172,7 @@ public:
 
     void reportUnknownException() const {
         Logger::exception(tag, "Unhandled non-standard exception");
-        Logger::treeLine("Dump components tree (failed node is red):");
+        Logger::message("Dump components tree (failed node is red):");
         root.dumpTree();
     }
 

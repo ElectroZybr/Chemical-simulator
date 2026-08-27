@@ -71,21 +71,15 @@ struct Ref {
     Ref() = default;
     Ref(T* ptr) : ptr(ptr) {}
 
-    T* operator->() const noexcept {
-        return ptr;
-    }
+    T* operator->() const noexcept { return ptr; }
+    T& operator*() const noexcept { return *ptr; }
+    T& get() const noexcept { return *ptr; }
+    bool exists() const noexcept { return ptr != nullptr; }
 
-    T& operator*() const noexcept {
-        return *ptr;
-    }
+    explicit operator bool() const noexcept { return ptr != nullptr; }
 
-    T& get() const noexcept {
-        return *ptr;
-    }
-
-    explicit operator bool() const noexcept {
-        return ptr != nullptr;
-    }
+    bool operator==(std::nullptr_t) const noexcept { return ptr == nullptr; }
+    bool operator!=(std::nullptr_t) const noexcept { return ptr != nullptr; }
 };
 }
 

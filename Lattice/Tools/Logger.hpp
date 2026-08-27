@@ -234,6 +234,15 @@ public:
             active_ = false;
         }
 
+                template <typename... TArgs>
+        void finishError(std::format_string<TArgs...> format, TArgs&&... args) {
+            if (!active_) return;
+            const auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(
+                Clock::now() - startTime_).count();
+            Logger::exception(tag_, "{} ({} us)", std::format(format, std::forward<TArgs>(args)...), elapsed);
+            active_ = false;
+        }
+
         void cancel() noexcept { active_ = false; }
 
         ~Scope() {

@@ -50,11 +50,11 @@ LevelStyle levelStyle(Logger::Level level) {
     using Level = Logger::Level;
     switch (level) {
         case Level::Action:
-            return {"ACTION", "→", Color::brightCyan, Logger::ConsoleMode::Default, false};
+            return {"ACTION", "➜", Color::brightCyan, Logger::ConsoleMode::Default, false};
         case Level::Trace:
             return {"TRACE", "·", Color::gray, Logger::ConsoleMode::Trace, false};
         case Level::Debug:
-            return {"DEBUG", "→", Color::brightCyan, Logger::ConsoleMode::Verbose, false};
+            return {"DEBUG", "➜", Color::brightCyan, Logger::ConsoleMode::Verbose, false};
         case Level::Info:
             return {"INFO", "•", Color::brightWhite, Logger::ConsoleMode::Verbose, false};
         case Level::Warning:
