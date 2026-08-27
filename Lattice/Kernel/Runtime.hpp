@@ -14,7 +14,6 @@
 #include <Lattice/Kernel/Exception.hpp>
 #include <Lattice/Kernel/Settings.hpp>
 #include <Lattice/Tools/SystemInfo.hpp>
-#include "Lattice/Tools/LogStyle.hpp"
 #include "Lattice/Tools/Logger.hpp"
 #include "Lattice/Tools/Tests.hpp"
 
@@ -84,7 +83,7 @@ public:
 
     void run(int argc, char** argv) {
         try {
-            Logger::ConsoleMode consoleMode = Logger::ConsoleMode::Trace;
+            Logger::ConsoleMode consoleMode = Logger::ConsoleMode::Default;
             std::filesystem::path configPath = "lattice.toml";
             bool testMode = false;
             for (int i = 1; i < argc; ++i) {
@@ -103,6 +102,14 @@ public:
                     testMode = true;
                 }
             }
+            // Logger::Scope scope1("scope1", "");
+            // Logger::info("xnj nj", "");
+            // Logger::Scope scope2("scope2", "");
+            // Logger::info("xnj vzxdzfxcnj", "");
+            // Logger::Scope scope3("scope3", "");
+            // scope1.finish();
+            // scope2.finish();
+            // scope3.finish();
 
             Logger::setConsoleMode(consoleMode);
             StartupConfig config(configPath);

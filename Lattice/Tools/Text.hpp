@@ -64,6 +64,32 @@ public:
         return Text(std::format(fmt, std::forward<TArgs>(args)...));
     }
 
+    Text& operator+=(const Text& other) {
+        append(other);
+        return *this;
+    }
+
+    friend Text operator+(Text lhs, const Text& rhs) {
+        lhs += rhs;
+        return lhs;
+    } 
+
+    Text& operator+=(std::string_view text) {
+        append(text);
+        return *this;
+    }
+
+    friend Text operator+(Text lhs, std::string_view rhs) {
+        lhs += rhs;
+        return lhs;
+    }
+
+    friend Text operator+(std::string_view lhs, Text rhs) {
+        Text result(lhs);
+        result += rhs;
+        return result;
+    }
+
     void parse(std::string_view text) {
         spans_.clear();
 
@@ -132,7 +158,7 @@ public:
             append(span.text, span.style);
     }
 
-    void append(const Text& text, TextStyle style = TextStyle::None) {
+    void append(const Text& text, TextStyle style) {
         for (const auto& span : text.spans_)
             append(span.text, span.style | style);
     }
@@ -166,6 +192,18 @@ public:
 
         for (const auto& span : spans_)
             result += span.text.size();
+
+        return result;
+    }
+
+    size_t lines() const noexcept {
+        if (spans_.empty())
+            return 0;
+
+        size_t result = 1;
+
+        for (const auto& span : spans_)
+            result += std::count(span.text.begin(), span.text.end(), '\n');
 
         return result;
     }

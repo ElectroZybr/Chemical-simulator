@@ -457,7 +457,7 @@ void glfwWindow::mouseButtonCallback(GLFWwindow* w, int button, int action, int 
     const auto btn = Input::mouseButtonFromGlfw(button);
     if (btn == Input::MouseButton::Count) return;
     self->mouse_->onButton(btn, Input::buttonActionFromGlfw(action));
-    Logger::debug("Window", "click");
+    // Logger::debug("Window", "click");
 }
 
 void glfwWindow::cursorPosCallback(GLFWwindow* w, double x, double y) {
@@ -475,7 +475,7 @@ void glfwWindow::onPos(int x, int y) {
     state_.x = x;
     state_.y = y;
     state_.monitorIndex = monitorIndex(currentMonitor());
-    Logger::debug("Window", "moved {},{}", x, y);
+    Logger::trace("Window", "moved {},{}", x, y);
 }
 
 void glfwWindow::onSize(int width, int height) {
