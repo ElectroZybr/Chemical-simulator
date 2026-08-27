@@ -16,7 +16,7 @@ std::atomic<Logger::ConsoleMode> gConsoleMode = Logger::ConsoleMode::Default;
 struct LevelStyle {
     std::string_view label;
     std::string_view status;
-    std::string_view color;
+    Lattice::TextStyle style;
     Logger::ConsoleMode consoleMode;
     bool useStdErr;
 };
@@ -48,29 +48,27 @@ std::ofstream& logFile() {
 
 LevelStyle levelStyle(Logger::Level level) {
     using Level = Logger::Level;
+
     switch (level) {
         case Level::Action:
-            return {"ACTION", "➜", Color::brightCyan, Logger::ConsoleMode::Default, false};
+            return {"ACTION", "➜", TextStyle::Cyan, Logger::ConsoleMode::Default, false};
         case Level::Trace:
-            return {"TRACE", "·", Color::gray, Logger::ConsoleMode::Trace, false};
+            return {"TRACE", "·", TextStyle::Gray, Logger::ConsoleMode::Trace, false};
         case Level::Debug:
-            return {"DEBUG", "➜", Color::brightCyan, Logger::ConsoleMode::Verbose, false};
+            return {"DEBUG", "➜", TextStyle::Cyan, Logger::ConsoleMode::Verbose, false};
         case Level::Info:
-            return {"INFO", "•", Color::brightWhite, Logger::ConsoleMode::Verbose, false};
+            return {"INFO", "•", TextStyle::Gray, Logger::ConsoleMode::Verbose, false};
         case Level::Warning:
-            return {"WARN", "⚠", Color::yellow, Logger::ConsoleMode::Default, true};
+            return {"WARN", "⚠", TextStyle::Yellow, Logger::ConsoleMode::Default, true};
         case Level::Error:
-            return {"ERROR", "⚠", Color::error, Logger::ConsoleMode::Default, true};
+            return {"ERROR", "⚠", TextStyle::Red, Logger::ConsoleMode::Default, true};
         case Level::Exception:
-            return {"FATAL", "✗", Color::error, Logger::ConsoleMode::Default, true};
+            return {"FATAL", "✗", TextStyle::Red | TextStyle::Bold, Logger::ConsoleMode::Default, true};
         case Level::Ok:
-            return {"OK", "✓", Color::ok, Logger::ConsoleMode::Default, false};
+            return {"OK", "✓", TextStyle::Green, Logger::ConsoleMode::Default, false};
     }
-    return {"INFO", "•", Color::brightWhite, Logger::ConsoleMode::Verbose, false};
-}
 
-std::string makePlainLine(std::string_view label, std::string_view tag, std::string_view message) {
-    return std::format("[{}] [{}] {}", label, tag, message);
+    return {"INFO", "•", TextStyle::None, Logger::ConsoleMode::Verbose, false};
 }
 
 } // helpers
@@ -107,65 +105,46 @@ std::mutex& Logger::mutex() {
     return consoleMutex;
 }
 
-void Logger::print(const std::string& message) {
+void Logger::print(const Text& text) {
     std::lock_guard lock(mutex());
 
     std::ofstream& file = logFile();
     if (file.is_open()) {
         file << timestampForLogLine()
              << ' '
-             << message
+             << text.plain()
              << '\n';
         file.flush();
     }
-    std::cout << message << '\n';
+
+    std::cout << text.wrap(75, 0).render() << '\n';
 }
 
-void Logger::print(Level level, std::string_view tag, const std::string& message) {
+void Logger::print(Level level, std::string_view tag, const Text& text) {
     std::lock_guard lock(mutex());
+
     const LevelStyle style = levelStyle(level);
-    const std::string plainLine = makePlainLine(style.label, tag, message);
 
     std::ofstream& file = logFile();
     if (file.is_open()) {
         file << timestampForLogLine()
              << ' '
-             << plainLine
+             << std::format("[{}] [{}] {}", style.label, tag, text.plain())
              << '\n';
         file.flush();
     }
 
-    if (static_cast<int>(consoleMode()) < static_cast<int>(style.consoleMode)) {
+    if (static_cast<int>(consoleMode()) < static_cast<int>(style.consoleMode))
         return;
-    }
 
     std::ostream& stream = style.useStdErr ? std::cerr : std::cout;
-    std::string consoleLine;
-    switch (level) {
-        case Level::Exception:
-        stream << std::format("{}{}{} [{}{}{}] {}{}{}{}",
-            style.color, style.status, Color::reset,
-            Color::bold, tag,          Color::reset,
-            Color::red, Color::bold,  message,      Color::reset) << '\n';
-        return;
-        case Level::Warning:
-        consoleLine = std::format("{}{}{} [{}{}{}] {}{}{}",
-            style.color, style.status, Color::reset,
-            Color::bold, tag,          Color::reset,
-            Color::yellow, message,      Color::reset);
-        break;
-        case Level::Error:
-        consoleLine = std::format("{}{}{} [{}{}{}] {}{}{}",
-            style.color, style.status, Color::reset,
-            Color::bold, tag,          Color::reset,
-            Color::brightRed, message,      Color::reset);
-        break;
-        default:
-        consoleLine = std::format("{}{}{} [{}{}{}] {}{}{}",
-            style.color, style.status, Color::reset,
-            Color::bold, tag,          Color::reset,
-            Color::gray, message,      Color::reset);
-        break;
-    }
-    stream << consoleLine << '\n';
+
+    Text line;
+    line.append(style.status, style.style);
+    line.append(" [");
+    line.append(tag, TextStyle::Bold);
+    line.append("] ");
+    line.append(text, style.style);
+
+    stream << line.render()  << '\n';
 }

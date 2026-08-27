@@ -20,7 +20,7 @@ void testRequire(bool condition, const char* expression, const char* file, int l
         return;
 
     currentTestFailed = true;
-    Logger::warning("Test", "REQUIRE failed: {} ({}:{})", expression, file, line);
+    Logger::warning("Test", "<y>REQUIRE failed: {} ({}:{})</>", expression, file, line);
     throw TestFailure{};
 }
 
@@ -29,7 +29,7 @@ void testCheck(bool condition, const char* expression, const char* file, int lin
         return;
 
     currentTestFailed = true;
-    Logger::warning("Test", "CHECK failed: {} ({}:{})", expression, file, line);
+    Logger::warning("Test", "<y>CHECK failed: {} ({}:{})</>", expression, file, line);
 }
 
 TestRegistry& TestRegistry::instance() {
@@ -39,8 +39,8 @@ TestRegistry& TestRegistry::instance() {
 
 int TestRegistry::runAll() {
     int failed = 0;
-    Logger::message("\n{}~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~{}", Color::white, Color::reset);
-    Logger::Scope testing("Tests", "{}{}Running", Color::white, Color::bold);
+    Logger::message("\n<w>~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~</>");
+    Logger::Scope testing("Tests", "<w><b>Running<//>");
     for (TestCase& test : tests_) {
         Logger::message("");
         Logger::Scope testScope("Test", "'{}'", test.name);
@@ -51,17 +51,18 @@ int TestRegistry::runAll() {
         } catch (const TestFailure&) {
         } catch (const std::exception& e) {
             currentTestFailed = true;
-            Logger::exception("test", "{}{}threw: {}", Color::brightRed, Color::bold, e.what());
+            Logger::exception("test", "<r><b>threw: {}<//>", e.what());
         } catch (...) {
             currentTestFailed = true;
-            Logger::exception("test", "{}{}threw unknown exception", Color::brightRed, Color::bold);
+            Logger::exception("test", "<r><b>threw unknown exception<//>");
         }
         if (currentTestFailed) {
             ++failed;
-            testScope.finishError("{}{}'{}' failed", Color::brightRed, Color::bold, test.name);
-            Logger::message("{}Err string: {}", Color::brightRed, test.description);
+            testScope.finishError("<r><b>'{}' failed<//>", test.name);
+            if (!test.description.empty())
+                Logger::message("<r>Err string:\n{}</>", test.description);
         } else {
-            testScope.finish("{}'{}' passed", Color::brightGreen, test.name);
+            testScope.finish("<g><b>'{}' passed<//>", test.name);
         }
     }
     testing.finish("{} tests, {} failed", tests_.size(), failed);

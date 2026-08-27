@@ -10,6 +10,8 @@
 #include <vector>
 
 #include <Lattice/Tools/LogStyle.hpp>
+#include <Lattice/Tools/Text.hpp>
+
 
 class Logger {
 public:
@@ -40,47 +42,47 @@ public:
 
     template <typename... TArgs>
     static void message(std::format_string<TArgs...> format, TArgs&&... args) {
-        print(std::format(format, std::forward<TArgs>(args)...));
+        print(Text::format(format, std::forward<TArgs>(args)...));
     }
 
     template <typename... TArgs>
     static void action(std::string_view tag, std::format_string<TArgs...> format, TArgs&&... args) {
-        print(Level::Action, tag, std::format(format, std::forward<TArgs>(args)...));
+        print(Level::Action, tag, Text::format(format, std::forward<TArgs>(args)...));
     }
 
     template <typename... TArgs>
     static void trace(std::string_view tag, std::format_string<TArgs...> format, TArgs&&... args) {
-        print(Level::Trace, tag, std::format(format, std::forward<TArgs>(args)...));
+        print(Level::Trace, tag, Text::format(format, std::forward<TArgs>(args)...));
     }
 
     template <typename... TArgs>
     static void debug(std::string_view tag, std::format_string<TArgs...> format, TArgs&&... args) {
-        print(Level::Debug, tag, std::format(format, std::forward<TArgs>(args)...));
+        print(Level::Debug, tag, Text::format(format, std::forward<TArgs>(args)...));
     }
 
     template <typename... TArgs>
     static void info(std::string_view tag, std::format_string<TArgs...> format, TArgs&&... args) {
-        print(Level::Info, tag, std::format(format, std::forward<TArgs>(args)...));
+        print(Level::Info, tag, Text::format(format, std::forward<TArgs>(args)...));
     }
 
     template <typename... TArgs>
     static void warning(std::string_view tag, std::format_string<TArgs...> format, TArgs&&... args) {
-        print(Level::Warning, tag, std::format(format, std::forward<TArgs>(args)...));
+        print(Level::Warning, tag, Text::format(format, std::forward<TArgs>(args)...));
     }
 
     template <typename... TArgs>
     static void error(std::string_view tag, std::format_string<TArgs...> format, TArgs&&... args) {
-        print(Level::Error, tag, std::format(format, std::forward<TArgs>(args)...));
+        print(Level::Error, tag, Text::format(format, std::forward<TArgs>(args)...));
     }
 
     template <typename... TArgs>
     static void exception(std::string_view tag, std::format_string<TArgs...> format, TArgs&&... args) {
-        print(Level::Exception, tag, std::format(format, std::forward<TArgs>(args)...));
+        print(Level::Exception, tag, Text::format(format, std::forward<TArgs>(args)...));
     }
 
     template <typename... TArgs>
     static void ok(std::string_view tag, std::format_string<TArgs...> format, TArgs&&... args) {
-        print(Level::Ok, tag, std::format(format, std::forward<TArgs>(args)...));
+        print(Level::Ok, tag, Text::format(format, std::forward<TArgs>(args)...));
     }
 
     static void treeLine(std::string_view message);
@@ -91,8 +93,8 @@ public:
     }
 
 private:
-    static void print(const std::string& message);
-    static void print(Level level, std::string_view tag, const std::string& message);
+    static void print(const Text& text);
+    static void print(Level level, std::string_view tag, const Text& text);
     static std::mutex& mutex();
 
 public:
@@ -246,9 +248,8 @@ public:
         void cancel() noexcept { active_ = false; }
 
         ~Scope() {
-            if (active_) {
-                finish();
-            }
+            if (active_)
+                finishError("aborted");
         }
 
 

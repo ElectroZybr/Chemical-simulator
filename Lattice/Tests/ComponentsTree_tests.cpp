@@ -33,7 +33,7 @@ public:
 
 
 TEST(Components_DeepTreeLookup, RuntimeFixture, 
-"Поиск компонента должен подниматься по дереву родителей, но не заходить в соседние ветки.\
+"Поиск компонента должен подниматься по дереву родителей, но не заходить в соседние ветки. \
 Child-ветка должна видеть свои компоненты и компоненты предков.")
 {
     fixture.registry.registerComponent<TestComponent>();
@@ -62,7 +62,7 @@ Child-ветка должна видеть свои компоненты и ко
 }
 
 TEST(Components_Shadowing, RuntimeFixture, 
-"Компонент в дочерней ветке должен скрывать компонент с тем же именем из родительской ветки.\
+"Компонент в дочерней ветке должен скрывать компонент с тем же именем из родительской ветки. \
 При этом оба объекта должны оставаться независимыми экземплярами.")
 {
     fixture.registry.registerComponent<TestComponent>();
@@ -81,7 +81,7 @@ TEST(Components_Shadowing, RuntimeFixture,
 }
 
 TEST(Components_ShadowingDoesNotLeak, RuntimeFixture, 
-"Одинаковые имена компонентов в соседних ветках не должны влиять друг на друга.\
+"Одинаковые имена компонентов в соседних ветках не должны влиять друг на друга. \
 Поиск из одной ветки не должен случайно находить локальный компонент другой ветки.")
  {
     fixture.registry.registerComponent<TestComponent>();
@@ -102,7 +102,7 @@ TEST(Components_ShadowingDoesNotLeak, RuntimeFixture,
 }
 
 TEST(Components_LocalCollect, RuntimeFixture, 
-"Локальный сбор должен возвращать компоненты только из текущей ветки.\
+"Локальный поиск должен возвращать компоненты только из текущей ветки. \
 Компоненты дочерних узлов не должны попадать в результат.")
  {
     fixture.registry.registerComponent<TestComponent>();
@@ -126,7 +126,7 @@ TEST(Components_LocalCollect, RuntimeFixture,
 }
 
 TEST(Components_GlobalCollectDeepTree, RuntimeFixture, 
-"Глобальный сбор должен обходить всё дерево компонентов независимо от глубины вложенности.\
+"Глобальный поиск должен обходить всё дерево компонентов независимо от глубины вложенности. \
 В результат должны попасть компоненты из всех веток и дочерних узлов.")
  {
     fixture.registry.registerComponent<TestComponent>();
@@ -151,8 +151,7 @@ TEST(Components_GlobalCollectDeepTree, RuntimeFixture,
 }
 
 TEST(Components_GlobalCollectIgnoresInstanceName, RuntimeFixture, 
-"Глобальный сбор должен находить все экземпляры компонента независимо от их instance name.\
-Уникальность имени экземпляра не должна ограничивать сбор.")
+"Глобальный поиск должен находить все экземпляры компонента независимо от имени реализации.")
  {
     fixture.registry.registerComponent<TestComponent>();
 
@@ -170,7 +169,7 @@ TEST(Components_GlobalCollectIgnoresInstanceName, RuntimeFixture,
 }
 
 TEST(Components_RemoveDoesNotAffectParent, RuntimeFixture, 
-"Удаление компонента из дочерней ветки не должно затрагивать компонент с тем же именем у родителя.\
+"Удаление компонента из дочерней ветки не должно затрагивать компонент с тем же именем у родителя. \
 Родительский компонент должен остаться доступным после удаления дочернего.")
 {
     fixture.registry.registerComponent<TestComponent>();
@@ -187,7 +186,7 @@ TEST(Components_RemoveDoesNotAffectParent, RuntimeFixture,
 }
 
 TEST(Components_RemoveShadowDoesNotRevealWrongComponent, RuntimeFixture, 
-"После удаления локального компонента поиск должен корректно продолжить поиск у родителя.\
+"После удаления локального компонента поиск должен корректно продолжить поиск у родителя. \
 Удаление индекса дочернего компонента не должно повреждать или скрывать родительский объект.")
 {
     fixture.registry.registerComponent<TestComponent>();
@@ -226,7 +225,7 @@ TEST(Components_ConfigureDeepTree, RuntimeFixture,
 }
 
 TEST(Components_ConfigureDoesNotConfigureTwice, RuntimeFixture, 
-"Повторный вызов configureAll не должен приводить к неконтролируемому состоянию компонента.\
+"Повторный вызов configureAll не должен приводить к неконтролируемому состоянию компонента. \
 Компонент должен сохранять корректное сконфигурированное состояние.")
 {
     fixture.registry.registerComponent<TestComponent>();

@@ -155,19 +155,19 @@ public:
 
     void reportException(const std::exception& error) const {
         auto* fatal = dynamic_cast<const Lattice::Exception*>(&error);
-        Logger::message("\n{}~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~{}", Color::red, Color::reset);
+        Logger::message("\n<r>~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~</>");
         if (fatal) {
             Logger::exception(fatal->tag(), "{}", error.what());
-            Logger::message("{}Dump components tree (failed node is red):{}", Color::gray, Color::reset);
+            Logger::message("Dump components tree (failed node is red):");
             root.dumpTree(fatal->tag());
         } else {
             Logger::exception(tag, "Unhandled exception: {}", error.what());
-            Logger::message("{}Dump components tree{}", Color::gray, Color::reset);
+            Logger::message("Dump components tree:");
             root.dumpTree();
         }
-        Logger::message("\n{}{}Critical error. Application terminated.{}", Color::red, Color::bold, Color::reset);
-        Logger::message("{}{}Crash log: {}{}", Color::gray, Color::bold, std::string(Logger::logPath()), Color::reset);
-        Logger::message("{}~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~{}\n", Color::red, Color::reset);
+        Logger::message("\n<r><b>Critical error. Application terminated.<//>");
+        Logger::message("Crash log: {}", std::string(Logger::logPath()));
+        Logger::message("<r>~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~</>\n");
     }
 
     void reportUnknownException() const {
