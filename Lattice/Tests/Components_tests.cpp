@@ -98,7 +98,7 @@ TEST(Components_GlobalCollect, RuntimeFixture) {
     REQUIRE(components.size() == 2);
 }
 
-TEST(Components_LocalCollect, RuntimeFixture) {
+TEST(Components_folderCollect, RuntimeFixture) {
     fixture.registry.registerComponent<TestComponent>();
 
     fixture.root.add<TestComponent>("root");
@@ -107,7 +107,7 @@ TEST(Components_LocalCollect, RuntimeFixture) {
 
     branch.add<TestComponent>("another");
 
-    auto components = branch.localCollect<TestComponent>();
+    auto components = branch.folderCollect<TestComponent>();
 
     REQUIRE(components.size() == 2);
 }
@@ -127,7 +127,7 @@ TEST(Components_ParentLookup, RuntimeFixture) {
 
     fixture.root.add<TestComponent>();
 
-    Components branch(&fixture.registry, &fixture.root, "branch");
+    Components& branch = fixture.root.addFolder("branch");
 
     REQUIRE(branch.find<TestComponent>().exists());
     REQUIRE(branch.require<TestComponent>().exists());
@@ -138,7 +138,7 @@ TEST(Components_Shadowing, RuntimeFixture) {
 
     fixture.root.add<TestComponent>();
 
-    Components branch(&fixture.registry, &fixture.root, "branch");
+    Components& branch = fixture.root.addFolder("branch");
     branch.add<TestComponent>();
 
     auto parent = fixture.root.find<TestComponent>();
@@ -155,7 +155,7 @@ TEST(Components_ChildInstanceLookup, RuntimeFixture) {
 
     fixture.root.add<TestComponent>("root");
 
-    Components branch(&fixture.registry, &fixture.root, "branch");
+    Components& branch = fixture.root.addFolder("branch");
     branch.add<TestComponent>("child");
 
     REQUIRE(branch.find<TestComponent>("child").exists());
@@ -168,7 +168,7 @@ TEST(Components_GlobalCollectNested, RuntimeFixture) {
 
     fixture.root.add<TestComponent>("root");
 
-    Components branch(&fixture.registry, &fixture.root, "branch");
+    Components& branch = fixture.root.addFolder("branch");
     branch.add<TestComponent>("child");
 
     auto components = branch.globalCollect<TestComponent>();
@@ -176,15 +176,15 @@ TEST(Components_GlobalCollectNested, RuntimeFixture) {
     REQUIRE(components.size() == 2);
 }
 
-TEST(Components_LocalCollectNested, RuntimeFixture) {
+TEST(Components_folderCollectNested, RuntimeFixture) {
     fixture.registry.registerComponent<TestComponent>();
 
     fixture.root.add<TestComponent>("root");
 
-    Components branch(&fixture.registry, &fixture.root, "branch");
+    Components& branch = fixture.root.addFolder("branch");
     branch.add<TestComponent>("child");
 
-    auto components = branch.localCollect<TestComponent>();
+    auto components = branch.folderCollect<TestComponent>();
 
     REQUIRE(components.size() == 1);
 }

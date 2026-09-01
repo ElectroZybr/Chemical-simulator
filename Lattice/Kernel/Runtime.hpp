@@ -85,7 +85,7 @@ public:
         try {
             Logger::ConsoleMode consoleMode = Logger::ConsoleMode::Default;
             std::filesystem::path configPath = "lattice.toml";
-            bool testMode = false;
+            bool testMode = true;
             for (int i = 1; i < argc; ++i) {
                 const std::string_view arg = argv[i];
                 if (arg == "--trace") {

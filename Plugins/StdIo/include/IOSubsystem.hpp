@@ -29,8 +29,8 @@ public:
     void configure(Lattice::Components& ioBranch) {
         Ref<Lattice::Settings> settings = ioBranch.require<Lattice::Settings>(); 
         settings->on("io", "load", [&]() { load("Lattice.toml"); } );
-        loaders = ioBranch.localCollect<LoaderAPI>();
-        parsers = ioBranch.localCollect<ParserAPI>();
+        loaders = ioBranch.directCollect<LoaderAPI>();
+        parsers = ioBranch.directCollect<ParserAPI>();
     }
 
     void load(const std::filesystem::path& path) {

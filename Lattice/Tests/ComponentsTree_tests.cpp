@@ -69,7 +69,7 @@ TEST(Components_Shadowing, RuntimeFixture,
 
     fixture.root.add<TestComponent>("shared");
 
-    Components branch(&fixture.registry, &fixture.root, "Branch");
+    Components& branch = fixture.root.addFolder("branch");
     branch.add<TestComponent>("shared");
 
     auto rootComponent = fixture.root.require<TestComponent>("shared");
@@ -101,48 +101,79 @@ TEST(Components_ShadowingDoesNotLeak, RuntimeFixture,
     REQUIRE(a.get() != b.get());
 }
 
-TEST(Components_LocalCollect, RuntimeFixture, 
-"Локальный поиск должен возвращать компоненты только из текущей ветки. \
-Компоненты дочерних узлов не должны попадать в результат.")
- {
+TEST(Components_folderCollect, RuntimeFixture,
+    "Поиск в папке должен возвращать компоненты из текущей папки и всех вложенных папок.") {
     fixture.registry.registerComponent<TestComponent>();
 
     fixture.root.add<TestComponent>("root");
 
-    Components branch(&fixture.registry, &fixture.root, "Branch");
+    Components& branch = fixture.root.addFolder("branch");
     branch.add<TestComponent>("a");
     branch.add<TestComponent>("b");
 
-    Components child(&fixture.registry, &branch, "Child");
-    child.add<TestComponent>("child");
+    Components& child = branch.addFolder("child");
+    child.add<TestComponent>("c");
 
-    auto root = fixture.root.localCollect<TestComponent>();
-    auto local = branch.localCollect<TestComponent>();
-    auto nested = child.localCollect<TestComponent>();
+    Components& nested = child.addFolder("nested");
+    nested.add<TestComponent>("d");
 
-    REQUIRE(root.size() == 1);
-    REQUIRE(local.size() == 2);
-    REQUIRE(nested.size() == 1);
+    auto root = fixture.root.folderCollect<TestComponent>();
+    auto branchComponents = branch.folderCollect<TestComponent>();
+    auto childComponents = child.folderCollect<TestComponent>();
+    auto nestedComponents = nested.folderCollect<TestComponent>();
+
+    REQUIRE(root.size() == 5);
+    REQUIRE(branchComponents.size() == 4);
+    REQUIRE(childComponents.size() == 2);
+    REQUIRE(nestedComponents.size() == 1);
 }
 
-TEST(Components_GlobalCollectDeepTree, RuntimeFixture, 
-"Глобальный поиск должен обходить всё дерево компонентов независимо от глубины вложенности. \
-В результат должны попасть компоненты из всех веток и дочерних узлов.")
- {
+
+TEST(Components_directCollect, RuntimeFixture,
+    "Поиск в папке должен возвращать только компоненты непосредственно принадлежащие текущей папке.") {
     fixture.registry.registerComponent<TestComponent>();
 
     fixture.root.add<TestComponent>("root");
 
-    Components branchA(&fixture.registry, &fixture.root, "A");
+    Components& branch = fixture.root.addFolder("branch");
+    branch.add<TestComponent>("a");
+    branch.add<TestComponent>("b");
+
+    Components& child = branch.addFolder("child");
+    child.add<TestComponent>("c");
+
+    Components& nested = child.addFolder("nested");
+    nested.add<TestComponent>("d");
+
+    auto root = fixture.root.directCollect<TestComponent>();
+    auto branchComponents = branch.directCollect<TestComponent>();
+    auto childComponents = child.directCollect<TestComponent>();
+    auto nestedComponents = nested.directCollect<TestComponent>();
+
+    REQUIRE(root.size() == 1);
+    REQUIRE(branchComponents.size() == 2);
+    REQUIRE(childComponents.size() == 1);
+    REQUIRE(nestedComponents.size() == 1);
+}
+
+TEST(Components_GlobalCollectDeepTree, RuntimeFixture,
+    "Глобальный поиск должен обходить всё дерево компонентов независимо от глубины вложенности. "
+    "В результат должны попасть компоненты из всех веток и дочерних узлов.") {
+
+    fixture.registry.registerComponent<TestComponent>();
+
+    fixture.root.add<TestComponent>("root");
+
+    Components& branchA = fixture.root.addFolder("A");
     branchA.add<TestComponent>("a");
 
-    Components branchB(&fixture.registry, &fixture.root, "B");
+    Components& branchB = fixture.root.addFolder("B");
     branchB.add<TestComponent>("b");
 
-    Components childA(&fixture.registry, &branchA, "ChildA");
+    Components& childA = branchA.addFolder("ChildA");
     childA.add<TestComponent>("aa");
 
-    Components childB(&fixture.registry, &branchB, "ChildB");
+    Components& childB = branchB.addFolder("ChildB");
     childB.add<TestComponent>("bb");
 
     auto components = childA.globalCollect<TestComponent>();
@@ -159,7 +190,7 @@ TEST(Components_GlobalCollectIgnoresInstanceName, RuntimeFixture,
     fixture.root.add<TestComponent>("two");
     fixture.root.add<TestComponent>("three");
 
-    Components branch(&fixture.registry, &fixture.root, "Branch");
+    Components& branch = fixture.root.addFolder("branch");
     branch.add<TestComponent>("four");
     branch.add<TestComponent>("five");
 
@@ -168,20 +199,18 @@ TEST(Components_GlobalCollectIgnoresInstanceName, RuntimeFixture,
     REQUIRE(components.size() == 5);
 }
 
-TEST(Components_RemoveDoesNotAffectParent, RuntimeFixture, 
-"Удаление компонента из дочерней ветки не должно затрагивать компонент с тем же именем у родителя. \
-Родительский компонент должен остаться доступным после удаления дочернего.")
-{
+TEST(Components_RemoveDoesNotAffectParent, RuntimeFixture,
+    "Удаление компонента из дочерней ветки не должно удалять компонент родителя.") {
+
     fixture.registry.registerComponent<TestComponent>();
 
     fixture.root.add<TestComponent>("shared");
 
-    Components branch(&fixture.registry, &fixture.root, "Branch");
+    Components& branch = fixture.root.addFolder("branch");
     branch.add<TestComponent>("shared");
 
     branch.remove<TestComponent>("shared");
-
-    REQUIRE(!branch.find<TestComponent>("shared").exists());
+    REQUIRE(branch.folderCollect<TestComponent>().empty());
     REQUIRE(fixture.root.find<TestComponent>("shared").exists());
 }
 
@@ -193,7 +222,7 @@ TEST(Components_RemoveShadowDoesNotRevealWrongComponent, RuntimeFixture,
 
     fixture.root.add<TestComponent>("shared");
 
-    Components branch(&fixture.registry, &fixture.root, "Branch");
+    Components& branch = fixture.root.addFolder("branch");
     branch.add<TestComponent>("shared");
 
     REQUIRE(branch.find<TestComponent>("shared").exists());
@@ -211,7 +240,7 @@ TEST(Components_ConfigureDeepTree, RuntimeFixture,
 
     fixture.root.add<TestComponent>("root");
 
-    Components branch(&fixture.registry, &fixture.root, "Branch");
+    Components& branch = fixture.root.addFolder("branch");
     branch.add<TestComponent>("branch");
 
     Components child(&fixture.registry, &branch, "Child");

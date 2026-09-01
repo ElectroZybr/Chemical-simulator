@@ -77,7 +77,7 @@ class Components {
             if (selected)
                 label = std::format("{}{}{} 🡸{}", Color::red, Color::bold, label, Color::reset);
 
-            tree.node(label, depth);
+            tree.node(std::format("{} ({})", label, child->name), depth);
             child->appendTree(tree, depth + 1, highlighted);
         }
     }
@@ -114,6 +114,15 @@ class Components {
         return n;
     }
 
+    void unindex(ComponentData* data) {
+        for (auto it = lookup.begin(); it != lookup.end();) {
+            if (it->second == data)
+                it = lookup.erase(it);
+            else
+                ++it;
+        }
+    }
+
 public:
     explicit Components(Registry* registry, Components* parent = nullptr, std::string_view name = "Root")
         : registry(registry), parent(parent), name(name) {
@@ -132,9 +141,21 @@ public:
             add<T>(implName, implName);
     }
 
+    template<typename T>
+    std::vector<T*> directCollect() const {
+        std::vector<T*> out;
+
+        for (const auto& child : children) {
+            if (child->self.apiType == typeName<T>() && child->self.api)
+                out.push_back(static_cast<T*>(child->self.api));
+        }
+
+        return out;
+    }
+
     // возвращает объекты интерфейса <T> из текущего узла и его потомков
     template<typename T>
-    std::vector<T*> localCollect() const {
+    std::vector<T*> folderCollect() const {
         std::vector<T*> out;
         collectInto<T>(out);
         return out;
@@ -143,7 +164,15 @@ public:
     // возвращает все объекты интерфейса <T> существующие в дереве (начиная с root)
     template<typename T>
     std::vector<T*> globalCollect() const {
-        return rootNode()->localCollect<T>();
+        return rootNode()->folderCollect<T>();
+    }
+
+    Components& addFolder(std::string_view name) {
+        auto node = std::make_unique<Components>(registry, this, name);
+        Components* raw = node.get();
+        raw->self.type = "Folder";
+        children.push_back(std::move(node));
+        return *raw;
     }
 
     template<typename T>
@@ -153,7 +182,6 @@ public:
         const auto& entry = registry->requireImpl<T>(implName);
         Components* child = makeChild(instanceName, implName);
 
-        // index(std::string(typeName<T>()), instanceName, &child->self);
         index(std::string(implName), instanceName, &child->self);
         child->self.apiType = std::string(typeName<T>());
         void* instance = entry.create(child);
@@ -174,7 +202,6 @@ public:
         const auto& entry = registry->requireImpl<T>(typeName<Impl>());
         Components* child = makeChild(instanceName, typeName<Impl>());
 
-        // index(std::string(typeName<T>()), instanceName, &child->self);
         index(std::string(typeName<Impl>()), instanceName, &child->self);
         child->self.apiType = std::string(typeName<T>());
         void* instance = entry.create(child);
@@ -210,8 +237,6 @@ public:
         );
 
         index(std::string(typeName<T>()), instanceName, &child->self);
-        // child->index(std::string(typeName<T>()), instanceName, &child->self);
-
         Logger::info(tag, "+ {}", typeName<T>());
     }
 
@@ -286,8 +311,7 @@ public:
             if (auto found = parent->find<API>(instanceName); found.exists())
                     return found;
             }
-        // if (parent)
-        //     return parent->find<API>(instanceName);
+        
         return {};
     }
 
@@ -298,12 +322,6 @@ public:
         noteRequire<T>();
         if (auto slot = find<T>(instanceName); slot.exists())
             return slot.get();
-
-        // auto* root = rootNode();
-        // if (root != this) {
-        //     if (auto slot = root->getLocal<T>(instanceName); slot.exists())
-        //         return slot.get();
-        // }
 
         throw Lattice::Exception(tag, "Component '{}' with instance '{}' not found", typeName<T>(), instanceName);
     }
@@ -324,14 +342,28 @@ public:
     // удаляет компонент <T> из ветки
     template<typename API>
     void remove(std::string_view instanceName = "default") {
-        ComponentKey key{std::string(typeName<API>()), std::string(instanceName)};
+        ComponentKey key{
+            std::string(typeName<API>()),
+            std::string(instanceName)
+        };
+
         auto it = lookup.find(key);
         if (it == lookup.end())
             return;
+
         Components* node = nodeOf(it->second);
-        lookup.erase(it);
-        auto child = std::find_if(children.begin(), children.end(),
-            [node](const std::unique_ptr<Components>& p) { return p.get() == node; });
+        ComponentData* data = it->second;
+
+        unindex(data);
+
+        auto child = std::find_if(
+            children.begin(),
+            children.end(),
+            [node](const std::unique_ptr<Components>& p) {
+                return p.get() == node;
+            }
+        );
+
         if (child != children.end())
             children.erase(child);
     }

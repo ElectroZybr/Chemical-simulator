@@ -56,17 +56,18 @@ int TestRegistry::runAll() {
         }
         if (currentTestFailed) {
             ++failed;
-            if (!test.description.empty())
+            if (!test.description.empty()) {
                 Logger::warning("Desc", "<r><b>{}<//>", test.description);
+            }
             testScope.finishError("<r><b>'{}' failed<//>", test.name);
         } else {
             testScope.finish("<g><b>'{}' passed<//>", test.name);
         }
     }
     if (failed == 0) {
-        testing.finish("{} tests passed", tests_.size(), failed);
+        testing.finish("all {} tests passed", tests_.size());
     } else {
-        testing.finishError("<b><g>{} passed,</> {} failure</>", tests_.size(), failed);
+        testing.finishError("<b><g>{} passed,</> {} failure</>", tests_.size()-failed, failed);
     }
     return failed;
 }
