@@ -9,12 +9,13 @@
 #include <Lattice/Kernel/Settings.hpp>
 
 // Plugin dependences
-#include <ParticleDynamics/api/ParticleAPI.hpp>
-#include <ParticleDynamics/api/ParticleStorage.hpp>
+#include <ParticleDynamics/include/ParticleAPI.hpp>
+#include <ParticleDynamics/include/ParticleStorage.hpp>
 
 // Source
 // #include "AtomStorage.hpp"
 #include <Lattice/Engine/physics/Atom/AtomData.h>
+#include "StdData/include/SoA.hpp"
 
 namespace ClassicMD {
 
@@ -28,7 +29,11 @@ public:
     struct Hybridization {using type = AtomData::Hybridization;};
     struct Id {using type = uint32_t;};
 
+    struct Element {using type = float;};
+    struct Mass {using type = float;};
+
     explicit ClassicMD(Lattice::Components& universe) {
+        universe.add<StdData::SoA>("atomData");
         universe.add<ParticleDynamics::ParticleStorage>();
         universe.use<ParticleDynamics::SpatialIndexAPI>("SpatialGrid");
         universe.use<ParticleDynamics::IntegratorAPI>("Verlet");
@@ -36,6 +41,7 @@ public:
 
     void configure(Lattice::Components& universe) {
         settings = universe.require<Lattice::Settings>();
+        atomData = universe.require<StdData::SoA>("atomData");
         atoms = universe.require<ParticleDynamics::ParticleStorage>();
         spatialGrid = universe.find<ParticleDynamics::SpatialIndexAPI>();
         integrator = universe.find<ParticleDynamics::IntegratorAPI>();
@@ -45,6 +51,10 @@ public:
         atoms->addCol<Valence>();
         atoms->addCol<Hybridization>();
         atoms->addCol<Id>();
+
+        atomData->addCol<Element>();
+        atomData->addCol<Mass>();
+        atomData->addCol<Valence>();
     }
 
     void run() override {
@@ -68,6 +78,7 @@ public:
     }
 
 private:
+    Ref<StdData::SoA> atomData;
     Ref<Lattice::Settings> settings;
     Ref<ParticleDynamics::ParticleStorage> atoms;
     Slot<ParticleDynamics::IntegratorAPI> integrator;

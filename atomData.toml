@@ -1,0 +1,10 @@
+[SoAData]
+target = "AtomData"
+
+columns = ["Name", "Mass", "Valence"]
+
+rows = [
+    ["H",  1.008, 1],
+    ["He", 4.003, 0],
+    ["Li", 6.94,  1],
+]

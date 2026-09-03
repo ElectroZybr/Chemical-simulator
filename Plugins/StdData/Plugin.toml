@@ -1,0 +1,10 @@
+id = "StdData"
+name = "Standart Data structures"
+version = "1.0.0"
+
+[core]
+api = "1.0"
+
+[[dependencies]]
+id = "StdIo"
+version = ">=1.0.0"

@@ -4,7 +4,7 @@
 #include <Lattice/Kernel/PluginAPI.hpp>
 #include <Lattice/Tools/Logger.hpp>
 
-#include <Plugins/ParticleDynamics/api/ParticleAPI.hpp>
+#include <ParticleDynamics/include/ParticleAPI.hpp>
 
 namespace Integrators {
 

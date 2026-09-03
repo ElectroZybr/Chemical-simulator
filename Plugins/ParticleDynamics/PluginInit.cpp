@@ -4,7 +4,7 @@
 // Plugin dependences
 
 // Sources
-#include "api/ParticleAPI.hpp"
+#include "include/ParticleAPI.hpp"
 #include "src/SpatialGrid.hpp"
 
 namespace ParticleDynamics {

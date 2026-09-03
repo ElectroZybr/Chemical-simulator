@@ -1,4 +1,4 @@
-target("Integrator")
+target("ForceFields")
     set_kind("shared")
     set_targetdir(".")
 
@@ -7,7 +7,5 @@ target("Integrator")
 
     add_includedirs("..", {public = true})
     add_includedirs("src")
-
-    add_includedirs("../ParticleDynamics/include", {public = true})
 
     add_deps("Lattice")

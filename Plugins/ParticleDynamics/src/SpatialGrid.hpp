@@ -12,17 +12,16 @@
 #include <glm/vec3.hpp>
 
 // Kernel dependences
-#include <Lattice/Kernel/PluginAPI.hpp>
-#include <Lattice/Kernel/Components.hpp>
-#include <Lattice/Kernel/Settings.hpp>
+#include <Lattice/Lattice.hpp>
 #include <Lattice/Kernel/Restrict.hpp>
-#include <Lattice/Tools/Logger.hpp>
 
 // Plugin dependences
-#include "ParticleDynamics/api/ParticleAPI.hpp"
-#include "ParticleDynamics/api/ParticleStorage.hpp"
+#include "StdData/include/CSR.hpp"
 
-#include "CSR.hpp"
+// Source
+#include "ParticleDynamics/include/ParticleAPI.hpp"
+#include "ParticleDynamics/include/ParticleStorage.hpp"
+
 
 namespace ParticleDynamics {
 
@@ -126,7 +125,7 @@ private:
     size_t countCells = 0;
     
     // CSR хранение данных
-    CSR<uint32_t> buffer_;
+    StdData::CSR<uint32_t> buffer_;
     std::array<int, 27> neighborOffsets27_{};
 
     std::vector<uint32_t> cellIndices_;

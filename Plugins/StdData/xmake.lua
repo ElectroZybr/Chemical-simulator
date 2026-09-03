@@ -1,4 +1,4 @@
-target("Integrator")
+target("StdData")
     set_kind("shared")
     set_targetdir(".")
 
@@ -6,8 +6,9 @@ target("Integrator")
     add_files("src/**.cpp")
 
     add_includedirs("..", {public = true})
+    add_includedirs("include", {public = true})
     add_includedirs("src")
 
-    add_includedirs("../ParticleDynamics/include", {public = true})
+    add_includedirs("../StdIo/include")
 
     add_deps("Lattice")

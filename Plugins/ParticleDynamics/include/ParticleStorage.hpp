@@ -2,7 +2,8 @@
 
 #include <glm/vec3.hpp>
 
-#include "ParticleDynamics/src/DynamicSoALib.hpp"
+#include "StdData/include/SoA.hpp"
+
 
 struct Pos {
     struct X { using type = float; };
@@ -31,24 +32,24 @@ class ParticleStorage {
 public:
     explicit ParticleStorage() {
     // стандартный набор колонок для физических частиц
-        buffer_.add<Pos::X>();
-        buffer_.add<Pos::Y>();
-        buffer_.add<Pos::Z>();
+        buffer_.addCol<Pos::X>();
+        buffer_.addCol<Pos::Y>();
+        buffer_.addCol<Pos::Z>();
 
-        buffer_.add<Vel::X>();
-        buffer_.add<Vel::Y>();
-        buffer_.add<Vel::Z>();
+        buffer_.addCol<Vel::X>();
+        buffer_.addCol<Vel::Y>();
+        buffer_.addCol<Vel::Z>();
 
-        buffer_.add<Force::X>();
-        buffer_.add<Force::Y>();
-        buffer_.add<Force::Z>();
+        buffer_.addCol<Force::X>();
+        buffer_.addCol<Force::Y>();
+        buffer_.addCol<Force::Z>();
 
-        buffer_.add<InvMass>();
+        buffer_.addCol<InvMass>();
     }
 
     template<class Tag>
     typename Tag::type* addCol() noexcept {
-        return buffer_.add<Tag>();
+        return buffer_.addCol<Tag>();
     }
 
     template<class Tag>
@@ -171,7 +172,7 @@ public:
     size_t memoryBytes() const { return buffer_.storageBytes(); }
 
 private:
-    DynamicSoA buffer_;
+    StdData::SoA buffer_;
     size_t mobileCount_ = 0;
 
     void swap(size_t a, size_t b) {

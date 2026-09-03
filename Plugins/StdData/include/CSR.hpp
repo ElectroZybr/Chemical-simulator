@@ -5,7 +5,7 @@
 #include <cstddef>
 #include <vector>
 
-namespace ParticleDynamics {
+namespace StdData {
 
 template<typename Type, typename Offset = uint32_t>
 class CSR {

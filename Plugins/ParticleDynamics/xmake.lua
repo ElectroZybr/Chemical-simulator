@@ -6,7 +6,9 @@ target("ParticleDynamics")
     add_files("src/**.cpp")
 
     add_includedirs("..", {public = true})
-    add_includedirs("api", {public = true})
+    add_includedirs("include", {public = true})
     add_includedirs("src")
+
+    add_includedirs("../StdData/include", {public = true})
 
     add_deps("Lattice")

@@ -85,7 +85,7 @@ public:
         try {
             Logger::ConsoleMode consoleMode = Logger::ConsoleMode::Default;
             std::filesystem::path configPath = "lattice.toml";
-            bool testMode = true;
+            bool testMode = false;
             for (int i = 1; i < argc; ++i) {
                 const std::string_view arg = argv[i];
                 if (arg == "--trace") {
@@ -102,14 +102,6 @@ public:
                     testMode = true;
                 }
             }
-            // Logger::Scope scope1("scope1", "");
-            // Logger::info("xnj nj", "");
-            // Logger::Scope scope2("scope2", "");
-            // Logger::info("xnj vzxdzfxcnj", "");
-            // Logger::Scope scope3("scope3", "");
-            // scope1.finish();
-            // scope2.finish();
-            // scope3.finish();
 
             Logger::setConsoleMode(consoleMode);
             StartupConfig config(configPath);
