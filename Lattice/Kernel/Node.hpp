@@ -179,7 +179,6 @@ public:
         noteAdd<T>();
 
         if (has(typeName<T>(), instanceName)) {
-            Logger::warning(tag, "Component '{}' ('{}') already exists", typeName<T>(), instanceName);
             return;
         }
 

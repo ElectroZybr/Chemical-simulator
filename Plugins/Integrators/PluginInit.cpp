@@ -1,7 +1,7 @@
 #include "Plugins/Integrators/src/Verlet.hpp"
 #include "Plugins/Integrators/src/KDK.hpp"
 
-#include <Lattice/Kernel/PluginAPI.hpp>
+#include <Lattice/Kernel/Plugin.hpp>
 #include <Lattice/Tools/Logger.hpp>
 
 #include <ParticleDynamics/include/ParticleAPI.hpp>

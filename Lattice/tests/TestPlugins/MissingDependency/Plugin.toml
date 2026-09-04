@@ -1,0 +1,10 @@
+id = "TestMissingDependency"
+name = "Test Missing Dependency"
+version = "1.0.0"
+
+[core]
+api = "1.0"
+
+[[dependencies]]
+id = "DoesNotExist"
+version = ">=1.0.0"

@@ -1,6 +1,7 @@
 #include <Lattice/Kernel/PluginManager.hpp>
 #include <Lattice/Kernel/Requirements.hpp>
 #include <Lattice/Tools/Logger.hpp>
+#include <Lattice/Kernel/Plugin.hpp>
 #include <toml++/toml.h>
 
 #include <cstddef>
@@ -17,42 +18,19 @@ namespace Lattice {
             
             try {
                 std::filesystem::path pluginDir = entry.path().parent_path();
-                PluginCandidate candidate = {pluginDir, parseManifest(entry.path())};
+                Plugin candidate = {pluginDir, parseManifest(entry.path())};
 
                 auto [it, inserted] = candidates.emplace(candidate.manifest.id, candidate);
 
                 if (!inserted) {
-                    Logger::error(moduleName, "Duplicate plugin id '{}': {}", candidate.manifest.id, entry.path().string());
+                    Logger::error(tag, "Duplicate plugin id '{}': {}", candidate.manifest.id, entry.path().string());
                 }
 
-                Logger::info(moduleName, "Found plugin manifest: {} v{}", candidate.manifest.id, candidate.manifest.version.str());
+                Logger::info(tag, "Found plugin manifest: {} v{}", candidate.manifest.id, candidate.manifest.version.str());
             }
             catch (const std::exception& e) {
-                Logger::error(moduleName, "Failed to parse {}: {}", entry.path().string(), e.what());
+                Logger::error(tag, "Failed to parse {}: {}", entry.path().string(), e.what());
             }
-        }
-    }
-
-    void PluginManager::checkCandidates() {
-        for (auto& [id, plugin] : candidates) {
-            if (canLoad(id)) {
-                prepareLoad(id);
-            }
-        }
-    }
-
-    void PluginManager::loadCandidates(Registry& globalRegistry) {
-        uint16_t loadedPlugins = 0; 
-        for (PluginCandidate* plugin : loadQueue) {
-            if (loadPlugin(plugin, globalRegistry)) {
-                Logger::ok(moduleName, "Loaded plugin {}", plugin->manifest.id);
-                loadedPlugins++;
-            }
-        }
-        if (!loadedPlugins) {
-            Logger::warning(moduleName, "No plugins could be loaded");
-        } else {
-            Logger::info(moduleName, "Loaded plugins: {}", loadedPlugins);
         }
     }
 
@@ -95,6 +73,14 @@ namespace Lattice {
         return info;
     }
 
+    void PluginManager::checkCandidates() {
+        for (auto& [id, plugin] : candidates) {
+            if (canLoad(id)) {
+                prepareLoad(id);
+            }
+        }
+    }
+
     bool PluginManager::canLoad(const std::string& id) {
         auto it = candidates.find(id);
 
@@ -103,7 +89,7 @@ namespace Lattice {
             return false;
         }
 
-        PluginCandidate& plugin = it->second;
+        Plugin& plugin = it->second;
 
         if (plugin.status == LoadStatus::Valid ||
             plugin.status == LoadStatus::Loaded ||
@@ -124,7 +110,7 @@ namespace Lattice {
         if (plugin.manifest.kernelApi.major != kernelApi.major ||
             plugin.manifest.kernelApi > kernelApi) {
             plugin.status = LoadStatus::IncompatibleVersion;
-            Logger::error(moduleName, "Plugin '{}' needs kernel API {}, host is {}",
+            Logger::error(tag, "Plugin '{}' needs kernel API {}, host is {}",
                 id, plugin.manifest.kernelApi.str(), kernelApi.str());
             return false;
         }
@@ -133,27 +119,27 @@ namespace Lattice {
             auto it = candidates.find(dep.id);
             if (it == candidates.end()) {
                 plugin.status = LoadStatus::MissingDependency;
-                Logger::error(moduleName, "Missing dependency '{}' for plugin '{}'", dep.id, id);
+                Logger::error(tag, "Missing dependency '{}' for plugin '{}'", dep.id, id);
                 return false;
             }
 
-            PluginCandidate& dependency = it->second;
+            Plugin& dependency = it->second;
             if (!dep.requirement.contains(dependency.manifest.version)) {
                 plugin.status = LoadStatus::IncompatibleVersion;
-                Logger::error(moduleName, "Plugin '{}' requires '{}' version {}, but found v{}", 
+                Logger::error(tag, "Plugin '{}' requires '{}' version {}, but found v{}", 
                     id, dep.id, dep.requirement.requirement, dependency.manifest.version.str());
                 return false;
             }
 
             if (!canLoad(dep.id)) {
                 plugin.status = it->second.status;
-                Logger::error(moduleName, "Dependency '{}' cannot be loaded for plugin '{}'", dep.id, id);
+                Logger::error(tag, "Dependency '{}' cannot be loaded for plugin '{}'", dep.id, id);
                 return false;
             }
         }
 
         plugin.status = LoadStatus::Valid;
-        Logger::ok(moduleName, "Dependency check passed: {}", id);
+        Logger::ok(tag, "Dependency check passed: {}", id);
         return true;
     }
 
@@ -163,7 +149,7 @@ namespace Lattice {
         if (it == candidates.end())
             return false;
 
-        PluginCandidate& plugin = it->second;
+        Plugin& plugin = it->second;
 
         if (plugin.status == LoadStatus::Queued ||
             plugin.status == LoadStatus::Loaded) {
@@ -181,89 +167,100 @@ namespace Lattice {
         return true;
     }
 
-    bool PluginManager::loadPlugin(PluginCandidate* pluginCandidate, Registry& globalRegistry) {
-        std::filesystem::path pluginPath;
-        for (const auto& entry : std::filesystem::directory_iterator(pluginCandidate->path)) {
-            if (!entry.is_regular_file())
-                continue;
+    void PluginManager::loadCandidates() {
+        uint16_t loadedPlugins = 0; 
+        for (Plugin* candidate : loadQueue) {
+            Logger::Scope scope(tag, "Loading {}", candidate->path.string());
+            if (loadPlugin(candidate)) {
+                scope.finish("Loaded plugin {}", candidate->manifest.id);
+                loadedPlugins++;
+            } 
+        }
+        if (!loadedPlugins) {
+            Logger::warning(tag, "No plugins could be loaded");
+        } else {
+            Logger::info(tag, "Loaded plugins: {}", loadedPlugins);
+        }
+    }
 
-            if (entry.path().extension() == DynamicLibrary::extension()) {
-                pluginPath = entry.path();
+    bool PluginManager::loadPlugin(Plugin* candidate) {
+        std::filesystem::path path;
+
+        for (const auto& entry : std::filesystem::directory_iterator(candidate->path)) {
+            if (entry.is_regular_file() && entry.path().extension() == DynamicLibrary::extension()) {
+                path = entry.path();
                 break;
             }
-        } 
-        
-        if (pluginPath.empty()) {
-            Logger::error(
-                moduleName,
-                "No dynamic library found for plugin '{}': {}",
-                pluginCandidate->manifest.id,
-                pluginCandidate->path.string()
-            );
-
-            pluginCandidate->status = LoadStatus::Failed;
-            return false;
         }
 
-        Logger::action(moduleName, "Loading {}", pluginPath.string());
+        if (path.empty()) {
+            Logger::error(tag, "No dynamic library found for plugin '{}': {}",
+                candidate->manifest.id, candidate->path.string());
+            candidate->status = LoadStatus::Failed;
+            return false;
+        }
 
         const size_t depsBefore = compileDepSink().size();
 
-        DynamicLibrary library;
-        if (!library.open(pluginPath)) {
-            Logger::error(moduleName, "Failed to open '{}': {}", pluginPath.string(), library.lastError());
-            pluginCandidate->status = LoadStatus::Failed;
+        auto* library = dlLoader.loadLibrary(path);
+        if (!library) {
+            candidate->status = LoadStatus::Failed;
             return false;
         }
 
-        PluginCatalog catalog;
-        catalog.pluginId = pluginCandidate->manifest.id;
-        {
-            const auto& sink = compileDepSink();
-            catalog.deps.assign(sink.begin() + static_cast<std::ptrdiff_t>(depsBefore), sink.end());
-        }
-
-        PluginRegisterFn regFn = library.symbol<PluginRegisterFn>("plugin_register");
+        auto regFn = library->symbol<PluginRegisterFn>("plugin_register");
         if (!regFn) {
-            Logger::error(moduleName, "plugin_register symbol not found in '{}'", pluginPath.string());
-            pluginCandidate->status = LoadStatus::Failed;
+            Logger::error(tag, "plugin_register symbol not found in '{}'", path.string());
+            candidate->status = LoadStatus::Failed;
             return false;
         }
 
-        // Сверим, что registry меняется: запомним текущее состояние, вызовем регистрацию и посмотрим на разницу
         auto before = globalRegistry.listProvided();
+
         if (!regFn(globalRegistry)) {
-            Logger::error(moduleName, "plugin_register failed for '{}'", pluginPath.string());
-            pluginCandidate->status = LoadStatus::Failed;
+            Logger::error(tag, "plugin_register failed for '{}'", candidate->manifest.id);
+            candidate->status = LoadStatus::Failed;
             return false;
         }
 
         auto after = globalRegistry.listProvided();
-        // Если ничего не добавилось — предупреждение
-        if (after.size() == before.size()) {
-            Logger::warning(moduleName, "Plugin '{}' does not provide anything", pluginCandidate->manifest.id);
-        }
+
+        PluginCatalog catalog{.pluginId = candidate->manifest.id};
+
+        const auto& sink = compileDepSink();
+        catalog.deps.assign(sink.begin() + depsBefore, sink.end());
 
         std::unordered_set<std::string> beforeSet(before.begin(), before.end());
-        for (const auto& name : after) {
+        for (const auto& name : after)
             if (!beforeSet.contains(name))
                 catalog.provided.push_back(name);
-        }
+
+        if (after.size() == before.size())
+            Logger::warning(tag, "Plugin '{}' does not provide anything", candidate->manifest.id);
+
         recordPluginCatalog(std::move(catalog));
 
-        PluginShutdownFn shutdown = library.symbol<PluginShutdownFn>("plugin_shutdown");
-        plugins.push_back(LoadedPlugin{std::move(library), pluginCandidate->manifest, shutdown});
-        pluginCandidate->status = LoadStatus::Loaded;
-
+        candidate->status = LoadStatus::Loaded;
         return true;
     }
 
     PluginManager::~PluginManager() {
-        for (LoadedPlugin& plugin : plugins) {
-            if (plugin.shutdown)
-                plugin.shutdown();
+        for (Plugin* plugin : loadQueue) {
+            if (plugin->status != LoadStatus::Loaded)
+                continue;
+
+            if (plugin->shutdown)
+                plugin->shutdown();
         }
-        plugins.clear();
+    }
+
+    const Plugin* PluginManager::findCandidate(std::string_view id) const {
+        auto it = candidates.find(std::string(id));
+
+        if (it == candidates.end())
+            return nullptr;
+
+        return &it->second;
     }
 
 }

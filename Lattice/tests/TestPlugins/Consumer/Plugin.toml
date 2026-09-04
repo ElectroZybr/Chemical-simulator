@@ -1,0 +1,10 @@
+id = "TestConsumer"
+name = "Test Consumer"
+version = "1.0.0"
+
+[core]
+api = "1.0"
+
+[[dependencies]]
+id = "TestProvider"
+version = ">=1.0.0"

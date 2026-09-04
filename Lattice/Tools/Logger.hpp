@@ -108,6 +108,7 @@ public:
 private:
     struct ScopeState {
         size_t transientLines = 0;
+        bool eraseValid = true;   // остаётся ли наш transient-хвост всё ещё внизу экрана
     };
 
     // static bool& hasOutput() {
@@ -137,6 +138,21 @@ private:
     static bool& pendingGap() {
         thread_local bool value = false;
         return value;
+    }
+
+    static void invalidateErase(OutputMode mode) {
+        auto& s = scopes();
+        if (s.empty())
+            return;
+
+        // любой чужой вывод (не от самого верхнего скоупа) ломает
+        // erasability всех скоупов ниже по стеку
+        for (size_t i = 0; i + 1 < s.size(); ++i)
+            s[i].eraseValid = false;
+
+        // persistent-вывод ломает erasability даже для текущего (верхнего) скоупа
+        if (mode == OutputMode::Persistent)
+            s.back().eraseValid = false;
     }
 
 public:
@@ -226,10 +242,6 @@ public:
             , active_(true)
         {
             Logger::scopes().push_back({});
-            if (Logger::consoleMode() == ConsoleMode::Default && pendingGap()) {
-                std::cout << '\n';
-                addScopeLines(1);      // если тест пройдёт — этот \n сотрётся вместе с ➜/•
-            }
             pendingGap() = false;
             Logger::action(tag_, startFormat, std::forward<TArgs>(args)...);
             ++Logger::indent();
@@ -295,7 +307,8 @@ public:
         using Clock = std::chrono::steady_clock;
 
         void close(Level level, const Text& message) {
-            const size_t lineCount = Logger::scopes().back().transientLines;
+            const size_t lineCount  = Logger::scopes().back().transientLines;
+            const bool eraseValid   = Logger::scopes().back().eraseValid;
             --Logger::indent();
 
             const auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(
@@ -308,8 +321,9 @@ public:
             Logger::scopes().pop_back();
 
             if (success) {
-                if (compact)
+                if (compact && eraseValid) {
                     eraseLines(lineCount);
+                }
 
                 Logger::ok(tag_, message + Text::format("<gr> ({} us)</>", elapsed));
                 pendingGap() = compact;
@@ -328,9 +342,10 @@ public:
             --Logger::indent();
 
             const size_t lineCount = Logger::scopes().back().transientLines;
+            const bool eraseValid  = Logger::scopes().back().eraseValid;
             Logger::scopes().pop_back();
 
-            if (Logger::consoleMode() == Logger::ConsoleMode::Default)
+            if (Logger::consoleMode() == Logger::ConsoleMode::Default && eraseValid)
                 Logger::eraseLines(lineCount);
 
             active_ = false;

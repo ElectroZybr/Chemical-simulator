@@ -4,7 +4,7 @@
 #include <vector>
 
 // Kernel dependences
-#include <Lattice/Kernel/PluginAPI.hpp>
+#include <Lattice/Kernel/Plugin.hpp>
 #include "Lattice/Kernel/SubsystemAPI.hpp"
 #include "Lattice/Tools/Logger.hpp"
 #include <Lattice/Kernel/Node.hpp>

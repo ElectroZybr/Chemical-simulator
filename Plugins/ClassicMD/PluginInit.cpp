@@ -1,5 +1,5 @@
 // Kernel dependences
-#include <Lattice/Kernel/PluginAPI.hpp>
+#include <Lattice/Kernel/Plugin.hpp>
 #include <Lattice/Kernel/ServiceAPI.hpp>
 
 // Plugin dependences

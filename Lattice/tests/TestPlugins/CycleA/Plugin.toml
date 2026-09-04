@@ -1,0 +1,10 @@
+id = "TestCycleA"
+name = "Test Cycle A"
+version = "1.0.0"
+
+[core]
+api = "1.0"
+
+[[dependencies]]
+id = "TestCycleB"
+version = ">=1.0.0"

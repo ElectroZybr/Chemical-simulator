@@ -14,6 +14,7 @@
 #include <Lattice/Kernel/Exception.hpp>
 #include <Lattice/Kernel/Settings.hpp>
 #include <Lattice/Tools/SystemInfo.hpp>
+#include "Lattice/Kernel/DLLoader.hpp"
 #include "Lattice/Tools/Logger.hpp"
 #include "Lattice/Tools/Tests.hpp"
 
@@ -22,7 +23,8 @@ namespace Lattice {
 class Runtime {
     static constexpr std::string_view tag = "Runtime";
 public:
-    Runtime() : root(globalRegistry, objectRegistry, nullptr) {
+    Runtime() : root(globalRegistry, objectRegistry, nullptr)
+              , pluginManager(globalRegistry, dlLoader) {
         Logger::action(tag, "System launching");
         Lattice::CliSystemInfo::printSystemInfo(std::cout);
         // регистрация интерфейсов ядра
@@ -36,12 +38,12 @@ public:
         // загрузка внешних плагинов
         pluginManager.scanDirectory(path);
         pluginManager.checkCandidates();
-        pluginManager.loadCandidates(globalRegistry);
+        pluginManager.loadCandidates();
         return true;
     }
 
     void buildBranch(const StartupEntry& entry, std::string_view name = "default") {
-        Logger::Scope scope(tag, "Start component '{}' with name '{}'", entry.name, name);
+        Logger::Scope scope(tag, "Build branch '{}' with name '{}'", entry.name, name);
         if (globalRegistry.hasImpl<ServiceAPI>(entry.name)) {
             root.add<ServiceAPI>(entry.name, name);
 
@@ -53,13 +55,13 @@ public:
                 Logger::info(tag, "Host service '{}'", entry.name);
             }
 
-            scope.finish("Start '{}' done", entry.name);
+            scope.finish("Build '{}' done", entry.name);
             return;
         }
 
         if (globalRegistry.hasImpl<SubsystemAPI>(entry.name)) {
             root.add<SubsystemAPI>(entry.name, name);
-            scope.finish("Start '{}' done", entry.name);
+            scope.finish("Build '{}' done", entry.name);
             return;
         }
 
@@ -109,6 +111,8 @@ public:
 
             loadPlugins("Plugins");
             if (testMode) {
+                dlLoader.load("Lattice", ".tests");
+                dlLoader.load("Plugins", ".tests");
                 TestRegistry::instance().runAll();
                 return;
             }
@@ -181,9 +185,10 @@ private:
         root.stopServices();
     }
 
-    ObjectRegistry objectRegistry;
-    Registry globalRegistry;
+    DLLoader dlLoader;
     PluginManager pluginManager;
+    Registry globalRegistry;
+    ObjectRegistry objectRegistry;
     Node root;
 
     bool running = true;

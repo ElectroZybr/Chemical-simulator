@@ -126,19 +126,15 @@ void Logger::print(const Text& text, OutputMode mode) {
     std::lock_guard lock(mutex());
 
     std::ofstream& file = logFile();
-
     if (file.is_open()) {
-        file << timestampForLogLine()
-             << ' '
-             << text.plain()
-             << '\n';
-
+        file << timestampForLogLine() << ' ' << text.plain() << '\n';
         file.flush();
     }
 
     if (mode == OutputMode::Persistent || consoleMode() != ConsoleMode::Default) {
-        Text wrapped = text.wrap(100, indent());
+        invalidateErase(mode);
 
+        Text wrapped = text.wrap(100, indent());
         std::cout << wrapped.render() << '\n';
 
         if (mode == OutputMode::Transient)
@@ -152,33 +148,26 @@ void Logger::print(Level level, std::string_view tag, const Text& text, OutputMo
     const LevelStyle style = levelStyle(level);
 
     std::ofstream& file = logFile();
-
     if (file.is_open()) {
-        file << timestampForLogLine()
-             << ' '
+        file << timestampForLogLine() << ' '
              << std::format("[{}] [{}] {}", style.label, tag, text.plain())
              << '\n';
-
         file.flush();
     }
 
     if (static_cast<int>(consoleMode()) < static_cast<int>(style.consoleMode))
         return;
 
-    // std::cout << Logger::indent() << std::endl;
+    invalidateErase(mode);
 
     Text line;
-
     if (indent() > 0)
         line.append(std::string(indent(), ' '));
-
     line.append(style.status, style.style);
     line.append(" [");
     line.append(tag, TextStyle::Bold);
     line.append("] ");
     line.append(text, style.style);
-
-    // Text wrapped = line.wrap(200, 0);
 
     std::cout << line.render() << '\n';
 

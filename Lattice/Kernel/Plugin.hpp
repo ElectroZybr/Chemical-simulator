@@ -9,9 +9,11 @@
 #include <string_view>
 #include <vector>
 
+#include "Lattice/Kernel/DynamicLibrary.hpp"
 #include "Lattice/Kernel/Registry.hpp"
 
 namespace Lattice {
+    
 struct Version {
     uint8_t major = 0;
     uint8_t minor = 0;
@@ -107,13 +109,17 @@ enum class LoadStatus {
     Failed
 };
 
-struct PluginCandidate {
+using PluginRegisterFn = bool(*)(Registry&);
+using PluginShutdownFn = void(*)();
+
+struct Plugin {
     std::filesystem::path path;
     PluginManifest manifest;
     LoadStatus status = LoadStatus::NonChecked;
+
+    DynamicLibrary* library = nullptr;
+    PluginShutdownFn shutdown = nullptr;
+
     std::vector<std::string> providedAPIs;
 };
-
-using PluginRegisterFn = bool(*)(Registry&);
-using PluginShutdownFn = void(*)();
 }

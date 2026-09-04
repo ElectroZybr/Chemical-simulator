@@ -3,7 +3,7 @@
 #include <glm/vec3.hpp>
 
 // Kernel dependences
-#include <Lattice/Kernel/PluginAPI.hpp>
+#include <Lattice/Kernel/Plugin.hpp>
 #include <Lattice/Kernel/ServiceAPI.hpp>
 #include <Lattice/Kernel/Node.hpp>
 #include <Lattice/Kernel/Settings.hpp>
