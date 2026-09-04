@@ -3,7 +3,7 @@
 // Kernel dependences
 #include <Lattice/Kernel/PluginAPI.hpp>
 #include <Lattice/Kernel/ServiceAPI.hpp>
-#include <Lattice/Kernel/Components.hpp>
+#include <Lattice/Kernel/Node.hpp>
 #include <Lattice/Kernel/Settings.hpp>
 
 // Plugin dependences
@@ -19,13 +19,13 @@
 
 class Window final : public ServiceAPI {
 public:
-    explicit Window(Lattice::Components& branch) {
+    explicit Window(Lattice::Node& branch) {
         branch.use<WindowAPI, glfwWindow>();
         branch.add<Render>();
         Logger::info("Window", "window created");
     }
 
-    void configure(Lattice::Components& branch) {
+    void configure(Lattice::Node& branch) {
         settings = branch.require<Lattice::Settings>();
         actionMap = branch.require<ActionMap>();
         render = branch.require<Render>();

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <Lattice/Kernel/Components.hpp>
+#include <Lattice/Kernel/Node.hpp>
 #include <Lattice/Kernel/Exception.hpp>
 
 #include "Document.hpp"
@@ -9,13 +9,17 @@
 
 class KeybindsLoader final : public LoaderAPI {
 public:
-    void configure(Lattice::Components& branch) {
+    void configure(Lattice::Node& branch) {
         actionMap = branch.require<ActionMap>();
     }
 
-    void load(const Document& doc) override {
-        // throw Lattice::Exception("KeybindsLoader", "загрузка: о нет всему пизда!!!");
-        const auto* keybinds = doc.get("keybinds");
+    std::string_view section() const override {
+        return "keybinds";
+    }
+
+    void load(const Value* keybinds) override {
+        throw Lattice::Exception("KeybindsLoader", "загрузка: о нет всему пизда!!!");
+        // const auto* keybinds = doc.get("keybinds");
 
         if (!keybinds || !keybinds->is<Table>())
             return;

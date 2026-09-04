@@ -27,9 +27,9 @@ namespace ParticleDynamics {
 
 class SpatialGrid final : public SpatialIndexAPI {
 public:
-    explicit SpatialGrid(Lattice::Components& components) {}
+    explicit SpatialGrid(Lattice::Node& components) {}
 
-    void configure(Lattice::Components& components) {
+    void configure(Lattice::Node& components) {
         particles = components.require<ParticleStorage>();
         settings = components.require<Lattice::Settings>();
         settings->bind("SpatialGrid", "size", &size, [this](glm::vec3 newSize) { setSize(newSize); });

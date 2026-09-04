@@ -1,7 +1,7 @@
 #pragma once
 
 // Kernel
-#include <Lattice/Kernel/Components.hpp>
+#include <Lattice/Kernel/Node.hpp>
 #include <Lattice/Kernel/Registry.hpp>
 #include <Lattice/Kernel/Runtime.hpp>
 #include <Lattice/Kernel/ServiceAPI.hpp>

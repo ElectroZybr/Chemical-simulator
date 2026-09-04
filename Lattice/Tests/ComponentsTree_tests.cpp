@@ -11,7 +11,7 @@ public:
     int value = 0;
     bool configured = false;
 
-    void configure(Components&) {
+    void configure(Node&) {
         configured = true;
     }
 };
@@ -32,7 +32,7 @@ public:
 };
 
 
-TEST(Components_DeepTreeLookup, RuntimeFixture, 
+TEST(Node_DeepTreeLookup, RuntimeFixture, 
 "Поиск компонента должен подниматься по дереву родителей, но не заходить в соседние ветки. \
 Child-ветка должна видеть свои компоненты и компоненты предков.")
 {
@@ -40,13 +40,13 @@ Child-ветка должна видеть свои компоненты и ко
 
     fixture.root.add<TestComponent>("root");
 
-    Components branchA(&fixture.registry, &fixture.root, "BranchA");
+    Node& branchA = fixture.root.addFolder("BranchA");
     branchA.add<TestComponent>("a");
 
-    Components branchB(&fixture.registry, &fixture.root, "BranchB");
+    Node& branchB = fixture.root.addFolder("BranchB");
     branchB.add<TestComponent>("b");
 
-    Components branchAChild(&fixture.registry, &branchA, "BranchAChild");
+    Node& branchAChild = branchA.addFolder("BranchAChild");
     branchAChild.add<TestComponent>("child");
 
     REQUIRE(fixture.root.find<TestComponent>("root").exists());
@@ -61,7 +61,7 @@ Child-ветка должна видеть свои компоненты и ко
     REQUIRE(!fixture.root.find<TestComponent>("missing").exists());
 }
 
-TEST(Components_Shadowing, RuntimeFixture, 
+TEST(Node_Shadowing, RuntimeFixture, 
 "Компонент в дочерней ветке должен скрывать компонент с тем же именем из родительской ветки. \
 При этом оба объекта должны оставаться независимыми экземплярами.")
 {
@@ -69,7 +69,7 @@ TEST(Components_Shadowing, RuntimeFixture,
 
     fixture.root.add<TestComponent>("shared");
 
-    Components& branch = fixture.root.addFolder("branch");
+    Node& branch = fixture.root.addFolder("branch");
     branch.add<TestComponent>("shared");
 
     auto rootComponent = fixture.root.require<TestComponent>("shared");
@@ -80,7 +80,7 @@ TEST(Components_Shadowing, RuntimeFixture,
     REQUIRE(&rootComponent.get() != &branchComponent.get());
 }
 
-TEST(Components_ShadowingDoesNotLeak, RuntimeFixture, 
+TEST(Node_ShadowingDoesNotLeak, RuntimeFixture, 
 "Одинаковые имена компонентов в соседних ветках не должны влиять друг на друга. \
 Поиск из одной ветки не должен случайно находить локальный компонент другой ветки.")
  {
@@ -88,8 +88,8 @@ TEST(Components_ShadowingDoesNotLeak, RuntimeFixture,
 
     fixture.root.add<TestComponent>("shared");
 
-    Components branchA(&fixture.registry, &fixture.root, "A");
-    Components branchB(&fixture.registry, &fixture.root, "B");
+    Node& branchA = fixture.root.addFolder("A");
+    Node& branchB = fixture.root.addFolder("B");
 
     branchA.add<TestComponent>("shared");
 
@@ -101,62 +101,62 @@ TEST(Components_ShadowingDoesNotLeak, RuntimeFixture,
     REQUIRE(a.get() != b.get());
 }
 
-TEST(Components_folderCollect, RuntimeFixture,
+TEST(Node_folderCollect, RuntimeFixture,
     "Поиск в папке должен возвращать компоненты из текущей папки и всех вложенных папок.") {
     fixture.registry.registerComponent<TestComponent>();
 
     fixture.root.add<TestComponent>("root");
 
-    Components& branch = fixture.root.addFolder("branch");
+    Node& branch = fixture.root.addFolder("branch");
     branch.add<TestComponent>("a");
     branch.add<TestComponent>("b");
 
-    Components& child = branch.addFolder("child");
+    Node& child = branch.addFolder("child");
     child.add<TestComponent>("c");
 
-    Components& nested = child.addFolder("nested");
+    Node& nested = child.addFolder("nested");
     nested.add<TestComponent>("d");
 
     auto root = fixture.root.folderCollect<TestComponent>();
-    auto branchComponents = branch.folderCollect<TestComponent>();
-    auto childComponents = child.folderCollect<TestComponent>();
-    auto nestedComponents = nested.folderCollect<TestComponent>();
+    auto branchNode = branch.folderCollect<TestComponent>();
+    auto childNode = child.folderCollect<TestComponent>();
+    auto nestedNode = nested.folderCollect<TestComponent>();
 
     REQUIRE(root.size() == 5);
-    REQUIRE(branchComponents.size() == 4);
-    REQUIRE(childComponents.size() == 2);
-    REQUIRE(nestedComponents.size() == 1);
+    REQUIRE(branchNode.size() == 4);
+    REQUIRE(childNode.size() == 2);
+    REQUIRE(nestedNode.size() == 1);
 }
 
 
-TEST(Components_directCollect, RuntimeFixture,
+TEST(Node_directCollect, RuntimeFixture,
     "Поиск в папке должен возвращать только компоненты непосредственно принадлежащие текущей папке.") {
     fixture.registry.registerComponent<TestComponent>();
 
     fixture.root.add<TestComponent>("root");
 
-    Components& branch = fixture.root.addFolder("branch");
+    Node& branch = fixture.root.addFolder("branch");
     branch.add<TestComponent>("a");
     branch.add<TestComponent>("b");
 
-    Components& child = branch.addFolder("child");
+    Node& child = branch.addFolder("child");
     child.add<TestComponent>("c");
 
-    Components& nested = child.addFolder("nested");
+    Node& nested = child.addFolder("nested");
     nested.add<TestComponent>("d");
 
     auto root = fixture.root.directCollect<TestComponent>();
-    auto branchComponents = branch.directCollect<TestComponent>();
-    auto childComponents = child.directCollect<TestComponent>();
-    auto nestedComponents = nested.directCollect<TestComponent>();
+    auto branchNode = branch.directCollect<TestComponent>();
+    auto childNode = child.directCollect<TestComponent>();
+    auto nestedNode = nested.directCollect<TestComponent>();
 
     REQUIRE(root.size() == 1);
-    REQUIRE(branchComponents.size() == 2);
-    REQUIRE(childComponents.size() == 1);
-    REQUIRE(nestedComponents.size() == 1);
+    REQUIRE(branchNode.size() == 2);
+    REQUIRE(childNode.size() == 1);
+    REQUIRE(nestedNode.size() == 1);
 }
 
-TEST(Components_GlobalCollectDeepTree, RuntimeFixture,
+TEST(Node_GlobalCollectDeepTree, RuntimeFixture,
     "Глобальный поиск должен обходить всё дерево компонентов независимо от глубины вложенности. "
     "В результат должны попасть компоненты из всех веток и дочерних узлов.") {
 
@@ -164,24 +164,24 @@ TEST(Components_GlobalCollectDeepTree, RuntimeFixture,
 
     fixture.root.add<TestComponent>("root");
 
-    Components& branchA = fixture.root.addFolder("A");
+    Node& branchA = fixture.root.addFolder("A");
     branchA.add<TestComponent>("a");
 
-    Components& branchB = fixture.root.addFolder("B");
+    Node& branchB = fixture.root.addFolder("B");
     branchB.add<TestComponent>("b");
 
-    Components& childA = branchA.addFolder("ChildA");
+    Node& childA = branchA.addFolder("ChildA");
     childA.add<TestComponent>("aa");
 
-    Components& childB = branchB.addFolder("ChildB");
+    Node& childB = branchB.addFolder("ChildB");
     childB.add<TestComponent>("bb");
 
-    auto components = childA.globalCollect<TestComponent>();
+    auto Node = childA.globalCollect<TestComponent>();
 
-    REQUIRE(components.size() == 5);
+    REQUIRE(Node.size() == 5);
 }
 
-TEST(Components_GlobalCollectIgnoresInstanceName, RuntimeFixture, 
+TEST(Node_GlobalCollectIgnoresInstanceName, RuntimeFixture, 
 "Глобальный поиск должен находить все экземпляры компонента независимо от имени реализации.")
  {
     fixture.registry.registerComponent<TestComponent>();
@@ -190,23 +190,23 @@ TEST(Components_GlobalCollectIgnoresInstanceName, RuntimeFixture,
     fixture.root.add<TestComponent>("two");
     fixture.root.add<TestComponent>("three");
 
-    Components& branch = fixture.root.addFolder("branch");
+    Node& branch = fixture.root.addFolder("branch");
     branch.add<TestComponent>("four");
     branch.add<TestComponent>("five");
 
-    auto components = fixture.root.globalCollect<TestComponent>();
+    auto Node = fixture.root.globalCollect<TestComponent>();
 
-    REQUIRE(components.size() == 5);
+    REQUIRE(Node.size() == 5);
 }
 
-TEST(Components_RemoveDoesNotAffectParent, RuntimeFixture,
+TEST(Node_RemoveDoesNotAffectParent, RuntimeFixture,
     "Удаление компонента из дочерней ветки не должно удалять компонент родителя.") {
 
     fixture.registry.registerComponent<TestComponent>();
 
     fixture.root.add<TestComponent>("shared");
 
-    Components& branch = fixture.root.addFolder("branch");
+    Node& branch = fixture.root.addFolder("branch");
     branch.add<TestComponent>("shared");
 
     branch.remove<TestComponent>("shared");
@@ -214,7 +214,7 @@ TEST(Components_RemoveDoesNotAffectParent, RuntimeFixture,
     REQUIRE(fixture.root.find<TestComponent>("shared").exists());
 }
 
-TEST(Components_RemoveShadowDoesNotRevealWrongComponent, RuntimeFixture, 
+TEST(Node_RemoveShadowDoesNotRevealWrongComponent, RuntimeFixture, 
 "После удаления локального компонента поиск должен корректно продолжить поиск у родителя. \
 Удаление индекса дочернего компонента не должно повреждать или скрывать родительский объект.")
 {
@@ -222,7 +222,7 @@ TEST(Components_RemoveShadowDoesNotRevealWrongComponent, RuntimeFixture,
 
     fixture.root.add<TestComponent>("shared");
 
-    Components& branch = fixture.root.addFolder("branch");
+    Node& branch = fixture.root.addFolder("branch");
     branch.add<TestComponent>("shared");
 
     REQUIRE(branch.find<TestComponent>("shared").exists());
@@ -232,7 +232,7 @@ TEST(Components_RemoveShadowDoesNotRevealWrongComponent, RuntimeFixture,
     REQUIRE(branch.find<TestComponent>("shared").exists());
 }
 
-TEST(Components_ConfigureDeepTree, RuntimeFixture, 
+TEST(Node_ConfigureDeepTree, RuntimeFixture, 
 "configureAll должен вызвать configure для каждого компонента во всей ветке.\
 Вызов должен корректно проходить через произвольную глубину дерева.") 
 {
@@ -240,10 +240,10 @@ TEST(Components_ConfigureDeepTree, RuntimeFixture,
 
     fixture.root.add<TestComponent>("root");
 
-    Components& branch = fixture.root.addFolder("branch");
+    Node& branch = fixture.root.addFolder("branch");
     branch.add<TestComponent>("branch");
 
-    Components child(&fixture.registry, &branch, "Child");
+    Node& child = fixture.root.addFolder("Child");
     child.add<TestComponent>("child");
 
     fixture.root.configureAll();
@@ -253,7 +253,7 @@ TEST(Components_ConfigureDeepTree, RuntimeFixture,
     REQUIRE(child.require<TestComponent>("child")->configured);
 }
 
-TEST(Components_ConfigureDoesNotConfigureTwice, RuntimeFixture, 
+TEST(Node_ConfigureDoesNotConfigureTwice, RuntimeFixture, 
 "Повторный вызов configureAll не должен приводить к неконтролируемому состоянию компонента. \
 Компонент должен сохранять корректное сконфигурированное состояние.")
 {

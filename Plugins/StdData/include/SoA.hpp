@@ -89,7 +89,7 @@ public:
             return get<Tag>();
         }
 
-        col.name = std::string(Tag::name);
+        col.name = Lattice::typeName<Tag>();
         col.elementSize = sizeof(T);
         col.alignment   = alignof(T);
         col.typeKey     = typeToken<T>();

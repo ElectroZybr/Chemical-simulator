@@ -5,7 +5,7 @@
 #include <ParticleDynamics/include/ParticleAPI.hpp>
 #include <ParticleDynamics/include/ParticleStorage.hpp>
 
-#include <Lattice/Kernel/Components.hpp>
+#include <Lattice/Kernel/Node.hpp>
 #include <Lattice/Kernel/Settings.hpp>
 
 namespace Integrators {
@@ -16,9 +16,9 @@ public:
     struct PrevForceY {using type = float;};
     struct PrevForceZ {using type = float;};
 
-    Verlet(Lattice::Components& components) {}
+    Verlet(Lattice::Node& components) {}
 
-    void configure(Lattice::Components& components) {
+    void configure(Lattice::Node& components) {
         // интегратор требует для работы буфер. Если нет - исключение
         particles = components.require<ParticleDynamics::ParticleStorage>();
         settings = components.require<Lattice::Settings>();

@@ -10,7 +10,7 @@
 #include <Lattice/Kernel/PluginManager.hpp>
 #include <Lattice/Kernel/StartupConfig.hpp>
 #include <Lattice/Kernel/Requirements.hpp>
-#include <Lattice/Kernel/Components.hpp>
+#include <Lattice/Kernel/Node.hpp>
 #include <Lattice/Kernel/Exception.hpp>
 #include <Lattice/Kernel/Settings.hpp>
 #include <Lattice/Tools/SystemInfo.hpp>
@@ -22,7 +22,7 @@ namespace Lattice {
 class Runtime {
     static constexpr std::string_view tag = "Runtime";
 public:
-    Runtime() : root(&globalRegistry, nullptr) {
+    Runtime() : root(globalRegistry, objectRegistry, nullptr) {
         Logger::action(tag, "System launching");
         Lattice::CliSystemInfo::printSystemInfo(std::cout);
         // регистрация интерфейсов ядра
@@ -134,7 +134,7 @@ public:
     }
 
     void stop(std::string_view instanceName) {
-        auto service = root.find<ServiceAPI>(instanceName).get();
+        Slot<ServiceAPI> service = root.find<ServiceAPI>(instanceName);
 
         if (!service)
             return;
@@ -181,9 +181,10 @@ private:
         root.stopServices();
     }
 
+    ObjectRegistry objectRegistry;
     Registry globalRegistry;
     PluginManager pluginManager;
-    Components root;
+    Node root;
 
     bool running = true;
     std::string hostName;

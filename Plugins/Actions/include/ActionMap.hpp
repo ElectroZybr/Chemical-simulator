@@ -13,7 +13,7 @@
 
 
 namespace Lattice {
-    class Components;
+    class Node;
     class Settings;
 }
 
@@ -25,8 +25,8 @@ enum class ActionMode {
 
 class ActionMap final : public SubsystemAPI {
 public:
-    explicit ActionMap(Lattice::Components& branch);
-    void configure(Lattice::Components& branch);
+    explicit ActionMap(Lattice::Node& branch);
+    void configure(Lattice::Node& branch);
 
     void bind(std::string_view actionId, std::string_view trigger, ActionMode mode = ActionMode::OnPress);
     void bindToggle(std::string_view valueKey, std::string_view trigger, ActionMode mode = ActionMode::OnPress);

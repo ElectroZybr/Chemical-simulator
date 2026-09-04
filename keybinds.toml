@@ -1,0 +1,7 @@
+[settings]
+verlet.dt = 100500
+
+[keybinds]
+actions.print = "P"
+actions.quit = ["Ctrl+Q", 12]
+verlet.dt = ["]", "add", 0.001, "hold"]

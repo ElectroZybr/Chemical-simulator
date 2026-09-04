@@ -19,12 +19,12 @@ struct Render::FrameState {
     bool surfaceConfigured = false;
 };
 
-Render::Render(Lattice::Components& renderer)
+Render::Render(Lattice::Node& renderer)
     : frameState(std::make_unique<FrameState>()) {
     renderer.add<GPU::WGPU>();
 }
 
-void Render::configure(Lattice::Components& renderer) {
+void Render::configure(Lattice::Node& renderer) {
     settings_ = renderer.require<Lattice::Settings>();
     gpu_ = renderer.require<GPU::WGPU>();
     window_ = renderer.find<WindowAPI>();

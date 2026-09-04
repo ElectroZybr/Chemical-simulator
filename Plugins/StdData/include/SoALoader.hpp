@@ -1,7 +1,7 @@
 #pragma once
 
 #include "SoA.hpp"
-#include <Lattice/Kernel/Components.hpp>
+#include <Lattice/Kernel/Node.hpp>
 #include <Lattice/Kernel/Exception.hpp>
 
 #include "StdIo/include/Document.hpp"
@@ -10,12 +10,16 @@
 
 class SoALoader final : public LoaderAPI {
 public:
-    void configure(Lattice::Components& branch) {
+    void configure(Lattice::Node& branch) {
         branch_ = &branch;
     }
 
-    void load(const Document& doc) override {
-        const auto* data = doc.get("SoAData");
+    std::string_view section() const override {
+        return "SoAData";
+    }
+
+    void load(const Value* data) override {
+        // const auto* data = doc.get("SoAData");
 
         if (!data || !data->is<Table>())
             return;
@@ -82,5 +86,5 @@ public:
         }
     }
 private:
-    Ref<Lattice::Components> branch_;
+    Ref<Lattice::Node> branch_;
 };

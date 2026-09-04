@@ -3,7 +3,7 @@
 #include <GLFW/glfw3.h>
 #include <string_view>
 
-#include <Lattice/Kernel/Components.hpp>
+#include <Lattice/Kernel/Node.hpp>
 
 #include "WindowAPI.hpp"
 #include "Keyboard.hpp"
@@ -11,8 +11,8 @@
 
 class glfwWindow final : public WindowAPI {
 public:
-    explicit glfwWindow(Lattice::Components& branch);
-    void configure(Lattice::Components& branch);
+    explicit glfwWindow(Lattice::Node& branch);
+    void configure(Lattice::Node& branch);
 
     ~glfwWindow() override;
 

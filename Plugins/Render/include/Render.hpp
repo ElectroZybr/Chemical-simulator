@@ -3,7 +3,7 @@
 // Kernel dependences
 #include <Lattice/Kernel/PluginAPI.hpp>
 #include <Lattice/Kernel/ServiceAPI.hpp>
-#include <Lattice/Kernel/Components.hpp>
+#include <Lattice/Kernel/Node.hpp>
 #include <Lattice/Kernel/Settings.hpp>
 
 // Plugin dependences
@@ -16,8 +16,8 @@ namespace GPU {
 class Render {
     static constexpr std::string_view tag = "Render";
 public:
-    explicit Render(Lattice::Components& renderer);
-    void configure(Lattice::Components& renderer);
+    explicit Render(Lattice::Node& renderer);
+    void configure(Lattice::Node& renderer);
 
     void setup();
     void frame();

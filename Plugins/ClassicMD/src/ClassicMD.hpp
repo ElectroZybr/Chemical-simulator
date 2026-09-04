@@ -5,7 +5,7 @@
 // Kernel dependences
 #include <Lattice/Kernel/PluginAPI.hpp>
 #include <Lattice/Kernel/ServiceAPI.hpp>
-#include <Lattice/Kernel/Components.hpp>
+#include <Lattice/Kernel/Node.hpp>
 #include <Lattice/Kernel/Settings.hpp>
 
 // Plugin dependences
@@ -13,7 +13,6 @@
 #include <ParticleDynamics/include/ParticleStorage.hpp>
 
 // Source
-// #include "AtomStorage.hpp"
 #include <Lattice/Engine/physics/Atom/AtomData.h>
 #include "StdData/include/SoA.hpp"
 
@@ -24,22 +23,22 @@ public:
     struct Energy {using type = float;};
     struct Charge {using type = float;};
 
-    struct Type {using type = AtomData::Type;};
+    // struct Type {using type = AtomData::Type;};
     struct Valence {using type = uint8_t;};
-    struct Hybridization {using type = AtomData::Hybridization;};
+    // struct Hybridization {using type = AtomData::Hybridization;};
     struct Id {using type = uint32_t;};
 
     struct Element {using type = float;};
     struct Mass {using type = float;};
 
-    explicit ClassicMD(Lattice::Components& universe) {
+    explicit ClassicMD(Lattice::Node& universe) {
         universe.add<StdData::SoA>("atomData");
         universe.add<ParticleDynamics::ParticleStorage>();
         universe.use<ParticleDynamics::SpatialIndexAPI>("SpatialGrid");
         universe.use<ParticleDynamics::IntegratorAPI>("Verlet");
     }
 
-    void configure(Lattice::Components& universe) {
+    void configure(Lattice::Node& universe) {
         settings = universe.require<Lattice::Settings>();
         atomData = universe.require<StdData::SoA>("atomData");
         atoms = universe.require<ParticleDynamics::ParticleStorage>();
@@ -47,9 +46,9 @@ public:
         integrator = universe.find<ParticleDynamics::IntegratorAPI>();
         atoms->addCol<Energy>();
         atoms->addCol<Charge>();
-        atoms->addCol<Type>();
+        // atoms->addCol<Type>();
         atoms->addCol<Valence>();
-        atoms->addCol<Hybridization>();
+        // atoms->addCol<Hybridization>();
         atoms->addCol<Id>();
 
         atomData->addCol<Element>();
@@ -69,9 +68,9 @@ public:
         if (atoms) {
             atoms->removeCol<Energy>();
             atoms->removeCol<Charge>();
-            atoms->removeCol<Type>();
+            // atoms->removeCol<Type>();
             atoms->removeCol<Valence>();
-            atoms->removeCol<Hybridization>();
+            // atoms->removeCol<Hybridization>();
             atoms->removeCol<Id>();
         }
         Logger::info("ClassicMD", "destroying object");

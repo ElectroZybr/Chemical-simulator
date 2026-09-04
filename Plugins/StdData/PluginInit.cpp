@@ -1,13 +1,17 @@
 // Kernel dependences
 #include <Lattice/Kernel/PluginAPI.hpp>
 
+#include "LoaderAPI.hpp"
+
 // Sources
 #include "include/SoA.hpp"
+#include "include/SoALoader.hpp"
 // #include "include/CSR.hpp"
 
 
 extern "C" bool plugin_register(Lattice::Registry& reg) {
     reg.registerComponent<StdData::SoA>();
+    reg.registerImpl<LoaderAPI, SoALoader>();
     // reg.registerComponent<CSR>();
     return true;
 }

@@ -14,20 +14,20 @@
 
 namespace Lattice {
 
-class Components;
+class Node;
 
 template<typename T>
-concept HasConfigure = requires(T& obj, Components& branch) {
+concept HasConfigure = requires(T& obj, Node& branch) {
     obj.configure(branch);
 };
 
 class Registry {
 public:
     static constexpr std::string_view tag = "Registry";
-    using CreateFn     = void* (*)(Components*);
+    using CreateFn     = void* (*)(Node*);
     using DestroyFn    = void  (*)(void*);
     using GetAPIFn     = void* (*)(void*);
-    using ConfigureFn  = void  (*)(void*, Components&);
+    using ConfigureFn  = void  (*)(void*, Node&);
 
     struct TypeEntry {
         std::string name;
@@ -47,22 +47,22 @@ public:
         TypeEntry entry;
         entry.name = name;
 
-        entry.create = [](Components* ctx) -> void* {
-            if constexpr (std::is_constructible_v<T, Components&>) {
+        entry.create = [](Node* ctx) -> void* {
+            if constexpr (std::is_constructible_v<T, Node&>) {
                 return new T(*ctx);
             } else if constexpr (std::is_default_constructible_v<T>) {
                 return new T();
             } else {
-                static_assert(std::is_constructible_v<T, Components&> ||
+                static_assert(std::is_constructible_v<T, Node&> ||
                               std::is_default_constructible_v<T>,
-                              "Type must be constructible from Components& or default");
+                              "Type must be constructible from Node& or default");
                 return nullptr;
             }
         };
 
         entry.destroy = [](void* p) { delete static_cast<T*>(p); };
         if constexpr (HasConfigure<T>) {
-            entry.configure = [](void* p, Components& branch) { static_cast<T*>(p)->configure(branch); };
+            entry.configure = [](void* p, Node& branch) { static_cast<T*>(p)->configure(branch); };
         }
 
         auto [it, inserted] = types.emplace(entry.name, std::move(entry));
@@ -82,8 +82,8 @@ public:
         TypeEntry entry;
         entry.name       = name;
         entry.implements = implements;
-        entry.create = [](Components* ctx) -> void* {
-            if constexpr (std::is_constructible_v<Impl, Components&>) {
+        entry.create = [](Node* ctx) -> void* {
+            if constexpr (std::is_constructible_v<Impl, Node&>) {
                 return new Impl(*ctx);
             } else if constexpr (std::is_default_constructible_v<Impl>) {
                 return new Impl();
@@ -98,7 +98,7 @@ public:
             return static_cast<API*>(static_cast<Impl*>(p));
         };
         if constexpr (HasConfigure<Impl>) {
-            entry.configure = [](void* p, Components& branch) { static_cast<Impl*>(p)->configure(branch); };
+            entry.configure = [](void* p, Node& branch) { static_cast<Impl*>(p)->configure(branch); };
         }
 
         auto [it, inserted] = types.emplace(entry.name, std::move(entry));
@@ -109,6 +109,16 @@ public:
         apiToImpls[implements].push_back(name);
 
         Logger::info(tag, "+ impl {} -> {}", name, implements);
+        Logger::info(
+            tag,
+            "REGISTER {} -> {} | create={} destroy={} getAPI={} configure={}",
+            name,
+            implements,
+            reinterpret_cast<const void*>(entry.create),
+            reinterpret_cast<const void*>(entry.destroy),
+            reinterpret_cast<const void*>(entry.getAPI),
+            reinterpret_cast<const void*>(entry.configure)
+        );
     }
 
     template<typename API>
@@ -218,7 +228,7 @@ public:
                 tree.node(impl, 1);
         }
 
-        tree.node("Components", 0);
+        tree.node("Node", 0);
 
         for (const auto& [name, entry] : types) {
             if (entry.implements.empty())

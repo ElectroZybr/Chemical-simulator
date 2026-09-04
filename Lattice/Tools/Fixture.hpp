@@ -7,10 +7,11 @@ namespace Lattice {
 
 struct RuntimeFixture : public TestFixture {
     Registry registry;
+    ObjectRegistry objectRegistry;
     PluginManager pluginManager;
-    Components root;
+    Node root;
 
-    RuntimeFixture() : root(&registry) {
+    RuntimeFixture() : root(registry, objectRegistry) {
         registry.registerAPI<ServiceAPI>();
         registry.registerAPI<SubsystemAPI>();
         registry.registerComponent<Settings>();

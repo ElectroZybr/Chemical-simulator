@@ -7,7 +7,7 @@
 #include <Lattice/Kernel/PluginAPI.hpp>
 #include "Lattice/Kernel/SubsystemAPI.hpp"
 #include "Lattice/Tools/Logger.hpp"
-#include <Lattice/Kernel/Components.hpp>
+#include <Lattice/Kernel/Node.hpp>
 #include <Lattice/Kernel/Settings.hpp>
 
 // Plugin dependences
@@ -21,19 +21,19 @@
 
 class IOSubsystem final : public SubsystemAPI {
 public:
-    explicit IOSubsystem(Lattice::Components& ioBranch) {
+    explicit IOSubsystem(Lattice::Node& ioBranch) {
         ioBranch.addImpls<LoaderAPI>();
         ioBranch.addImpls<ParserAPI>();
     }
 
-    void configure(Lattice::Components& ioBranch) {
+    void configure(Lattice::Node& ioBranch) {
         Ref<Lattice::Settings> settings = ioBranch.require<Lattice::Settings>(); 
-        settings->on("io", "load", [&]() { load("Lattice.toml"); } );
+        settings->on("io", "load", [this]() { load("keybinds.toml"); } );
         loaders = ioBranch.directCollect<LoaderAPI>();
         parsers = ioBranch.directCollect<ParserAPI>();
     }
 
-    void load(const std::filesystem::path& path) {
+    void load(const std::filesystem::path& path ) {
         Logger::ok("IOSubsystem", "загрузка отсюда: {}", std::string(path));
         ParserAPI* parser = findParser(path);
         Document doc;
@@ -41,7 +41,11 @@ public:
             doc = parser->parseFile(path);
 
         for (LoaderAPI* loader : loaders) {
-            loader->load(doc);
+            const Value* data = doc.get(loader->section());
+            if (!data)
+                continue;
+
+            loader->load(data);//*data, context
         }
     }
 

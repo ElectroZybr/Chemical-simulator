@@ -1,16 +1,16 @@
 #include "ActionMap.hpp"
 #include "CommandSlots.hpp"
 
-#include <Lattice/Kernel/Components.hpp>
+#include <Lattice/Kernel/Node.hpp>
 #include <Lattice/Kernel/Settings.hpp>
 #include <Lattice/Tools/Logger.hpp>
 
 
-ActionMap::ActionMap(Lattice::Components& branch) {
+ActionMap::ActionMap(Lattice::Node& branch) {
     branch.add<CommandSlots>();
 }
 
-void ActionMap::configure(Lattice::Components& branch) {
+void ActionMap::configure(Lattice::Node& branch) {
     settings_ = branch.require<Lattice::Settings>();
     slots_ = branch.require<CommandSlots>();
     // находим все инпуты (устройства ввода)
