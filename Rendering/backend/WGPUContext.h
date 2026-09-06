@@ -86,7 +86,7 @@ public:
         wgpu::SurfaceConfiguration surfaceConfig{};
         surfaceConfig.device = *device_;
         surfaceConfig.format = surfaceFormat_;
-        surfaceConfig.usage = wgpu::TextureUsage::RenderAttachment | wgpu::TextureUsage::CopyDst;
+        surfaceConfig.usage = wgpu::TextureUsage::RenderAttachment;
         surfaceConfig.width = width;
         surfaceConfig.height = height;
         surfaceConfig.presentMode = choosePresentMode(caps);
@@ -160,7 +160,7 @@ public:
         wgpu::SurfaceConfiguration surfaceConfig{};
         surfaceConfig.device = *device_;
         surfaceConfig.format = surfaceFormat_;
-        surfaceConfig.usage = wgpu::TextureUsage::RenderAttachment | wgpu::TextureUsage::CopyDst;
+        surfaceConfig.usage = wgpu::TextureUsage::RenderAttachment;
         surfaceConfig.width = width;
         surfaceConfig.height = height;
         surfaceConfig.presentMode = choosePresentMode(caps);
